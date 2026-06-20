@@ -98,7 +98,7 @@ npm run format     # prettier --write
         ESLint+Prettier, arborescence §15, toolchain Node 22 portable, scène 3D de boot (caisse + sol + soleil),
         build/typecheck/lint/dev OK.
   - [x] **Étape 1** — base de rendu §3 : tone mapping ACES + exposition (leva), ciel dégradé (dôme ShaderMaterial) + fog assorti horizon, **ombres douces VSM** (PCSS/drei `<SoftShadows>` cassé sur three 0.184), post-process N8AO + bloom + vignette + MSAA, soleil fixe = **nord** formalisé (`core/world/orientation.ts`). Décor low-poly placeholder (piste + arbres instanciés + collines). typecheck/lint/build OK, rendu validé en preview.
-  - [ ] Étape 2 — données pièces typées (`core/parts`).
+  - [x] **Étape 2** — données pièces typées (`core/parts`) : union discriminée par catégorie (fuselage/aile/stab/moteur/train), échelles `fuel ×100` / `strength ×100` + helpers (`fuelUnits`, `snapSpeedMs`, `structuralWarningSpeedMs`), catalogue de démarrage J1 + index (`PARTS`, `getPart`, `getPartsByCategory`). Valeurs ✅ du dossier (wood `fuelUsage 2`, base `fuel 1`/`elec 0,05`, aile `strength 2,25`) vs 🟡 provisoires (masses/coûts/lift/drag/thrust) flaggées dans le catalogue.
   - [ ] Étape 3 — assemblage en dur de l'avion (fuselage+aile+stab+moteur+train).
   - [ ] Étape 4 — physique de vol Rapier (gravité, portance/traînée forfaitaires, poussée plein/off/inverse+limite, friction, pas de freins).
   - [ ] Étape 5 — caméra+contrôles référencés moteur (règle 1).
