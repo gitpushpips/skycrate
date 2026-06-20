@@ -26,7 +26,7 @@ export default function App() {
         // / PCSS casse la compil shader sur three 0.184). Flou réglé par shadow-radius.
         shadows="variance"
         dpr={[1, 2]}
-        camera={{ position: [18, 10, 24], fov: 50, near: 0.1, far: 2000 }}
+        camera={{ position: [7, 3.2, 9.5], fov: 50, near: 0.1, far: 2000 }}
         gl={{ antialias: false }}
       >
         <RenderSettings />
@@ -35,7 +35,7 @@ export default function App() {
         </Suspense>
         <PostFX />
         <OrbitControls
-          target={[0, 1.5, 0]}
+          target={[0, 1.1, 0]}
           maxPolarAngle={Math.PI / 2.05}
           enableDamping={false}
           minDistance={6}

@@ -26,6 +26,14 @@ export const palette = {
   // Relief lointain
   hill: '#7aa345',
 
-  // Avion (placeholder jusqu'à l'étape 3)
-  plane: '#e8843f',
+  // Avion (assemblage low-poly, étape 3)
+  planeBody: '#c8553a',
+  planeWing: '#e6dfcd',
+  planeTail: '#a83f2b',
+  planeCowl: '#36393d',
+  planeHub: '#26282b',
+  planeProp: '#4a3526',
+  planeTire: '#222428',
+  planeStrut: '#787e83',
+  planeGlass: '#a9cfdd',
 } as const
