@@ -134,6 +134,17 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
     camera.position.lerp(_camPos, 0.12)
     _camQuat.copy(_Q).multiply(camAlign)
     camera.quaternion.slerp(_camQuat, 0.12)
+
+    // Télémétrie de debug (DEV uniquement ; HUD réel à l'étape 6).
+    if (import.meta.env.DEV) {
+      ;(window as unknown as Record<string, unknown>).__plane = {
+        speed: +_vel.length().toFixed(1),
+        alt: +_P.y.toFixed(1),
+        vy: +_vel.y.toFixed(1),
+        aoa: +results[0].aoaDeg.toFixed(1),
+        thr: inp.throttle,
+      }
+    }
   })
 
   return (
