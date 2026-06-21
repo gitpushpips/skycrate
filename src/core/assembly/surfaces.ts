@@ -1,37 +1,44 @@
 import type { AeroSurfaceDef, DragPanelDef } from '../physics/aerodynamics'
 
+/** Demi-aile subdivisée en bandes réparties dans l'envergure (étape 5d-C).
+ *  Bandes décalées en X ⇒ chacune voit une vitesse locale (v + ω×r) différente
+ *  ⇒ amortissement de roulis lisse + autorité d'ailerons progressive. Les ailerons
+ *  ne sont câblés que sur les bandes EXTÉRIEURES. */
+function halfWingStrips(side: -1 | 1, count: number): AeroSurfaceDef[] {
+  const rootX = 0.45
+  const tipX = 3.5
+  const span = tipX - rootX
+  const totalArea = 5.4 // par demi-aile
+  const key = side < 0 ? 'aileronL' : 'aileronR'
+  const strips: AeroSurfaceDef[] = []
+  for (let i = 0; i < count; i++) {
+    const frac = (i + 0.5) / count // 0 (emplanture) → 1 (saumon)
+    const outboard = frac > 0.5 // aileron sur la moitié extérieure
+    strips.push({
+      name: `wing${side < 0 ? 'L' : 'R'}${i}`,
+      position: [side * (rootX + frac * span), -0.05, 0.15],
+      chord: [0, 0, -1],
+      normal: [0, 1, 0],
+      area: totalArea / count,
+      liftSlope: 5.0,
+      stallAngle: 0.27, // ~15.5°
+      zeroLiftDrag: 0.012,
+      incidence: 0.035, // léger calage → décollage doux à Vr
+      controlKey: outboard ? key : undefined,
+      controlEffectiveness: outboard ? 0.5 : undefined,
+    })
+  }
+  return strips
+}
+
 /**
  * Surfaces aérodynamiques du J1 (repère local, calées sur le visuel de Plane.tsx).
- * Aile coupée en deux demi-ailes pour le roulis (ailerons opposés). Stab + dérive
- * derrière le centre de masse → stabilité naturelle en tangage et lacet.
+ * Ailes en bandes (roulis fin) ; stab + dérive derrière le centre de masse →
+ * stabilité naturelle en tangage et lacet.
  */
 export const J1_AERO_SURFACES: AeroSurfaceDef[] = [
-  {
-    name: 'wingL',
-    position: [-1.8, -0.05, 0.15],
-    chord: [0, 0, -1],
-    normal: [0, 1, 0],
-    area: 5.4,
-    liftSlope: 5.0,
-    stallAngle: 0.27, // ~15.5°
-    zeroLiftDrag: 0.012,
-    incidence: 0.035, // léger calage (~1°) → décollage doux à Vr
-    controlKey: 'aileronL',
-    controlEffectiveness: 0.4,
-  },
-  {
-    name: 'wingR',
-    position: [1.8, -0.05, 0.15],
-    chord: [0, 0, -1],
-    normal: [0, 1, 0],
-    area: 5.4,
-    liftSlope: 5.0,
-    stallAngle: 0.27,
-    zeroLiftDrag: 0.012,
-    incidence: 0.035,
-    controlKey: 'aileronR',
-    controlEffectiveness: 0.4,
-  },
+  ...halfWingStrips(-1, 4),
+  ...halfWingStrips(1, 4),
   {
     name: 'hstab',
     position: [0, 0.18, 2.05],
