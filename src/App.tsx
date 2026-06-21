@@ -1,6 +1,5 @@
 import { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
 import { Physics, RigidBody, CuboidCollider } from '@react-three/rapier'
 import { Leva } from 'leva'
 import { GameScene } from './scenes/GameScene'
@@ -11,12 +10,9 @@ import { useFlightTunables } from './scenes/flightControls'
 import { J1_PLANE } from './core/assembly'
 
 /**
- * Étape 4 — physique de vol Rapier : gravité×masse, portance/traînée forfaitaires,
- * poussée plein/off/inverse + limite, friction sol, PAS de freins.
- * `frameloop="always"` (la simulation a besoin de frames continues).
- *
- * Commandes provisoires : W/↑ plein gaz, S/↓ inverse. Tangage/roulis/lacet +
- * caméra référencée moteur = étape 5.
+ * Étape 5 — avion pilotable + caméra référencée moteur (règle 1).
+ * Commandes : W/S tangage, A/D roulis, Q/E lacet, Shift plein gaz, C inverse.
+ * Caméra 3ᵉ personne accrochée à l'orientation du moteur (cf. PlaneRig).
  */
 export default function App() {
   const flight = useFlightTunables()
@@ -37,26 +33,13 @@ export default function App() {
           <Physics gravity={[0, -flight.gravity, 0]}>
             {/* Sol : collider statique invisible (le visuel est dans GameScene) */}
             <RigidBody type="fixed" colliders={false}>
-              <CuboidCollider args={[2000, 1, 2000]} position={[0, -1, 0]} friction={flight.groundFriction} />
+              <CuboidCollider args={[2000, 5, 2000]} position={[0, -5, 0]} friction={flight.groundFriction} />
             </RigidBody>
 
-            <PlaneRig
-              assembly={J1_PLANE}
-              tunables={flight}
-              friction={flight.groundFriction}
-              linearDamping={flight.linearDamping}
-              angularDamping={flight.angularDamping}
-            />
+            <PlaneRig assembly={J1_PLANE} tunables={flight} />
           </Physics>
         </Suspense>
         <PostFX />
-        <OrbitControls
-          target={[0, 1.1, 0]}
-          maxPolarAngle={Math.PI / 2.05}
-          enableDamping={false}
-          minDistance={4}
-          maxDistance={400}
-        />
       </Canvas>
     </>
   )

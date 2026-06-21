@@ -16,6 +16,11 @@ export interface FlightTunables {
   groundFriction: number
   angularDamping: number
   linearDamping: number
+  pitchAuthority: number
+  rollAuthority: number
+  yawAuthority: number
+  camDistance: number
+  camHeight: number
 }
 
 export function useFlightTunables(): FlightTunables {
@@ -45,7 +50,16 @@ export function useFlightTunables(): FlightTunables {
     }),
     amortissement: folder({
       linearDamping: { value: 0, min: 0, max: 2, step: 0.01, label: 'amorti. linéaire' },
-      angularDamping: { value: 0.8, min: 0, max: 5, step: 0.05, label: 'amorti. angulaire' },
+      angularDamping: { value: 2.4, min: 0, max: 5, step: 0.05, label: 'amorti. angulaire' },
+    }),
+    contrôle: folder({
+      pitchAuthority: { value: 5, min: 0, max: 30, step: 0.5, label: 'tangage' },
+      rollAuthority: { value: 6, min: 0, max: 30, step: 0.5, label: 'roulis' },
+      yawAuthority: { value: 3, min: 0, max: 30, step: 0.5, label: 'lacet' },
+    }),
+    caméra: folder({
+      camDistance: { value: 11, min: 4, max: 30, step: 0.5, label: 'distance' },
+      camHeight: { value: 3.5, min: 0, max: 15, step: 0.5, label: 'hauteur' },
     }),
   })
 

@@ -1,49 +1,62 @@
 import { useEffect, useRef } from 'react'
 
 /**
- * Entrée moteur au clavier (étape 4, minimal pour tester la poussée).
- *   W / ↑ → plein gaz   ·   S / ↓ → inverse   ·   rien → arrêt
+ * Entrées de vol au clavier (étape 5). Axes référencés sur le MOTEUR (règle 1) ;
+ * une config propulsive inverse la caméra ⇒ commandes ressenties inversées.
  *
- * Les contrôles de vol (tangage/roulis/lacet) viendront à l'étape 5, référencés
- * sur le moteur (règle 1).
+ *   Tangage : W piqué (nez bas)   · S cabré (nez haut)
+ *   Roulis  : A gauche            · D droite
+ *   Lacet   : Q gauche            · E droite
+ *   Moteur  : Shift plein gaz     · C inverse        · (rien) arrêt
  */
-export interface EngineInputState {
-  full: boolean
-  reverse: boolean
+export interface FlightInputState {
+  pitch: number // -1 piqué .. +1 cabré
+  roll: number // -1 gauche .. +1 droite
+  yaw: number // -1 gauche .. +1 droite
+  throttle: number // 1 plein, -1 inverse, 0 arrêt
 }
 
-export function useEngineInput() {
-  const state = useRef<EngineInputState>({ full: false, reverse: false })
+const ZERO: FlightInputState = { pitch: 0, roll: 0, yaw: 0, throttle: 0 }
+
+function compute(keys: Set<string>): FlightInputState {
+  const k = (code: string) => (keys.has(code) ? 1 : 0)
+  return {
+    pitch: k('KeyS') - k('KeyW'),
+    roll: k('KeyD') - k('KeyA'),
+    yaw: k('KeyE') - k('KeyQ'),
+    throttle: k('ShiftLeft') || k('ShiftRight') ? 1 : k('KeyC') ? -1 : 0,
+  }
+}
+
+export function useFlightInput() {
+  const stateRef = useRef<FlightInputState>({ ...ZERO })
 
   useEffect(() => {
-    const set = (e: KeyboardEvent, value: boolean) => {
-      switch (e.code) {
-        case 'KeyW':
-        case 'ArrowUp':
-          state.current.full = value
-          break
-        case 'KeyS':
-        case 'ArrowDown':
-          state.current.reverse = value
-          break
-      }
+    const keys = new Set<string>()
+    const refresh = () => {
+      stateRef.current = compute(keys)
     }
-    const onDown = (e: KeyboardEvent) => set(e, true)
-    const onUp = (e: KeyboardEvent) => set(e, false)
+    const onDown = (e: KeyboardEvent) => {
+      keys.add(e.code)
+      refresh()
+    }
+    const onUp = (e: KeyboardEvent) => {
+      keys.delete(e.code)
+      refresh()
+    }
+    const onBlur = () => {
+      keys.clear()
+      stateRef.current = { ...ZERO }
+    }
     window.addEventListener('keydown', onDown)
     window.addEventListener('keyup', onUp)
+    window.addEventListener('blur', onBlur)
     return () => {
       window.removeEventListener('keydown', onDown)
       window.removeEventListener('keyup', onUp)
+      window.removeEventListener('blur', onBlur)
     }
   }, [])
 
-  return state
-}
-
-/** État moteur → throttle : 1 plein, -1 inverse, 0 arrêt. */
-export function throttleFrom(state: EngineInputState): number {
-  if (state.full) return 1
-  if (state.reverse) return -1
-  return 0
+  return stateRef
 }
