@@ -11,6 +11,7 @@ export interface FlightTunables {
   airDensity: number
   inducedDrag: number
   flatPlateDrag: number
+  bodyDrag: number
   // Poussée
   thrustCoef: number
   maxThrustLimit: number
@@ -24,6 +25,8 @@ export interface FlightTunables {
   // Caméra
   camDistance: number
   camHeight: number
+  // Visualisation
+  showAirflow: boolean
 }
 
 export function useFlightTunables(): FlightTunables {
@@ -35,9 +38,10 @@ export function useFlightTunables(): FlightTunables {
       airDensity: { value: 0.04, min: 0, max: 0.5, step: 0.001, label: 'densité air' },
       inducedDrag: { value: 0.05, min: 0, max: 0.5, step: 0.005, label: 'traînée induite' },
       flatPlateDrag: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'traînée plaque' },
+      bodyDrag: { value: 0.4, min: 0, max: 2, step: 0.02, label: 'traînée corps' },
     }),
     poussée: folder({
-      thrustCoef: { value: 1.0, min: 0, max: 10, step: 0.1, label: 'coef poussée' },
+      thrustCoef: { value: 2.0, min: 0, max: 10, step: 0.1, label: 'coef poussée' },
       maxThrustLimit: { value: 1, min: 0, max: 1, step: 0.01, label: 'limite max' },
     }),
     sol: folder({
@@ -54,6 +58,9 @@ export function useFlightTunables(): FlightTunables {
     caméra: folder({
       camDistance: { value: 11, min: 4, max: 30, step: 0.5, label: 'distance' },
       camHeight: { value: 3.5, min: 0, max: 15, step: 0.5, label: 'hauteur' },
+    }),
+    visualisation: folder({
+      showAirflow: { value: false, label: 'zones exposées' },
     }),
   })
 

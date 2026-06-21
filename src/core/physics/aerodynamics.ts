@@ -47,6 +47,22 @@ export interface AeroParams {
   inducedDrag: number
   /** Coef de traînée « plaque plane » à forte incidence. */
   flatPlateDrag: number
+  /** Coef de traînée de pression des panneaux de corps (fuselage, moteur…). */
+  bodyDrag: number
+}
+
+/**
+ * Panneau de traînée de PRESSION (étape 5c) : une face du corps (fuselage, moteur)
+ * sans portance. Traîne selon son aire projetée face au vent ⇒ la traînée totale
+ * dépend de la GÉOMÉTRIE et de l'orientation de l'avion (frontal vs travers).
+ */
+export interface DragPanelDef {
+  name: string
+  position: readonly [number, number, number]
+  /** Normale extérieure de la face (local). */
+  normal: readonly [number, number, number]
+  /** Aire de la face (m²). */
+  area: number
 }
 
 export interface SurfaceResult {
@@ -90,6 +106,8 @@ const _normal = new THREE.Vector3()
 const _span = new THREE.Vector3()
 const _windDir = new THREE.Vector3()
 const _liftDir = new THREE.Vector3()
+const _np = new THREE.Vector3()
+const _velDir = new THREE.Vector3()
 
 export interface BodyState {
   quaternion: THREE.Quaternion
@@ -152,5 +170,42 @@ export function computeSurfaceForce(
   out.facing = Math.abs(_normal.dot(_windDir))
   out.liftMag = liftMag
   out.dragMag = dragMag
+  return out
+}
+
+/**
+ * Traînée de pression d'un panneau de corps : ∝ aire projetée face au vent.
+ * `out.facing` = max(0, normale·sens de déplacement) ∈ [0,1] (1 = ⟂ au flux).
+ */
+export function computePanelDrag(
+  def: DragPanelDef,
+  body: BodyState,
+  params: AeroParams,
+  out: SurfaceResult,
+): SurfaceResult {
+  _r.set(def.position[0], def.position[1], def.position[2]).applyQuaternion(body.quaternion)
+  out.point.copy(body.position).add(_r)
+  _vp.copy(body.angularVelocity).cross(_r).add(body.velocity)
+
+  const speed = _vp.length()
+  if (speed < 0.05) {
+    out.force.set(0, 0, 0)
+    out.facing = 0
+    out.dragMag = 0
+    return out
+  }
+
+  _velDir.copy(_vp).multiplyScalar(1 / speed)
+  _np.set(def.normal[0], def.normal[1], def.normal[2]).applyQuaternion(body.quaternion).normalize()
+  const facing = Math.max(0, _np.dot(_velDir)) // face avant exposée au flux
+
+  const q = 0.5 * params.airDensity * speed * speed
+  const dragMag = params.bodyDrag * q * def.area * facing
+  out.force.copy(_velDir).multiplyScalar(-dragMag) // s'oppose au déplacement
+
+  out.facing = facing
+  out.dragMag = dragMag
+  out.liftMag = 0
+  out.aoaDeg = 0
   return out
 }

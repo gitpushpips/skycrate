@@ -5,16 +5,20 @@ import type { RapierRigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
 import { Plane } from './Plane'
 import { ControlsContext } from './controlsContext'
-import { aggregateStats, engineReferenceForward, J1_AERO_SURFACES } from '../core/assembly'
+import {
+  aggregateStats,
+  engineReferenceForward,
+  J1_AERO_SURFACES,
+  J1_DRAG_PANELS,
+} from '../core/assembly'
 import type { PlaneAssembly } from '../core/assembly'
 import { getPart } from '../core/parts'
 import type { PartCategory } from '../core/parts'
-import {
-  computeSurfaceForce,
-  makeSurfaceResult,
-} from '../core/physics/aerodynamics'
+import { computeSurfaceForce, computePanelDrag, makeSurfaceResult } from '../core/physics/aerodynamics'
 import type { Deflections } from '../core/physics/aerodynamics'
 import { useFlightInput } from '../core/flight/input'
+import { AirflowPanels } from './AirflowPanels'
+import type { VizPanel } from './AirflowPanels'
 import type { FlightTunables } from './flightControls'
 
 const REST_Y = 1.3
@@ -55,6 +59,15 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
 
   const surfaces = J1_AERO_SURFACES
   const results = useMemo(() => surfaces.map(makeSurfaceResult), [surfaces])
+  const dragResults = useMemo(() => J1_DRAG_PANELS.map(makeSurfaceResult), [])
+  const vizPanels = useMemo<VizPanel[]>(
+    () => [
+      ...surfaces.map((s) => ({ position: s.position, normal: s.normal, area: s.area })),
+      ...J1_DRAG_PANELS.map((p) => ({ position: p.position, normal: p.normal, area: p.area })),
+    ],
+    [surfaces],
+  )
+  const facings = useRef<number[]>(new Array(surfaces.length + J1_DRAG_PANELS.length).fill(0))
 
   const body = useRef<RapierRigidBody>(null)
   const input = useFlightInput()
@@ -99,6 +112,14 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
       const defl = def.controlKey ? c[def.controlKey] : 0
       const res = computeSurfaceForce(def, defl, bodyState, tunables, results[i])
       rb.addForceAtPoint(res.force, res.point, true)
+      facings.current[i] = res.facing
+    }
+
+    // Traînée de pression des panneaux de corps (dépend de la géométrie/orientation).
+    for (let j = 0; j < J1_DRAG_PANELS.length; j++) {
+      const res = computePanelDrag(J1_DRAG_PANELS[j], bodyState, tunables, dragResults[j])
+      rb.addForceAtPoint(res.force, res.point, true)
+      facings.current[surfaces.length + j] = res.facing
     }
 
     // Poussée (finie) le long de l'axe moteur, au centre de masse.
@@ -146,6 +167,8 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
       <ControlsContext.Provider value={controls}>
         <Plane assembly={assembly} />
       </ControlsContext.Provider>
+
+      <AirflowPanels panels={vizPanels} facings={facings} visible={tunables.showAirflow} />
     </RigidBody>
   )
 }
