@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { RigidBody, CuboidCollider } from '@react-three/rapier'
+import { RigidBody, CuboidCollider, useBeforePhysicsStep } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
 import { Plane } from './Plane'
@@ -17,11 +17,15 @@ import type { PartCategory } from '../core/parts'
 import { computeSurfaceForce, computePanelDrag, makeSurfaceResult } from '../core/physics/aerodynamics'
 import type { Deflections } from '../core/physics/aerodynamics'
 import { useFlightInput } from '../core/flight/input'
+import { computeAssistTorque } from '../core/flight/assist'
 import { AirflowPanels } from './AirflowPanels'
 import type { VizPanel } from './AirflowPanels'
 import type { FlightTunables } from './flightControls'
 
 const REST_Y = 1.3
+// Pas de temps physique fixe (= timeStep par défaut de <Physics>). L'aéro et
+// l'assistance tournent ici (pas au rendu) pour une boucle de contrôle stable.
+const FIXED_DT = 1 / 60
 
 // Forme de collider par catégorie (demi-extents + décalage), calée sur le visuel.
 const COLLIDER: Record<PartCategory, { half: [number, number, number]; offset: [number, number, number] }> = {
@@ -41,6 +45,19 @@ const _thrust = new THREE.Vector3()
 const _offset = new THREE.Vector3()
 const _camPos = new THREE.Vector3()
 const _camQuat = new THREE.Quaternion()
+const _assist = new THREE.Vector3()
+const _dbg = new THREE.Vector3()
+const _gains = {
+  enabled: true,
+  pitchDamp: 0,
+  rollDamp: 0,
+  yawDamp: 0,
+  levelReturn: 0,
+  altHold: 0,
+  limitGain: 150,
+  maxPitchDeg: 35,
+  maxBankDeg: 55,
+}
 const UP = new THREE.Vector3(0, 1, 0)
 const BACK_Z = new THREE.Vector3(0, 0, -1)
 
@@ -74,7 +91,8 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
   const controls = useRef<Deflections>({ elevator: 0, aileronL: 0, aileronR: 0, rudder: 0 })
   const camera = useThree((s) => s.camera)
 
-  useFrame((_, delta) => {
+  // PHYSIQUE — pas fixe : aéro par surfaces + poussée + assistance.
+  useBeforePhysicsStep(() => {
     const rb = body.current
     if (!rb) return
 
@@ -88,9 +106,9 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
     _P.set(tr.x, tr.y, tr.z)
     const inp = input.current
 
-    // Gouvernes : cible depuis l'input → lissage « servo ».
+    // Gouvernes : cible depuis l'input → lissage « servo » (pas fixe).
     const md = THREE.MathUtils.degToRad(tunables.maxDeflectionDeg)
-    const k = Math.min(1, delta * tunables.servoRate)
+    const k = Math.min(1, FIXED_DT * tunables.servoRate)
     const c = controls.current
     c.elevator += (-inp.pitch * md - c.elevator) * k
     c.aileronL += (inp.roll * md - c.aileronL) * k
@@ -100,7 +118,6 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
     rb.resetForces(false)
     rb.resetTorques(false)
 
-    // Forces aérodynamiques par surface, appliquées à leur point.
     const bodyState = {
       quaternion: _Q,
       position: _P,
@@ -114,35 +131,60 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
       rb.addForceAtPoint(res.force, res.point, true)
       facings.current[i] = res.facing
     }
-
-    // Traînée de pression des panneaux de corps (dépend de la géométrie/orientation).
     for (let j = 0; j < J1_DRAG_PANELS.length; j++) {
       const res = computePanelDrag(J1_DRAG_PANELS[j], bodyState, tunables, dragResults[j])
       rb.addForceAtPoint(res.force, res.point, true)
       facings.current[surfaces.length + j] = res.facing
     }
 
-    // Poussée (finie) le long de l'axe moteur, au centre de masse.
     _thrust.copy(referenceForward).applyQuaternion(_Q)
     const thrustMag = tunables.thrustCoef * stats.totalThrust * tunables.maxThrustLimit * inp.throttle
     _thrust.multiplyScalar(thrustMag)
     rb.addForce(_thrust, true)
 
-    // Caméra 3e personne référencée moteur.
+    _gains.enabled = tunables.assistEnabled
+    _gains.pitchDamp = tunables.pitchDamp
+    _gains.rollDamp = tunables.rollDamp
+    _gains.yawDamp = tunables.yawDamp
+    _gains.levelReturn = tunables.levelReturn
+    _gains.altHold = tunables.altHold
+    _gains.limitGain = tunables.limitGain
+    _gains.maxPitchDeg = tunables.maxPitchDeg
+    _gains.maxBankDeg = tunables.maxBankDeg
+    computeAssistTorque(_Q, _omega, _vel.y, inp, _gains, _assist)
+    rb.addTorque(_assist, true)
+  })
+
+  // RENDU — caméra référencée moteur + télémétrie.
+  useFrame(() => {
+    const rb = body.current
+    if (!rb) return
+    const rt = rb.rotation()
+    _Q.set(rt.x, rt.y, rt.z, rt.w)
+    const tr = rb.translation()
+    _P.set(tr.x, tr.y, tr.z)
+
     _offset.copy(referenceForward).multiplyScalar(-tunables.camDistance).addScaledVector(UP, tunables.camHeight)
     _camPos.copy(_offset).applyQuaternion(_Q).add(_P)
     camera.position.lerp(_camPos, 0.12)
     _camQuat.copy(_Q).multiply(camAlign)
     camera.quaternion.slerp(_camQuat, 0.12)
 
-    // Télémétrie de debug (DEV uniquement ; HUD réel à l'étape 6).
     if (import.meta.env.DEV) {
+      const lv = rb.linvel()
+      _vel.set(lv.x, lv.y, lv.z)
+      _dbg.set(0, 0, -1).applyQuaternion(_Q)
+      const pitch = Math.round(THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(_dbg.y, -1, 1))))
+      _dbg.set(1, 0, 0).applyQuaternion(_Q)
+      const bank = Math.round(THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(_dbg.y, -1, 1))))
       ;(window as unknown as Record<string, unknown>).__plane = {
         speed: +_vel.length().toFixed(1),
         alt: +_P.y.toFixed(1),
         vy: +_vel.y.toFixed(1),
         aoa: +results[0].aoaDeg.toFixed(1),
-        thr: inp.throttle,
+        pitch,
+        bank,
+        thr: input.current.throttle,
       }
     }
   })

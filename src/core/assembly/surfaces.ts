@@ -15,7 +15,7 @@ export const J1_AERO_SURFACES: AeroSurfaceDef[] = [
     liftSlope: 5.0,
     stallAngle: 0.27, // ~15.5°
     zeroLiftDrag: 0.012,
-    incidence: 0.05, // léger calage positif → portance en palier
+    incidence: 0.035, // léger calage (~1°) → décollage doux à Vr
     controlKey: 'aileronL',
     controlEffectiveness: 0.4,
   },
@@ -28,7 +28,7 @@ export const J1_AERO_SURFACES: AeroSurfaceDef[] = [
     liftSlope: 5.0,
     stallAngle: 0.27,
     zeroLiftDrag: 0.012,
-    incidence: 0.05,
+    incidence: 0.035,
     controlKey: 'aileronR',
     controlEffectiveness: 0.4,
   },
