@@ -30,6 +30,7 @@ export interface FlightTunables {
   pitchDamp: number
   rollDamp: number
   yawDamp: number
+  holdGain: number
   levelReturn: number
   altHold: number
   limitGain: number
@@ -74,8 +75,9 @@ export function useFlightTunables(): FlightTunables {
       pitchDamp: { value: 30, min: 0, max: 120, step: 1, label: 'amorti tangage' },
       rollDamp: { value: 70, min: 0, max: 200, step: 1, label: 'amorti roulis' },
       yawDamp: { value: 40, min: 0, max: 120, step: 1, label: 'amorti lacet' },
-      levelReturn: { value: 0, min: 0, max: 250, step: 1, label: 'ailes à plat (0=garde)' },
-      altHold: { value: 0, min: 0, max: 60, step: 1, label: 'maintien alt. (0=garde)' },
+      holdGain: { value: 150, min: 0, max: 400, step: 5, label: 'maintien attitude' },
+      levelReturn: { value: 0, min: 0, max: 250, step: 1, label: 'ailes à plat (option)' },
+      altHold: { value: 0, min: 0, max: 60, step: 1, label: 'maintien alt. (option)' },
       limitGain: { value: 150, min: 0, max: 400, step: 5, label: 'fermeté bornes' },
       maxPitchDeg: { value: 35, min: 10, max: 89, step: 1, label: 'tangage max°' },
       maxBankDeg: { value: 55, min: 10, max: 89, step: 1, label: 'bank max°' },

@@ -46,12 +46,14 @@ const _offset = new THREE.Vector3()
 const _camPos = new THREE.Vector3()
 const _camQuat = new THREE.Quaternion()
 const _assist = new THREE.Vector3()
+const _att = new THREE.Vector3()
 const _dbg = new THREE.Vector3()
 const _gains = {
   enabled: true,
   pitchDamp: 0,
   rollDamp: 0,
   yawDamp: 0,
+  holdGain: 0,
   levelReturn: 0,
   altHold: 0,
   limitGain: 150,
@@ -89,6 +91,8 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
   const body = useRef<RapierRigidBody>(null)
   const input = useFlightInput()
   const controls = useRef<Deflections>({ elevator: 0, aileronL: 0, aileronR: 0, rudder: 0 })
+  // Inclinaison capturée au dernier lâché du roulis (cible du maintien).
+  const held = useRef({ bank: 0 })
   const camera = useThree((s) => s.camera)
 
   // PHYSIQUE — pas fixe : aéro par surfaces + poussée + assistance.
@@ -142,16 +146,26 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
     _thrust.multiplyScalar(thrustMag)
     rb.addForce(_thrust, true)
 
+    // Capture l'inclinaison tant qu'on roule ; figée au lâché ⇒ cible du maintien
+    // (clampée dans la borne pour éviter tout conflit hold ↔ borne).
+    _att.set(1, 0, 0).applyQuaternion(_Q)
+    const curBank = Math.asin(THREE.MathUtils.clamp(_att.y, -1, 1))
+    if (Math.abs(inp.roll) > 0.02) {
+      const maxB = THREE.MathUtils.degToRad(tunables.maxBankDeg)
+      held.current.bank = THREE.MathUtils.clamp(curBank, -maxB, maxB)
+    }
+
     _gains.enabled = tunables.assistEnabled
     _gains.pitchDamp = tunables.pitchDamp
     _gains.rollDamp = tunables.rollDamp
     _gains.yawDamp = tunables.yawDamp
+    _gains.holdGain = tunables.holdGain
     _gains.levelReturn = tunables.levelReturn
     _gains.altHold = tunables.altHold
     _gains.limitGain = tunables.limitGain
     _gains.maxPitchDeg = tunables.maxPitchDeg
     _gains.maxBankDeg = tunables.maxBankDeg
-    computeAssistTorque(_Q, _omega, _vel.y, inp, _gains, _assist)
+    computeAssistTorque(_Q, _omega, _vel.y, held.current.bank, inp, _gains, _assist)
     rb.addTorque(_assist, true)
   })
 

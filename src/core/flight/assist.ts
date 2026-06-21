@@ -18,8 +18,10 @@ export interface AssistGains {
   rollDamp: number
   /** Amortissement du taux de lacet. */
   yawDamp: number
-  /** OPTION (défaut 0) : rappel des ailes à plat (bank → 0) au lâché du roulis.
-   *  À 0, l'avion GARDE son inclinaison/cap au lâché (pas d'auto-mise à plat). */
+  /** Maintien d'attitude : tient l'assiette/inclinaison CAPTURÉE au lâché des
+   *  commandes (contre le retour aéro naturel) ⇒ l'avion garde sa direction. */
+  holdGain: number
+  /** OPTION (défaut 0) : rappel ACTIF des ailes à plat (bank → 0) au lâché du roulis. */
   levelReturn: number
   /** OPTION (défaut 0) : maintien d'altitude (vitesse verticale → 0) au lâché du tangage. */
   altHold: number
@@ -44,6 +46,7 @@ export function computeAssistTorque(
   quaternion: THREE.Quaternion,
   angularVelocity: THREE.Vector3,
   verticalSpeed: number,
+  heldBank: number,
   input: FlightInputState,
   gains: AssistGains,
   out: THREE.Vector3,
@@ -68,16 +71,17 @@ export function computeAssistTorque(
   const overP = Math.sign(pitch) * Math.max(0, Math.abs(pitch) - maxP)
   const overB = Math.sign(bank) * Math.max(0, Math.abs(bank) - maxB)
 
-  // Tangage : amorti du taux + (option) maintien d'altitude au lâché + borne ferme.
+  // Tangage : amorti (tient le climb) + (option) maintien d'alt + borne.
   const pitchTorque =
     -gains.pitchDamp * _omegaB.x -
     gains.altHold * verticalSpeed * (1 - Math.abs(input.pitch)) -
     gains.limitGain * overP
 
-  // Roulis : amorti du taux + (option) ailes à plat au lâché + borne ferme.
-  // Sans rappel (levelReturn=0), l'amortissement tient l'inclinaison où on l'a laissée.
+  // Roulis : amorti + maintien de l'inclinaison CAPTURÉE au lâché (contre le
+  // retour aéro) + (option) ailes à plat + borne. ⇒ l'avion garde son virage.
   const rollTorque =
     -gains.rollDamp * _omegaB.z -
+    gains.holdGain * (bank - heldBank) -
     gains.levelReturn * bank * (1 - Math.abs(input.roll)) -
     gains.limitGain * overB
 
