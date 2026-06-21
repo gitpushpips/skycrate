@@ -33,7 +33,7 @@ export default function App() {
           <Physics gravity={[0, -flight.gravity, 0]}>
             {/* Sol : collider statique invisible (le visuel est dans GameScene) */}
             <RigidBody type="fixed" colliders={false}>
-              <CuboidCollider args={[2000, 5, 2000]} position={[0, -5, 0]} friction={flight.groundFriction} />
+              <CuboidCollider args={[20000, 5, 20000]} position={[0, -5, 0]} friction={flight.groundFriction} />
             </RigidBody>
 
             <PlaneRig assembly={J1_PLANE} tunables={flight} />
