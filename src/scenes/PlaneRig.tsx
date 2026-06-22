@@ -7,19 +7,12 @@ import { Plane } from './Plane'
 import { DetachedWing } from './DetachedWing'
 import { ControlsContext } from './controlsContext'
 import { useHud } from '../store/hud'
-import {
-  aggregateStats,
-  engineReferenceForward,
-  J1_AERO_SURFACES,
-  J1_DRAG_PANELS,
-} from '../core/assembly'
 import type { PlaneAssembly } from '../core/assembly'
-import { getPart } from '../core/parts'
-import type { PartCategory } from '../core/parts'
 import { computeSurfaceForce, computePanelDrag, makeSurfaceResult } from '../core/physics/aerodynamics'
 import type { Deflections } from '../core/physics/aerodynamics'
 import { useFlightInput } from '../core/flight/input'
 import { computeAssistTorque } from '../core/flight/assist'
+import type { CompiledAircraft } from '../core/build/compile'
 import { AirflowPanels } from './AirflowPanels'
 import type { VizPanel } from './AirflowPanels'
 import type { FlightTunables } from './flightControls'
@@ -29,21 +22,13 @@ const REST_Y = 1.3
 // l'assistance tournent ici (pas au rendu) pour une boucle de contrôle stable.
 const FIXED_DT = 1 / 60
 
-// Forme de collider par catégorie (demi-extents + décalage), calée sur le visuel.
-const COLLIDER: Record<PartCategory, { half: [number, number, number]; offset: [number, number, number] }> = {
-  fuselage: { half: [0.45, 0.475, 2.0], offset: [0, 0, 0] },
-  wing: { half: [3.6, 0.08, 0.75], offset: [0, 0, 0] },
-  stabilizer: { half: [1.4, 0.065, 0.6], offset: [0, 0.18, 0.55] },
-  engine: { half: [0.5, 0.5, 0.4], offset: [0, 0, 0] },
-  landingGear: { half: [1.0, 0.12, 1.4], offset: [0, -1.15, 0] },
-}
-
 // Scratch.
 const _P = new THREE.Vector3()
 const _Q = new THREE.Quaternion()
 const _vel = new THREE.Vector3()
 const _omega = new THREE.Vector3()
 const _thrust = new THREE.Vector3()
+const _ePoint = new THREE.Vector3()
 const _offset = new THREE.Vector3()
 const _camPos = new THREE.Vector3()
 const _camQuat = new THREE.Quaternion()
@@ -77,29 +62,31 @@ const UP = new THREE.Vector3(0, 1, 0)
 const BACK_Z = new THREE.Vector3(0, 0, -1)
 
 interface PlaneRigProps {
-  assembly: PlaneAssembly
+  aircraft: CompiledAircraft
   tunables: FlightTunables
 }
 
-export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
-  const stats = useMemo(() => aggregateStats(assembly), [assembly])
-  const referenceForward = useMemo(() => engineReferenceForward(assembly), [assembly])
+export function PlaneRig({ aircraft, tunables }: PlaneRigProps) {
+  const { stats, referenceForward, surfaces, dragPanels, colliders, engines } = aircraft
   const camAlign = useMemo(
     () => new THREE.Quaternion().setFromUnitVectors(BACK_Z, referenceForward),
     [referenceForward],
   )
+  const visualAssembly = useMemo<PlaneAssembly>(
+    () => ({ id: 'compiled', name: 'compiled', parts: aircraft.placed }),
+    [aircraft],
+  )
 
-  const surfaces = J1_AERO_SURFACES
   const results = useMemo(() => surfaces.map(makeSurfaceResult), [surfaces])
-  const dragResults = useMemo(() => J1_DRAG_PANELS.map(makeSurfaceResult), [])
+  const dragResults = useMemo(() => dragPanels.map(makeSurfaceResult), [dragPanels])
   const vizPanels = useMemo<VizPanel[]>(
     () => [
       ...surfaces.map((s) => ({ position: s.position, normal: s.normal, area: s.area })),
-      ...J1_DRAG_PANELS.map((p) => ({ position: p.position, normal: p.normal, area: p.area })),
+      ...dragPanels.map((p) => ({ position: p.position, normal: p.normal, area: p.area })),
     ],
-    [surfaces],
+    [surfaces, dragPanels],
   )
-  const facings = useRef<number[]>(new Array(surfaces.length + J1_DRAG_PANELS.length).fill(0))
+  const facings = useRef<number[]>(new Array(surfaces.length + dragPanels.length).fill(0))
 
   const body = useRef<RapierRigidBody>(null)
   const input = useFlightInput()
@@ -180,16 +167,20 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
       rb.addForceAtPoint(res.force, res.point, true)
       facings.current[i] = res.facing
     }
-    for (let j = 0; j < J1_DRAG_PANELS.length; j++) {
-      const res = computePanelDrag(J1_DRAG_PANELS[j], bodyState, tunables, dragResults[j])
+    for (let j = 0; j < dragPanels.length; j++) {
+      const res = computePanelDrag(dragPanels[j], bodyState, tunables, dragResults[j])
       rb.addForceAtPoint(res.force, res.point, true)
       facings.current[surfaces.length + j] = res.facing
     }
 
-    _thrust.copy(referenceForward).applyQuaternion(_Q)
-    const thrustMag = tunables.thrustCoef * stats.totalThrust * tunables.maxThrustLimit * effThrottle
-    _thrust.multiplyScalar(thrustMag)
-    rb.addForce(_thrust, true)
+    // Poussée : chaque moteur applique sa force à SON point, le long de SON axe.
+    for (const eng of engines) {
+      _thrust.copy(eng.dir).applyQuaternion(_Q)
+      const mag = tunables.thrustCoef * eng.thrust * eng.limit * tunables.maxThrustLimit * effThrottle
+      _thrust.multiplyScalar(mag)
+      _ePoint.copy(eng.point).applyQuaternion(_Q).add(_P)
+      rb.addForceAtPoint(_thrust, _ePoint, true)
+    }
 
     // Capture l'inclinaison tant qu'on roule ; figée au lâché ⇒ cible du maintien
     // (clampée dans la borne pour éviter tout conflit hold ↔ borne).
@@ -306,26 +297,19 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
       canSleep={false}
       ccd
     >
-      {assembly.parts.map((placed, i) => {
-        const part = getPart(placed.partId)
-        const shape = COLLIDER[part.category]
-        return (
+        {colliders.map((col, i) => (
           <CuboidCollider
-            key={`${placed.partId}#${i}`}
-            args={shape.half}
-            position={[
-              placed.position[0] + shape.offset[0],
-              placed.position[1] + shape.offset[1],
-              placed.position[2] + shape.offset[2],
-            ]}
-            mass={part.weight}
+            key={i}
+            args={col.half}
+            position={col.position}
+            rotation={col.rotation}
+            mass={col.mass}
             friction={tunables.groundFriction}
           />
-        )
-      })}
+        ))}
 
         <ControlsContext.Provider value={controls}>
-          <Plane assembly={assembly} hideWings={!!breakInfo} />
+          <Plane assembly={visualAssembly} hideWings={!!breakInfo} />
         </ControlsContext.Provider>
 
         <AirflowPanels panels={vizPanels} facings={facings} visible={tunables.showAirflow} />

@@ -5,10 +5,12 @@ import { Leva } from 'leva'
 import { GameScene } from './scenes/GameScene'
 import { PostFX } from './scenes/PostFX'
 import { RenderSettings } from './scenes/RenderSettings'
+import { useMemo } from 'react'
 import { PlaneRig } from './scenes/PlaneRig'
 import { useFlightTunables } from './scenes/flightControls'
 import { Hud } from './ui/Hud'
-import { J1_PLANE } from './core/assembly'
+import { compileAircraft } from './core/build/compile'
+import { J1_AIRCRAFT } from './core/build/j1'
 
 /**
  * Commandes : W/S tangage, A/D roulis, Q/E lacet, Shift plein gaz, C inverse, R reset.
@@ -17,6 +19,8 @@ import { J1_PLANE } from './core/assembly'
  */
 export default function App() {
   const flight = useFlightTunables()
+  // Avion compilé depuis le graphe (pont générique 2-A).
+  const aircraft = useMemo(() => compileAircraft(J1_AIRCRAFT), [])
 
   return (
     <>
@@ -37,7 +41,7 @@ export default function App() {
               <CuboidCollider args={[20000, 5, 20000]} position={[0, -5, 0]} friction={flight.groundFriction} />
             </RigidBody>
 
-            <PlaneRig assembly={J1_PLANE} tunables={flight} />
+            <PlaneRig aircraft={aircraft} tunables={flight} />
           </Physics>
         </Suspense>
         <PostFX />
