@@ -11,6 +11,8 @@ export interface AssemblyStats {
   totalWeight: number
   /** Carburant total en unités réelles (fuel ×100). */
   totalFuelUnits: number
+  /** Volume de cargo total (fuselage + cockpits). */
+  totalCargo: number
   /** Charge électrique totale. */
   electricCharge: number
   /** Σ portance forfaitaire (ailes + stabilisateurs). */
@@ -36,6 +38,7 @@ export function aggregateStats(assembly: PlaneAssembly): AssemblyStats {
   let totalLift = 0
   let totalDrag = 0
   let totalThrust = 0
+  let totalCargo = 0
   let minStrength = Infinity
   const engines: EnginePart[] = []
 
@@ -47,6 +50,7 @@ export function aggregateStats(assembly: PlaneAssembly): AssemblyStats {
       case 'fuselage':
         totalFuel += part.fuel
         electricCharge += part.electricCharge
+        totalCargo += part.cargo
         break
       case 'wing':
         totalLift += part.lift
@@ -72,6 +76,7 @@ export function aggregateStats(assembly: PlaneAssembly): AssemblyStats {
   return {
     totalWeight,
     totalFuelUnits: fuelUnits(totalFuel),
+    totalCargo,
     electricCharge,
     totalLift,
     totalDrag,
