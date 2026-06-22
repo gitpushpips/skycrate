@@ -27,6 +27,10 @@ export interface AssistGains {
   altHold: number
   /** Fermeté du rappel quand on dépasse les bornes d'attitude. */
   limitGain: number
+  /** Anti-décrochage : couple piqueur quand l'incidence aile dépasse `stallGuardDeg`. */
+  antiStall: number
+  /** Incidence (deg) à partir de laquelle l'anti-décrochage agit. */
+  stallGuardDeg: number
   /** Assiette de tangage max atteignable (degrés). */
   maxPitchDeg: number
   /** Inclinaison (bank) max atteignable (degrés). */
@@ -47,6 +51,8 @@ export function computeAssistTorque(
   angularVelocity: THREE.Vector3,
   verticalSpeed: number,
   heldBank: number,
+  wingAoaDeg: number,
+  airspeed: number,
   input: FlightInputState,
   gains: AssistGains,
   out: THREE.Vector3,
@@ -71,11 +77,19 @@ export function computeAssistTorque(
   const overP = Math.sign(pitch) * Math.max(0, Math.abs(pitch) - maxP)
   const overB = Math.sign(bank) * Math.max(0, Math.abs(bank) - maxB)
 
-  // Tangage : amorti (tient le climb) + (option) maintien d'alt + borne.
+  // Anti-décrochage : couple piqueur quand l'incidence aile dépasse le seuil.
+  // ⚠️ uniquement en vol établi : à basse vitesse l'incidence (atan2) est ininterprétable
+  // (vent avant ≈ 0 au sol) ⇒ sinon couple aberrant = backflip au spawn.
+  const stallFactor = THREE.MathUtils.clamp((airspeed - 15) / 12, 0, 1)
+  const aoaOver =
+    stallFactor * Math.sign(wingAoaDeg) * Math.max(0, Math.abs(wingAoaDeg) - gains.stallGuardDeg)
+
+  // Tangage : amorti (tient le climb) + (option) maintien d'alt + borne + anti-décrochage.
   const pitchTorque =
     -gains.pitchDamp * _omegaB.x -
     gains.altHold * verticalSpeed * (1 - Math.abs(input.pitch)) -
-    gains.limitGain * overP
+    gains.limitGain * overP -
+    gains.antiStall * aoaOver
 
   // Roulis : amorti + maintien de l'inclinaison CAPTURÉE au lâché (contre le
   // retour aéro) + (option) ailes à plat + borne. ⇒ l'avion garde son virage.

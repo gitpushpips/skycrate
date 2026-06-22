@@ -49,6 +49,9 @@ export interface AeroParams {
   flatPlateDrag: number
   /** Coef de traînée de pression des panneaux de corps (fuselage, moteur…). */
   bodyDrag: number
+  /** Décalage longitudinal (m) des points d'application aéro vs centre de masse
+   *  ⇒ règle la MARGE STATIQUE (>0 = plus stable, <0 = plus nerveux). */
+  cgShift: number
 }
 
 /**
@@ -86,16 +89,17 @@ export function makeSurfaceResult(): SurfaceResult {
   }
 }
 
-/** CL(α) : linéaire jusqu'au décrochage, puis transition vers plaque plane. */
+/** CL(α) : linéaire jusqu'au décrochage, puis CHUTE NETTE vers la plaque plane. */
 function liftCoefficient(aoa: number, slope: number, stall: number): number {
   const a = THREE.MathUtils.clamp(aoa, -Math.PI / 2, Math.PI / 2)
   const abs = Math.abs(a)
   if (abs <= stall) return slope * a
   const sign = Math.sign(a)
-  const clStall = slope * stall
-  const clFlat = Math.sin(2 * abs) // plaque plane (pic à 45°)
-  const blend = THREE.MathUtils.clamp((abs - stall) / 0.35, 0, 1)
-  return sign * THREE.MathUtils.lerp(clStall, clFlat, blend)
+  const clPeak = slope * stall
+  const clFlat = Math.sin(2 * abs) // comportement très décroché (plaque plane)
+  // Bande de transition courte (~9°) ⇒ décrochage franc : la portance tombe vite.
+  const t = THREE.MathUtils.clamp((abs - stall) / 0.16, 0, 1)
+  return sign * THREE.MathUtils.lerp(clPeak, clFlat, t)
 }
 
 // Scratch (instance unique du rig).
@@ -128,7 +132,7 @@ export function computeSurfaceForce(
   out: SurfaceResult,
 ): SurfaceResult {
   // Point d'application (monde) et vitesse de ce point (translation + rotation).
-  _r.set(def.position[0], def.position[1], def.position[2]).applyQuaternion(body.quaternion)
+  _r.set(def.position[0], def.position[1], def.position[2] + params.cgShift).applyQuaternion(body.quaternion)
   out.point.copy(body.position).add(_r)
   _vp.copy(body.angularVelocity).cross(_r).add(body.velocity)
 
@@ -183,7 +187,7 @@ export function computePanelDrag(
   params: AeroParams,
   out: SurfaceResult,
 ): SurfaceResult {
-  _r.set(def.position[0], def.position[1], def.position[2]).applyQuaternion(body.quaternion)
+  _r.set(def.position[0], def.position[1], def.position[2] + params.cgShift).applyQuaternion(body.quaternion)
   out.point.copy(body.position).add(_r)
   _vp.copy(body.angularVelocity).cross(_r).add(body.velocity)
 

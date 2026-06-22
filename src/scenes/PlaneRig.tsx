@@ -57,6 +57,8 @@ const _gains = {
   levelReturn: 0,
   altHold: 0,
   limitGain: 150,
+  antiStall: 8,
+  stallGuardDeg: 12,
   maxPitchDeg: 35,
   maxBankDeg: 55,
 }
@@ -163,9 +165,22 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
     _gains.levelReturn = tunables.levelReturn
     _gains.altHold = tunables.altHold
     _gains.limitGain = tunables.limitGain
+    _gains.antiStall = tunables.antiStall
+    _gains.stallGuardDeg = tunables.stallGuardDeg
     _gains.maxPitchDeg = tunables.maxPitchDeg
     _gains.maxBankDeg = tunables.maxBankDeg
-    computeAssistTorque(_Q, _omega, _vel.y, held.current.bank, inp, _gains, _assist)
+    // AoA aile représentative (bande interne) pour l'anti-décrochage.
+    computeAssistTorque(
+      _Q,
+      _omega,
+      _vel.y,
+      held.current.bank,
+      results[0].aoaDeg,
+      _vel.length(),
+      inp,
+      _gains,
+      _assist,
+    )
     rb.addTorque(_assist, true)
   })
 

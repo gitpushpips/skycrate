@@ -12,6 +12,7 @@ export interface FlightTunables {
   inducedDrag: number
   flatPlateDrag: number
   bodyDrag: number
+  cgShift: number
   // Poussée
   thrustCoef: number
   maxThrustLimit: number
@@ -34,6 +35,8 @@ export interface FlightTunables {
   levelReturn: number
   altHold: number
   limitGain: number
+  antiStall: number
+  stallGuardDeg: number
   maxPitchDeg: number
   maxBankDeg: number
   // Visualisation
@@ -50,6 +53,7 @@ export function useFlightTunables(): FlightTunables {
       inducedDrag: { value: 0.05, min: 0, max: 0.5, step: 0.005, label: 'traînée induite' },
       flatPlateDrag: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'traînée plaque' },
       bodyDrag: { value: 0.12, min: 0, max: 2, step: 0.02, label: 'traînée corps' },
+      cgShift: { value: 0, min: -1.5, max: 1.5, step: 0.05, label: 'marge statique' },
     }),
     poussée: folder({
       thrustCoef: { value: 2.5, min: 0, max: 20, step: 0.1, label: 'coef poussée' },
@@ -79,6 +83,8 @@ export function useFlightTunables(): FlightTunables {
       levelReturn: { value: 0, min: 0, max: 250, step: 1, label: 'ailes à plat (option)' },
       altHold: { value: 0, min: 0, max: 60, step: 1, label: 'maintien alt. (option)' },
       limitGain: { value: 150, min: 0, max: 400, step: 5, label: 'fermeté bornes' },
+      antiStall: { value: 8, min: 0, max: 40, step: 0.5, label: 'anti-décrochage' },
+      stallGuardDeg: { value: 12, min: 5, max: 20, step: 0.5, label: 'seuil décroch.°' },
       maxPitchDeg: { value: 35, min: 10, max: 89, step: 1, label: 'tangage max°' },
       maxBankDeg: { value: 55, min: 10, max: 89, step: 1, label: 'bank max°' },
     }),
