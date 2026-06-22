@@ -179,15 +179,18 @@ function PlacedPartModel({ placed }: { placed: PlacedPart }) {
 export function Plane({
   assembly,
   position = [0, 0, 0],
+  hideWings = false,
 }: {
   assembly: PlaneAssembly
   position?: [number, number, number]
+  hideWings?: boolean
 }) {
   return (
     <group position={position}>
-      {assembly.parts.map((placed, i) => (
-        <PlacedPartModel key={`${placed.partId}#${i}`} placed={placed} />
-      ))}
+      {assembly.parts.map((placed, i) => {
+        if (hideWings && getPart(placed.partId).category === 'wing') return null
+        return <PlacedPartModel key={`${placed.partId}#${i}`} placed={placed} />
+      })}
     </group>
   )
 }

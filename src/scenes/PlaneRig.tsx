@@ -1,10 +1,12 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { RigidBody, CuboidCollider, useBeforePhysicsStep } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
 import { Plane } from './Plane'
+import { DetachedWing } from './DetachedWing'
 import { ControlsContext } from './controlsContext'
+import { useHud } from '../store/hud'
 import {
   aggregateStats,
   engineReferenceForward,
@@ -48,6 +50,15 @@ const _camQuat = new THREE.Quaternion()
 const _assist = new THREE.Vector3()
 const _att = new THREE.Vector3()
 const _dbg = new THREE.Vector3()
+const _euler = new THREE.Euler()
+
+/** Transform + vitesses capturés à la rupture pour lâcher l'aile détachée. */
+interface DetachInfo {
+  position: [number, number, number]
+  rotation: [number, number, number]
+  linearVelocity: [number, number, number]
+  angularVelocity: [number, number, number]
+}
 const _gains = {
   enabled: true,
   pitchDamp: 0,
@@ -97,6 +108,14 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
   const held = useRef({ bank: 0 })
   const camera = useThree((s) => s.camera)
 
+  // Carburant + rupture structurelle (étape 6).
+  const fuelMax = stats.totalFuelUnits
+  const totalFuelUsage = useMemo(() => stats.engines.reduce((s, e) => s + e.fuelUsage, 0), [stats])
+  const fuel = useRef(fuelMax)
+  const brokenRef = useRef(false) // autorité physique (frais dans le pas fixe)
+  const hudTick = useRef(0)
+  const [breakInfo, setBreakInfo] = useState<DetachInfo | null>(null)
+
   // PHYSIQUE — pas fixe : aéro par surfaces + poussée + assistance.
   useBeforePhysicsStep(() => {
     const rb = body.current
@@ -111,6 +130,25 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
     const tr = rb.translation()
     _P.set(tr.x, tr.y, tr.z)
     const inp = input.current
+    const speed = _vel.length()
+
+    // Carburant : conso = Σ fuelUsage × |throttle| × dt ; moteur coupé à sec.
+    if (inp.throttle !== 0 && fuel.current > 0) {
+      fuel.current = Math.max(0, fuel.current - totalFuelUsage * Math.abs(inp.throttle) * FIXED_DT)
+    }
+    const effThrottle = fuel.current > 0 ? inp.throttle : 0
+
+    // Rupture structurelle : l'aile casse si vitesse > strength×100 (règle 5).
+    if (!brokenRef.current && speed > stats.snapSpeedMs) {
+      brokenRef.current = true
+      _euler.setFromQuaternion(_Q)
+      setBreakInfo({
+        position: [_P.x, _P.y, _P.z],
+        rotation: [_euler.x, _euler.y, _euler.z],
+        linearVelocity: [_vel.x, _vel.y, _vel.z],
+        angularVelocity: [_omega.x, _omega.y, _omega.z + 6],
+      })
+    }
 
     // Gouvernes : cible depuis l'input → lissage « servo » (pas fixe).
     const md = THREE.MathUtils.degToRad(tunables.maxDeflectionDeg)
@@ -132,6 +170,11 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
     }
     for (let i = 0; i < surfaces.length; i++) {
       const def = surfaces[i]
+      // Aile cassée ⇒ ses bandes ne portent plus (l'avion chute).
+      if (brokenRef.current && def.name.startsWith('wing')) {
+        facings.current[i] = 0
+        continue
+      }
       const defl = def.controlKey ? c[def.controlKey] : 0
       const res = computeSurfaceForce(def, defl, bodyState, tunables, results[i])
       rb.addForceAtPoint(res.force, res.point, true)
@@ -144,7 +187,7 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
     }
 
     _thrust.copy(referenceForward).applyQuaternion(_Q)
-    const thrustMag = tunables.thrustCoef * stats.totalThrust * tunables.maxThrustLimit * inp.throttle
+    const thrustMag = tunables.thrustCoef * stats.totalThrust * tunables.maxThrustLimit * effThrottle
     _thrust.multiplyScalar(thrustMag)
     rb.addForce(_thrust, true)
 
@@ -182,6 +225,19 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
       _assist,
     )
     rb.addTorque(_assist, true)
+
+    // HUD : push à cadence réduite (~15 Hz) vers le store.
+    if (++hudTick.current % 4 === 0) {
+      useHud.setState({
+        speed,
+        altitude: _P.y,
+        fuel: fuel.current,
+        fuelMax,
+        overspeed: speed > stats.warningSpeedMs,
+        broken: brokenRef.current,
+        outOfFuel: fuel.current <= 0,
+      })
+    }
   })
 
   // RENDU — caméra référencée moteur + télémétrie.
@@ -214,15 +270,37 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
         pitch,
         bank,
         thr: input.current.throttle,
+        snap: stats.snapSpeedMs,
+        broken: brokenRef.current,
       }
     }
   })
 
+  // Reset (touche R) : réinitialise position/vitesses + carburant + rupture.
+  useEffect(() => {
+    const onReset = (e: KeyboardEvent) => {
+      if (e.code !== 'KeyR') return
+      const rb = body.current
+      if (!rb) return
+      rb.setTranslation({ x: 0, y: REST_Y, z: 0 }, true)
+      rb.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true)
+      rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
+      rb.setAngvel({ x: 0, y: 0, z: 0 }, true)
+      fuel.current = fuelMax
+      brokenRef.current = false
+      held.current.bank = 0
+      setBreakInfo(null)
+    }
+    window.addEventListener('keydown', onReset)
+    return () => window.removeEventListener('keydown', onReset)
+  }, [fuelMax])
+
   return (
-    <RigidBody
-      ref={body}
-      colliders={false}
-      position={[0, REST_Y, 0]}
+    <>
+      <RigidBody
+        ref={body}
+        colliders={false}
+        position={[0, REST_Y, 0]}
       linearDamping={tunables.linearDamping}
       angularDamping={tunables.angularDamping}
       canSleep={false}
@@ -246,11 +324,14 @@ export function PlaneRig({ assembly, tunables }: PlaneRigProps) {
         )
       })}
 
-      <ControlsContext.Provider value={controls}>
-        <Plane assembly={assembly} />
-      </ControlsContext.Provider>
+        <ControlsContext.Provider value={controls}>
+          <Plane assembly={assembly} hideWings={!!breakInfo} />
+        </ControlsContext.Provider>
 
-      <AirflowPanels panels={vizPanels} facings={facings} visible={tunables.showAirflow} />
-    </RigidBody>
+        <AirflowPanels panels={vizPanels} facings={facings} visible={tunables.showAirflow} />
+      </RigidBody>
+
+      {breakInfo && <DetachedWing {...breakInfo} />}
+    </>
   )
 }

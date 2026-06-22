@@ -7,12 +7,13 @@ import { PostFX } from './scenes/PostFX'
 import { RenderSettings } from './scenes/RenderSettings'
 import { PlaneRig } from './scenes/PlaneRig'
 import { useFlightTunables } from './scenes/flightControls'
+import { Hud } from './ui/Hud'
 import { J1_PLANE } from './core/assembly'
 
 /**
- * Étape 5 — avion pilotable + caméra référencée moteur (règle 1).
- * Commandes : W/S tangage, A/D roulis, Q/E lacet, Shift plein gaz, C inverse.
+ * Commandes : W/S tangage, A/D roulis, Q/E lacet, Shift plein gaz, C inverse, R reset.
  * Caméra 3ᵉ personne accrochée à l'orientation du moteur (cf. PlaneRig).
+ * HUD (vitesse/altitude/carburant/alertes) en overlay DOM hors Canvas.
  */
 export default function App() {
   const flight = useFlightTunables()
@@ -41,6 +42,7 @@ export default function App() {
         </Suspense>
         <PostFX />
       </Canvas>
+      <Hud />
     </>
   )
 }
