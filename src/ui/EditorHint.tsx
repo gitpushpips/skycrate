@@ -12,7 +12,7 @@ export function EditorHint() {
 
   let text: string
   if (selectedPartId) {
-    text = 'Survole un point vert pour poser • R : rotation 90° (Maj : 45°) • Échap : annuler'
+    text = 'Survole une pièce pour poser au contact • R : pivoter • Échap : annuler'
   } else if (selectedNodeId) {
     text = 'Gizmo : Déplacer / Tourner (bas-gauche) • Suppr : retirer • Ctrl+Z : annuler • Échap : désélectionner'
   } else {

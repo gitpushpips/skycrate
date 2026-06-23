@@ -8,25 +8,55 @@ import { TransformGizmo } from './TransformGizmo'
 import { compileAircraft } from '../core/build/compile'
 import { descendantsOf } from '../core/build/graph'
 import { getPart } from '../core/parts'
+import { getBlueprint } from '../core/parts/blueprints'
 import { canAfford } from '../core/economy'
-import type { CompiledAircraft, CompiledMount } from '../core/build/compile'
+import type { CompiledAircraft, WorldTf } from '../core/build/compile'
 import type { Aircraft, PartNode } from '../core/build/graph'
 import { useBuild } from '../store/build'
 
 /**
- * Couche interactive de l'éditeur (Jalon 2-C). Sur le build affiché :
- *  - palette sélectionnée ⇒ surligne les MOUNTS, fantôme sous le pointeur,
- *    clic = pose (orthogonale à la surface, `R` = rotation snap 90°/45°).
- *  - sinon ⇒ boîtes de sélection cliquables ; `Del` retire, `Ctrl+Z` annule.
+ * Couche interactive de l'éditeur. Sur le build affiché :
+ *  - palette sélectionnée ⇒ **snap par surface** : on survole n'importe quelle
+ *    pièce, un fantôme se pose au contact (orienté selon la normale, `R` = pivote)
+ *    et le clic pose la pièce comme enfant de la pièce touchée.
+ *  - sinon ⇒ boîtes de sélection cliquables + gizmo ; `Del` retire, `Ctrl+Z` annule.
  * La connectivité est garantie par l'arbre (toute pièce a un parent).
  */
+const UP = new THREE.Vector3(0, 1, 0)
 
-/** Rotation (Euler relatif au host) = `angle` autour de la normale du mount. */
-function rotationForMount(mount: CompiledMount, angle: number): [number, number, number] {
-  const axis = new THREE.Vector3(...mount.localNormal).normalize()
-  const q = new THREE.Quaternion().setFromAxisAngle(axis, angle)
-  const e = new THREE.Euler().setFromQuaternion(q)
-  return [e.x, e.y, e.z]
+/** Surface touchée par le pointeur (repère avion). */
+interface SurfaceHit {
+  nodeId: string
+  point: [number, number, number]
+  normal: [number, number, number]
+}
+
+/** Distance origine → face inférieure de la pièce (pour la poser SUR la surface). */
+function attachOffset(partId: string): number {
+  let lowest = 0
+  for (const col of getBlueprint(partId).colliders) {
+    lowest = Math.min(lowest, (col.offset?.[1] ?? 0) - col.half[1])
+  }
+  return -lowest
+}
+
+/** Transform LOCAL (sous le host) d'une pièce posée sur une surface, +Y le long
+ *  de la normale, pivotée de `angle` autour de la normale, décalée pour poser dessus. */
+function placementOnSurface(
+  parentWorld: WorldTf,
+  point: THREE.Vector3,
+  normal: THREE.Vector3,
+  angle: number,
+  offset: number,
+): { position: [number, number, number]; rotation: [number, number, number] } {
+  const orient = new THREE.Quaternion().setFromUnitVectors(UP, normal)
+  const worldQuat = new THREE.Quaternion().setFromAxisAngle(normal, angle).multiply(orient)
+  const worldPos = point.clone().addScaledVector(normal, offset)
+  const inv = parentWorld.quat.clone().invert()
+  const lp = worldPos.clone().sub(parentWorld.pos).applyQuaternion(inv)
+  const lq = inv.clone().multiply(worldQuat)
+  const e = new THREE.Euler().setFromQuaternion(lq)
+  return { position: [lp.x, lp.y, lp.z], rotation: [e.x, e.y, e.z] }
 }
 
 export function HangarEditor({
@@ -45,22 +75,40 @@ export function HangarEditor({
   const selectPart = useBuild((s) => s.selectPart)
   const selectNode = useBuild((s) => s.selectNode)
 
-  const [hoveredMountId, setHoveredMountId] = useState<string | null>(null)
+  const [hoveredSurface, setHoveredSurface] = useState<SurfaceHit | null>(null)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [ghostAngle, setGhostAngle] = useState(0)
 
-  // Télémétrie DEV (comme window.__plane en vol) : accès au store + projection des
-  // mounts à l'écran, pour piloter/vérifier l'éditeur depuis la preview.
+  // Télémétrie DEV : accès au store/compilé + projection + pose sur surface (vérif).
   const { camera, size } = useThree()
   useEffect(() => {
     if (!import.meta.env.DEV) return
     ;(window as unknown as Record<string, unknown>).__hangar = {
       store: useBuild,
-      mounts: aircraft.mounts,
       compiled: aircraft,
       project: (p: [number, number, number]) => {
         const v = new THREE.Vector3(p[0], p[1], p[2]).project(camera)
         return [((v.x + 1) / 2) * size.width, ((1 - v.y) / 2) * size.height]
+      },
+      // Pose programmatique sur une surface (debug) : place `partId` sur la pièce
+      // `nodeId` au point/normale donnés (repère avion).
+      placeOnSurface: (
+        partId: string,
+        nodeId: string,
+        point: [number, number, number],
+        normal: [number, number, number],
+        angle = 0,
+      ) => {
+        const pw = aircraft.transforms.get(nodeId)
+        if (!pw) return
+        const { position, rotation } = placementOnSurface(
+          pw,
+          new THREE.Vector3(...point),
+          new THREE.Vector3(...normal).normalize(),
+          angle,
+          attachOffset(partId),
+        )
+        useBuild.getState().addPart(nodeId, partId, position, rotation)
       },
     }
   }, [aircraft, camera, size])
@@ -68,7 +116,7 @@ export function HangarEditor({
   // Reset de la pose quand on change de pièce de palette.
   useEffect(() => {
     setGhostAngle(0)
-    setHoveredMountId(null)
+    setHoveredSurface(null)
   }, [selectedPartId])
 
   // Raccourcis éditeur (actifs seulement en hangar : ce composant n'y est monté).
@@ -102,32 +150,39 @@ export function HangarEditor({
     [aircraft],
   )
 
-  const hoveredMount = useMemo(
-    () => aircraft.mounts.find((m) => m.id === hoveredMountId) ?? null,
-    [aircraft, hoveredMountId],
-  )
+  // Pose courante (host + transform local) déduite de la surface survolée.
+  const placement = useMemo(() => {
+    if (!selectedPartId || !hoveredSurface) return null
+    const parentWorld = aircraft.transforms.get(hoveredSurface.nodeId)
+    if (!parentWorld) return null
+    const t = placementOnSurface(
+      parentWorld,
+      new THREE.Vector3(...hoveredSurface.point),
+      new THREE.Vector3(...hoveredSurface.normal),
+      ghostAngle,
+      attachOffset(selectedPartId),
+    )
+    return { hostNodeId: hoveredSurface.nodeId, ...t }
+  }, [selectedPartId, hoveredSurface, ghostAngle, aircraft])
 
-  // Fantôme : on compile un graphe temporaire (graphe + candidat) et on rend le
-  // dernier `placed` ⇒ WYSIWYG exact avec la pose réelle.
+  // Fantôme WYSIWYG : compile un graphe temporaire (graphe + candidat).
   const ghostPlaced = useMemo(() => {
-    if (!selectedPartId || !hoveredMount) return null
+    if (!selectedPartId || !placement) return null
     const tempNode: PartNode = {
       nodeId: '__ghost__',
       partId: selectedPartId,
-      parentId: hoveredMount.hostNodeId,
-      position: hoveredMount.localPosition,
-      rotation: rotationForMount(hoveredMount, ghostAngle),
+      parentId: placement.hostNodeId,
+      position: placement.position,
+      rotation: placement.rotation,
     }
     const temp: Aircraft = { ...graph, nodes: [...graph.nodes, tempNode] }
-    const compiled = compileAircraft(temp)
-    return compiled.placed[compiled.placed.length - 1]
-  }, [selectedPartId, hoveredMount, ghostAngle, graph])
+    return compileAircraft(temp).placed.at(-1) ?? null
+  }, [selectedPartId, placement, graph])
 
   // Sous-arbre surligné = pièce sélectionnée + descendants (ce que `Del` retire).
   const highlighted = useMemo(() => {
     if (!selectedNodeId) return null
-    const set = new Set([selectedNodeId, ...descendantsOf(graph, selectedNodeId).map((n) => n.nodeId)])
-    return set
+    return new Set([selectedNodeId, ...descendantsOf(graph, selectedNodeId).map((n) => n.nodeId)])
   }, [selectedNodeId, graph])
 
   // Gizmo de transform sur la pièce sélectionnée (pas la racine, hors mode pose).
@@ -141,77 +196,55 @@ export function HangarEditor({
     return { world, parentWorld }
   }, [selectedNodeId, selectedPartId, graph, aircraft])
 
-  const placeAt = (mount: CompiledMount) => {
-    if (!selectedPartId) return
-    // Garde-fou budget : on ne pose pas une pièce qui dépasse le plafond de coins.
+  const placeHere = () => {
+    if (!selectedPartId || !placement) return
     if (!canAfford(getPart(selectedPartId).cost, coinsAvailable)) return
-    addPart(mount.hostNodeId, selectedPartId, mount.localPosition, rotationForMount(mount, ghostAngle))
+    addPart(placement.hostNodeId, selectedPartId, placement.position, placement.rotation)
   }
 
   return (
     <group>
       <Plane assembly={assembly} />
 
-      {/* Fantôme de pose. */}
+      {/* Fantôme de pose (snap sur la surface survolée). */}
       {ghostPlaced && <GhostPlane placed={ghostPlaced} />}
 
-      {/* Mounts cliquables (uniquement quand une pièce de palette est sélectionnée). */}
-      {selectedPartId &&
-        aircraft.mounts.map((m) => {
-          const hot = hoveredMountId === m.id
-          return (
-            <mesh
-              key={m.id}
-              position={m.position}
-              onPointerOver={(e) => {
-                e.stopPropagation()
-                setHoveredMountId(m.id)
-              }}
-              onPointerMove={(e) => {
-                e.stopPropagation()
-                if (hoveredMountId !== m.id) setHoveredMountId(m.id)
-              }}
-              onPointerOut={() => setHoveredMountId((cur) => (cur === m.id ? null : cur))}
-              onClick={(e) => {
-                e.stopPropagation()
-                placeAt(m)
-              }}
-            >
-              <sphereGeometry args={[hot ? 0.26 : 0.2, 16, 16]} />
-              <meshBasicMaterial
-                color={hot ? '#ffd24a' : '#5bd06a'}
-                transparent
-                opacity={hot ? 0.95 : 0.55}
-                depthTest={false}
-              />
-            </mesh>
-          )
-        })}
-
-      {/* Boîtes de sélection (quand aucune pièce de palette n'est sélectionnée). */}
-      {!selectedPartId &&
-        aircraft.colliders.map((c, i) => {
-          const hot = hoveredNodeId === c.nodeId
-          return (
-            <mesh
-              key={`pick${i}`}
-              position={c.position}
-              rotation={c.rotation}
-              onClick={(e) => {
-                e.stopPropagation()
-                selectNode(c.nodeId)
-              }}
-              onPointerOver={(e) => {
-                e.stopPropagation()
-                setHoveredNodeId(c.nodeId)
-              }}
-              onPointerOut={() => setHoveredNodeId((cur) => (cur === c.nodeId ? null : cur))}
-            >
-              <boxGeometry args={[c.half[0] * 2, c.half[1] * 2, c.half[2] * 2]} />
-              <meshBasicMaterial transparent opacity={hot ? 0.12 : 0} depthWrite={false} color="#ffffff" />
-            </mesh>
-          )
-        })}
+      {/* Boîtes de pièces = cibles de raycast : snap de pose OU sélection. */}
+      {aircraft.colliders.map((c, i) => {
+        const hot = hoveredNodeId === c.nodeId
+        return (
+          <mesh
+            key={`pick${i}`}
+            position={c.position}
+            rotation={c.rotation}
+            onPointerMove={(e) => {
+              if (!selectedPartId) return
+              e.stopPropagation()
+              if (!e.face) return
+              const n = e.face.normal.clone().transformDirection(e.object.matrixWorld).normalize()
+              setHoveredSurface({
+                nodeId: c.nodeId,
+                point: [e.point.x, e.point.y, e.point.z],
+                normal: [n.x, n.y, n.z],
+              })
+            }}
+            onPointerOver={(e) => {
+              if (selectedPartId) return
+              e.stopPropagation()
+              setHoveredNodeId(c.nodeId)
+            }}
+            onPointerOut={() => setHoveredNodeId((cur) => (cur === c.nodeId ? null : cur))}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (selectedPartId) placeHere()
+              else selectNode(c.nodeId)
+            }}
+          >
+            <boxGeometry args={[c.half[0] * 2, c.half[1] * 2, c.half[2] * 2]} />
+            <meshBasicMaterial transparent opacity={hot ? 0.12 : 0} depthWrite={false} color="#ffffff" />
+          </mesh>
+        )
+      })}
 
       {/* Gizmo translate/rotate sur la pièce sélectionnée. */}
       {gizmo && (

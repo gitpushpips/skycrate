@@ -144,7 +144,9 @@ npm run format     # prettier --write
     - **J1 reconstruit** : 2 demi-ailes (paire miroir) + 2 demi-stabs (paire) + 1 dérive + moteur + train.
     - **Validé preview** : J1 rendu identique (paires) et **vole** (décolle, monte ; `bank 0` = pas d'asymétrie de roulis) ✅ ; aile miroir gauche `normal.y=+1` (portance vers le haut, non inversée) + `aileronL` ✅ ; pose 1 aile en Miroir ON → **paire** (4+4 bandes, normales +Y) ✅.
     - 🟡 Trim un peu cabré avec la nouvelle géométrie (borné par `maxPitch`) — à recalibrer au feeling.
-  - [ ] 2-F save/load (sérialise le graphe) ; **snap de translation** (item demandé) → 2-G transition polish.
+  - [x] **2-I — snap par SURFACE (pose « partout au contact »).** Fini les points d'accroche discrets : on pose une pièce **n'importe où sur une autre** (raycast sur les boîtes de pièces, qui portent leur `nodeId`). `HangarEditor` : `onPointerMove` sur une boîte ⇒ `SurfaceHit` {nodeId, point monde, normale monde (`face.normal`→`transformDirection`)} ; `placementOnSurface` oriente la pièce **+Y le long de la normale**, la décale de `attachOffset` (= distance origine→face inférieure des colliders) pour la poser DESSUS, applique le pivot `R` autour de la normale ; fantôme WYSIWYG (compile temp) ; clic ⇒ `addPart(host, …)` (enfant de la pièce touchée, miroir géré). Marqueurs de mounts supprimés.
+    - **Validé preview** : helper DEV `__hangar.placeOnSurface(part,node,point,normale)` → moteur posé sur le dessus du fuselage (`pos [0,0.97,-1]` = surface y=0.475 + demi-hauteur, poussée `-Z` conservée) ✅ ; raycast brut au point survolé → boîte fuselage (`onPointerMove`), `point` sur la surface + `normale [0,1,0]` ✅ (les events synthétiques R3F ne déclenchent pas le hover ⇒ vérif par helper + raycast brut, le chemin souris réel est standard).
+  - [ ] 2-F save/load (sérialise le graphe) → 2-G transition polish.
 - Jalons suivants (ordre dossier §15) : carburant/snap → monde minimal → cargo/mission → recherche → carte → modes → polish.
 
 ## 8. Décisions & valeurs calibrées (à compléter au fil de l'eau)
