@@ -5,8 +5,9 @@ import type { PartCategory } from '../core/parts'
 import { useBuild } from '../store/build'
 
 /**
- * Palette de pièces (Jalon 2-B) : onglets de catégorie + grille de pièces avec
- * coût. La sélection alimentera la pose (Jalon 2-C). Alimentée par `core/parts`.
+ * Palette de pièces (Jalon 2-B/2-C/2-D) : onglets de catégorie + grille de pièces
+ * avec coût. La sélection alimente la pose (2-C). Une pièce trop chère pour le
+ * budget restant (`available`, 2-D) est grisée et non sélectionnable.
  */
 const CATEGORIES: { key: PartCategory; label: string }[] = [
   { key: 'fuselage', label: 'Fuselage' },
@@ -16,7 +17,7 @@ const CATEGORIES: { key: PartCategory; label: string }[] = [
   { key: 'landingGear', label: 'Train' },
 ]
 
-export function PartsPalette() {
+export function PartsPalette({ available }: { available: number }) {
   const [cat, setCat] = useState<PartCategory>('wing')
   const selected = useBuild((s) => s.selectedPartId)
   const selectPart = useBuild((s) => s.selectPart)
@@ -40,16 +41,24 @@ export function PartsPalette() {
       <div style={styles.grid}>
         {parts.map((p) => {
           const active = selected === p.id
+          const affordable = p.cost <= available
           return (
             <button
               key={p.id}
               type="button"
-              onClick={() => selectPart(active ? null : p.id)}
-              style={{ ...styles.cell, ...(active ? styles.cellActive : null) }}
-              title={p.description}
+              disabled={!affordable}
+              onClick={() => affordable && selectPart(active ? null : p.id)}
+              style={{
+                ...styles.cell,
+                ...(active ? styles.cellActive : null),
+                ...(affordable ? null : styles.cellDisabled),
+              }}
+              title={affordable ? p.description : `Budget insuffisant (${p.cost} coins)`}
             >
               <span style={styles.cellName}>{p.name}</span>
-              <span style={styles.cellCost}>{p.cost} ⛀</span>
+              <span style={{ ...styles.cellCost, ...(affordable ? null : styles.cellCostOver) }}>
+                {p.cost} ⛀
+              </span>
             </button>
           )
         })}
@@ -100,6 +109,8 @@ const styles: Record<string, CSSProperties> = {
     textAlign: 'left',
   },
   cellActive: { border: '1px solid #e0a23a', background: 'rgba(224,162,58,0.18)' },
+  cellDisabled: { opacity: 0.4, cursor: 'not-allowed' },
   cellName: { fontWeight: 600 },
   cellCost: { fontSize: 12, color: '#9fb0bd', fontVariantNumeric: 'tabular-nums' },
+  cellCostOver: { color: '#e8857b' },
 }

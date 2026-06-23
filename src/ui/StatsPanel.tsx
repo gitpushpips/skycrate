@@ -1,14 +1,21 @@
 import type { CSSProperties } from 'react'
-import { getPart } from '../core/parts'
 import type { CompiledAircraft } from '../core/build/compile'
 
 /**
- * Panneau de stats en direct (Jalon 2-B) : poids, carburant, cargo, poussée,
- * vitesse de rupture min, et coût total du build. Bandeau haut du hangar.
+ * Panneau de stats en direct (Jalon 2-B/2-D) : poids, carburant, cargo, poussée,
+ * vitesse de rupture min, coût du build, et **coins restants / budget** (le budget
+ * est un plafond ; il se rembourse au retrait d'une pièce). Bandeau haut du hangar.
  */
-export function StatsPanel({ aircraft }: { aircraft: CompiledAircraft }) {
+export function StatsPanel({
+  aircraft,
+  budget,
+  available,
+}: {
+  aircraft: CompiledAircraft
+  budget: number
+  available: number
+}) {
   const s = aircraft.stats
-  const cost = aircraft.placed.reduce((sum, p) => sum + getPart(p.partId).cost, 0)
   const snap = Number.isFinite(s.snapSpeedMs) ? `${Math.round(s.snapSpeedMs)} m/s` : '—'
 
   return (
@@ -18,14 +25,26 @@ export function StatsPanel({ aircraft }: { aircraft: CompiledAircraft }) {
       <Chip label="CARGO" value={s.totalCargo.toFixed(0)} />
       <Chip label="POUSSÉE" value={s.totalThrust.toFixed(0)} />
       <Chip label="RUPTURE" value={snap} />
-      <Chip label="COÛT" value={`${cost}`} accent />
+      <Chip label="COÛT" value={`${s.totalCost}`} />
+      <Chip label="COINS" value={`${available} / ${budget}`} accent danger={available <= 0} />
     </div>
   )
 }
 
-function Chip({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function Chip({
+  label,
+  value,
+  accent,
+  danger,
+}: {
+  label: string
+  value: string
+  accent?: boolean
+  danger?: boolean
+}) {
+  const tint = danger ? styles.chipDanger : accent ? styles.chipAccent : null
   return (
-    <div style={{ ...styles.chip, ...(accent ? styles.chipAccent : null) }}>
+    <div style={{ ...styles.chip, ...tint }}>
       <span style={styles.label}>{label}</span>
       <span style={styles.value}>{value}</span>
     </div>
@@ -56,6 +75,7 @@ const styles: Record<string, CSSProperties> = {
     backdropFilter: 'blur(4px)',
   },
   chipAccent: { background: 'rgba(224, 162, 58, 0.85)' },
+  chipDanger: { background: 'rgba(214, 84, 72, 0.9)' },
   label: { fontSize: 9.5, letterSpacing: 1.5, color: '#9fb0bd', fontWeight: 600 },
   value: { fontSize: 16, fontWeight: 700, color: '#eef3f6', fontVariantNumeric: 'tabular-nums' },
 }

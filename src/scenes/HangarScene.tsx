@@ -8,7 +8,13 @@ import type { CompiledAircraft } from '../core/build/compile'
  * orbitale autour du build. La pose interactive (mounts, fantôme, sélection,
  * Del/Ctrl+Z) vit dans `HangarEditor` — pas de physique ici.
  */
-export function HangarScene({ aircraft }: { aircraft: CompiledAircraft }) {
+export function HangarScene({
+  aircraft,
+  coinsAvailable,
+}: {
+  aircraft: CompiledAircraft
+  coinsAvailable: number
+}) {
   return (
     <>
       <color attach="background" args={['#3b4a63']} />
@@ -46,7 +52,7 @@ export function HangarScene({ aircraft }: { aircraft: CompiledAircraft }) {
         fadeStrength={1.5}
       />
 
-      <HangarEditor aircraft={aircraft} />
+      <HangarEditor aircraft={aircraft} coinsAvailable={coinsAvailable} />
 
       <OrbitControls
         makeDefault

@@ -6,6 +6,8 @@ import { Plane } from './Plane'
 import { GhostPlane } from './GhostPlane'
 import { compileAircraft } from '../core/build/compile'
 import { descendantsOf } from '../core/build/graph'
+import { getPart } from '../core/parts'
+import { canAfford } from '../core/economy'
 import type { CompiledAircraft, CompiledMount } from '../core/build/compile'
 import type { Aircraft, PartNode } from '../core/build/graph'
 import { useBuild } from '../store/build'
@@ -26,7 +28,13 @@ function rotationForMount(mount: CompiledMount, angle: number): [number, number,
   return [e.x, e.y, e.z]
 }
 
-export function HangarEditor({ aircraft }: { aircraft: CompiledAircraft }) {
+export function HangarEditor({
+  aircraft,
+  coinsAvailable,
+}: {
+  aircraft: CompiledAircraft
+  coinsAvailable: number
+}) {
   const graph = useBuild((s) => s.aircraft)
   const selectedPartId = useBuild((s) => s.selectedPartId)
   const selectedNodeId = useBuild((s) => s.selectedNodeId)
@@ -122,6 +130,8 @@ export function HangarEditor({ aircraft }: { aircraft: CompiledAircraft }) {
 
   const placeAt = (mount: CompiledMount) => {
     if (!selectedPartId) return
+    // Garde-fou budget : on ne pose pas une pièce qui dépasse le plafond de coins.
+    if (!canAfford(getPart(selectedPartId).cost, coinsAvailable)) return
     addPart(mount.hostNodeId, selectedPartId, mount.localPosition, rotationForMount(mount, ghostAngle))
   }
 

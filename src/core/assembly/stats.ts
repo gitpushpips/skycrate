@@ -13,6 +13,8 @@ export interface AssemblyStats {
   totalFuelUnits: number
   /** Volume de cargo total (fuselage + cockpits). */
   totalCargo: number
+  /** Coût total en coins (Σ `cost`) = budget immobilisé dans le build (remboursé au retrait). */
+  totalCost: number
   /** Charge électrique totale. */
   electricCharge: number
   /** Σ portance forfaitaire (ailes + stabilisateurs). */
@@ -39,12 +41,14 @@ export function aggregateStats(assembly: PlaneAssembly): AssemblyStats {
   let totalDrag = 0
   let totalThrust = 0
   let totalCargo = 0
+  let totalCost = 0
   let minStrength = Infinity
   const engines: EnginePart[] = []
 
   for (const placed of assembly.parts) {
     const part = getPart(placed.partId)
     totalWeight += part.weight
+    totalCost += part.cost
 
     switch (part.category) {
       case 'fuselage':
@@ -77,6 +81,7 @@ export function aggregateStats(assembly: PlaneAssembly): AssemblyStats {
     totalWeight,
     totalFuelUnits: fuelUnits(totalFuel),
     totalCargo,
+    totalCost,
     electricCharge,
     totalLift,
     totalDrag,

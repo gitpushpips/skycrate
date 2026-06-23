@@ -6,12 +6,14 @@ import { RenderSettings } from './scenes/RenderSettings'
 import { HangarScene } from './scenes/HangarScene'
 import { FlightScene } from './scenes/FlightScene'
 import { useFlightTunables } from './scenes/flightControls'
+import { useEconomyTunables } from './scenes/economyControls'
 import { Hud } from './ui/Hud'
 import { StatsPanel } from './ui/StatsPanel'
 import { PartsPalette } from './ui/PartsPalette'
 import { EditorHint } from './ui/EditorHint'
 import { ModeToggle } from './ui/ModeToggle'
 import { compileAircraft } from './core/build/compile'
+import { coinsAvailable } from './core/economy'
 import { useBuild } from './store/build'
 
 /**
@@ -22,9 +24,11 @@ import { useBuild } from './store/build'
  */
 export default function App() {
   const flight = useFlightTunables()
+  const { coinsBudget } = useEconomyTunables()
   const aircraftGraph = useBuild((s) => s.aircraft)
   const mode = useBuild((s) => s.mode)
   const aircraft = useMemo(() => compileAircraft(aircraftGraph), [aircraftGraph])
+  const available = coinsAvailable(coinsBudget, aircraft.stats.totalCost)
 
   return (
     <>
@@ -39,7 +43,7 @@ export default function App() {
         <RenderSettings />
         <Suspense fallback={null}>
           {mode === 'hangar' ? (
-            <HangarScene aircraft={aircraft} />
+            <HangarScene aircraft={aircraft} coinsAvailable={available} />
           ) : (
             <FlightScene aircraft={aircraft} tunables={flight} />
           )}
@@ -50,8 +54,8 @@ export default function App() {
       <ModeToggle />
       {mode === 'hangar' ? (
         <>
-          <PartsPalette />
-          <StatsPanel aircraft={aircraft} />
+          <PartsPalette available={available} />
+          <StatsPanel aircraft={aircraft} budget={coinsBudget} available={available} />
           <EditorHint />
         </>
       ) : (

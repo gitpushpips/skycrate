@@ -124,7 +124,12 @@ npm run format     # prettier --write
     - **Rotation snap** : `R` = +90° / `Maj+R` = +45° **autour de la normale du mount** (`rotationForMount` → Euler relatif). `Suppr`/`Backspace` = `removeNode` (pièce + sous-arbre), `Ctrl/⌘+Z` = `undo` (un seul pas), `Échap` = désélection. Connectivité garantie par l'arbre.
     - **Store** (`store/build.ts`) : `addPart(parent, partId, position, rotation?)`, `removeNode` (jamais la racine), `undo` (snapshot `past` un pas), `selectNode`/`selectPart`. `EditorHint` (bas-centre) = aide contextuelle.
     - **Validation** (preview) : marqueurs + hint ✅, fantôme correctement snappé ✅, pose (stats poids/coût ↑, auto-sélection) ✅, `R` → rotation `[π/2,0,0]` autour de la normale ✅, sélection + surlignage ✅, `Suppr`/`Ctrl+Z` ✅. Télémétrie DEV `window.__hangar` (store + `project()`), comme `window.__plane`.
-  - [ ] 2-D budget (coins remboursables, plafond) → 2-E réglages pièce (moteur inverse/limite, axe gouverne) → 2-F save/load (sérialise le graphe) → 2-G transition polish.
+  - [x] **2-D — budget coins (plafond remboursable, règle 7).** Les coins = **plafond** de construction, PAS une conso : chaque pièce immobilise son `cost`, le retrait **rembourse** intégralement (automatique : `available = budget − Σ cost`).
+    - **Domaine** `core/economy` (`coins.ts`) : `DEFAULT_COINS_BUDGET` (🟡 hors dossier, « petit budget » non chiffré → leva), `coinsAvailable`, `canAfford`. `aggregateStats` expose désormais `totalCost` (Σ `cost`).
+    - **Leva** `useEconomyTunables` (« Économie › budget (coins) », défaut 500) ; App calcule `available = coinsAvailable(budget, stats.totalCost)` et le diffuse (HangarScene→`HangarEditor`, `PartsPalette`, `StatsPanel`).
+    - **UI/garde** : `StatsPanel` chip **COINS** = `dispo / budget` (rouge si ≤ 0), + chip COÛT (= `totalCost`). `PartsPalette` **grise + désactive** toute pièce dont `cost > available`. `HangarEditor.placeAt` refuse la pose si `!canAfford` (garde-fou). Pas de monnaie « scrap » ni de recherche ici (Jalon recherche plus tard).
+    - **Validation** (preview) : J1 = COÛT 310 / COINS 190/500 ✅ ; dépense → grisage (aile 80 désactivée à dispo 30, train 30 OK à 30) ✅ ; surbudget → chip rouge « -50/500 » ✅ ; retrait → remboursement (−50 → +30) ✅.
+  - [ ] 2-E réglages pièce (moteur inverse/limite, axe gouverne) → 2-F save/load (sérialise le graphe) → 2-G transition polish.
 - Jalons suivants (ordre dossier §15) : carburant/snap → monde minimal → cargo/mission → recherche → carte → modes → polish.
 
 ## 8. Décisions & valeurs calibrées (à compléter au fil de l'eau)
