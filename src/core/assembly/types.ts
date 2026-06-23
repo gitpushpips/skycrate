@@ -21,6 +21,8 @@ export interface PlacedPart {
   rotation?: [number, number, number]
   /** Échelle (uniforme ou par axe). */
   scale?: number | [number, number, number]
+  /** Géométrie reflétée (X) — pièce « gauche » d'une paire miroir. */
+  mirrored?: boolean
 }
 
 export interface PlaneAssembly {

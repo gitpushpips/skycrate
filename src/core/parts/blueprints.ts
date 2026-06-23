@@ -36,11 +36,9 @@ export interface BpLiftingSurface {
   /** Axe de commande : roll ⇒ ailerons gauche/droite opposés ; pitch/yaw ⇒ central. */
   control?: 'roll' | 'pitch' | 'yaw'
   controlEffectiveness?: number
-  /** Bandes par demi-aile (roll) ou bandes centrales (pitch/yaw). */
+  /** Nombre de bandes le long de l'envergure. */
   stripsPerSide?: number
-  /** Écart de l'emplanture au centre (gap fuselage), pour le roll. */
-  rootGap?: number
-  /** Fraction extérieure qui porte la gouverne (roll). */
+  /** Fraction extérieure (côté bout) qui porte la gouverne (1 = toute la surface). */
   controlFraction?: number
 }
 
@@ -72,6 +70,14 @@ export interface PartBlueprint {
   dragPanels?: BpDragPanel[]
   engine?: BpEngine
   mounts?: BpMount[]
+  /** Pièce à UN côté (aile, demi-stab) ⇒ le mode miroir crée TOUJOURS un jumeau
+   *  reflété, même posée sur l'axe. Les pièces symétriques ne se mirrorent que hors-axe. */
+  handed?: boolean
+}
+
+/** La pièce est-elle « à un côté » (mirror systématique) ? */
+export function isHanded(partId: string): boolean {
+  return BLUEPRINTS[partId]?.handed === true
 }
 
 export const BLUEPRINTS: Record<string, PartBlueprint> = {
@@ -96,22 +102,23 @@ export const BLUEPRINTS: Record<string, PartBlueprint> = {
     ],
   },
 
+  // Demi-aile : racine en x=0, s'étend vers +X (le miroir reflète vers −X).
   'wing.mk1': {
-    // Bouts d'aile + dessus : permet d'empiler/prolonger (aile haute, rallonges).
+    handed: true,
     mounts: [
-      { position: [3.5, 0, 0], normal: [1, 0, 0] }, // bout droit
-      { position: [-3.5, 0, 0], normal: [-1, 0, 0] }, // bout gauche
-      { position: [0, 0.1, 0], normal: [0, 1, 0] }, // dessus
+      { position: [3.4, 0, 0], normal: [1, 0, 0] }, // bout d'aile
+      { position: [1.7, 0.1, 0], normal: [0, 1, 0] }, // dessus
+      { position: [1.7, -0.06, 0], normal: [0, -1, 0] }, // dessous (moteur/strut)
     ],
-    colliders: [{ half: [3.6, 0.08, 0.75] }],
+    colliders: [{ half: [1.7, 0.08, 0.75], offset: [1.7, 0, 0] }],
     surfaces: [
       {
-        center: [0, 0, 0],
+        center: [1.7, 0, 0],
         chord: [0, 0, -1],
         normal: [0, 1, 0],
         spanAxis: [1, 0, 0],
-        span: 7.0,
-        area: 10.8,
+        span: 3.4,
+        area: 5.4,
         liftSlope: 5.0,
         stallAngle: 0.27,
         zeroLiftDrag: 0.012,
@@ -119,32 +126,41 @@ export const BLUEPRINTS: Record<string, PartBlueprint> = {
         control: 'roll',
         controlEffectiveness: 0.5,
         stripsPerSide: 4,
-        rootGap: 0.45,
         controlFraction: 0.5,
       },
     ],
   },
 
-  // Empennage combiné : plan horizontal (élévateur) + dérive (gouvernail).
+  // Demi-stabilisateur horizontal (gouverne de profondeur) : racine x=0 → +X.
   'stabilizer.mk1': {
-    colliders: [{ half: [1.4, 0.065, 0.6], offset: [0, 0.18, 0.55] }],
+    handed: true,
+    mounts: [{ position: [1.4, 0, 0], normal: [1, 0, 0] }],
+    colliders: [{ half: [0.7, 0.065, 0.5], offset: [0.7, 0, 0] }],
     surfaces: [
       {
-        center: [0, 0, 0],
+        center: [0.7, 0, 0],
         chord: [0, 0, -1],
         normal: [0, 1, 0],
         spanAxis: [1, 0, 0],
-        span: 2.8,
-        area: 2.4,
+        span: 1.4,
+        area: 1.2,
         liftSlope: 4.5,
         stallAngle: 0.3,
         zeroLiftDrag: 0.01,
         control: 'pitch',
         controlEffectiveness: 0.5,
-        stripsPerSide: 1,
+        stripsPerSide: 2,
       },
+    ],
+  },
+
+  // Dérive verticale (gouvernail / lacet) : racine y=0 → +Y.
+  'fin.mk1': {
+    mounts: [{ position: [0, 1.05, 0], normal: [0, 1, 0] }],
+    colliders: [{ half: [0.08, 0.52, 0.3], offset: [0, 0.52, 0] }],
+    surfaces: [
       {
-        center: [0, 0.55, 0.12],
+        center: [0, 0.52, 0],
         chord: [0, 0, -1],
         normal: [1, 0, 0],
         spanAxis: [0, 1, 0],

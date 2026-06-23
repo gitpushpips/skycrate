@@ -82,9 +82,9 @@ export const useBuild = create<BuildState>((set) => ({
       const past = structuredClone(s.aircraft)
       const node: PartNode = { nodeId: newId(), partId, parentId, position, rotation }
       let nodes = [...s.aircraft.nodes, node]
-      // Miroir : pose aussi le jumeau symétrique (sauf sur l'axe).
+      // Miroir : pose aussi le jumeau symétrique (sauf pièce symétrique sur l'axe).
       if (s.mirror) {
-        const twin = computeTwin(s.aircraft, parentId, position, rotation)
+        const twin = computeTwin(s.aircraft, parentId, partId, position, rotation)
         if (twin) {
           const twinNode: PartNode = {
             nodeId: newId(),
@@ -93,6 +93,7 @@ export const useBuild = create<BuildState>((set) => ({
             position: twin.position,
             rotation: twin.rotation,
             mirrorId: node.nodeId,
+            mirrored: !node.mirrored,
           }
           node.mirrorId = twinNode.nodeId
           nodes = [...nodes, twinNode]
@@ -135,7 +136,7 @@ export const useBuild = create<BuildState>((set) => ({
         n.nodeId === nodeId ? { ...n, position, rotation } : n,
       )
       if (node.mirrorId && node.parentId) {
-        const twin = computeTwin({ ...s.aircraft, nodes }, node.parentId, position, rotation)
+        const twin = computeTwin({ ...s.aircraft, nodes }, node.parentId, node.partId, position, rotation)
         if (twin) {
           nodes = nodes.map((n) =>
             n.nodeId === node.mirrorId

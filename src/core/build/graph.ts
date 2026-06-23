@@ -30,6 +30,8 @@ export interface PartNode {
   settings?: PartSettings
   /** Jumeau miroir (mode mirror) : id de l'autre pièce de la paire symétrique. */
   mirrorId?: string
+  /** Géométrie reflétée (plan X local) — la pièce « gauche » d'une paire miroir. */
+  mirrored?: boolean
 }
 
 export interface Aircraft {

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { worldTransforms } from './compile'
+import { isHanded } from '../parts/blueprints'
 import type { Aircraft } from './graph'
 
 /**
@@ -25,12 +26,14 @@ export interface TwinTransform {
 }
 
 /**
- * Transform du jumeau d'une pièce posée en `localPos`/`localRot` sous `parentId`.
- * `null` si la pièce est sur l'axe médian (rien à mirrorer).
+ * Transform du jumeau d'une pièce `partId` posée en `localPos`/`localRot` sous
+ * `parentId`. Les pièces « à un côté » (`handed` : aile, demi-stab) ont TOUJOURS
+ * un jumeau (reflété), même sur l'axe ; les pièces symétriques uniquement hors-axe.
  */
 export function computeTwin(
   aircraft: Aircraft,
   parentId: string,
+  partId: string,
   localPos: [number, number, number],
   localRot: [number, number, number],
 ): TwinTransform | null {
@@ -46,7 +49,8 @@ export function computeTwin(
   // Transform monde de la pièce.
   const worldPos = lp.clone().applyQuaternion(pw.quat).add(pw.pos)
   const worldQuat = pw.quat.clone().multiply(lq)
-  if (Math.abs(worldPos.x) < MIRROR_EPS) return null // sur l'axe
+  // Pièce symétrique sur l'axe ⇒ pas de jumeau ; pièce à un côté ⇒ toujours.
+  if (!isHanded(partId) && Math.abs(worldPos.x) < MIRROR_EPS) return null
 
   // Miroir (plan X=0).
   const mPos = new THREE.Vector3(-worldPos.x, worldPos.y, worldPos.z)

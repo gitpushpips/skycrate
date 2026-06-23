@@ -137,7 +137,14 @@ npm run format     # prettier --write
     - **UI** : `ui/EditorTools.tsx` (bas-gauche) = Déplacer/Tourner + Snap + **Miroir ON/OFF**. Store : `transformMode`/`rotateSnapDeg`/`mirror` + `updateNode`/`pushHistory`.
     - **Validé preview** : translate/rotate affichés ✅ ; rotation aile 0.5 rad → normale surface `[0,0.878,0.479]` + collider tournés (physique suit) ✅ ; miroir pose moteur `[3.5,0,0]`→jumeau `[-3.5,0,0]` ✅ ; déplacement `[3,1,0.5]`→jumeau `[-3,1,0.5]`, roll `[0,0,0.4]`→jumeau `[0,0,-0.4]` ✅.
     - 🟡 Reste à faire : **snap de translation** (faire « s'emboiter » une pièce déplacée sur un mount voisin, avec re-parentage) ; polish chevauchement chip COINS ↔ widget leva (2-G).
-  - [ ] 2-F save/load (sérialise le graphe) → 2-G transition polish.
+  - [x] **2-H — pièces à un côté + miroir réflexif + élevons (refonte demandée).** Plus de pièces « 2 côtés » : on pose une demi-pièce, le **Miroir** crée l'autre.
+    - **Catalogue** : `wing.mk1` = **demi-aile** (une par côté) ; empennage **scindé** en `stabilizer.mk1` (demi-stab horizontal, profondeur) + `fin.mk1` (dérive verticale, lacet). Stats halvées (la paire ≈ ancien combiné).
+    - **Miroir réflexif** : une demi-pièce est **`handed`** (blueprint) ⇒ le jumeau est la **géométrie reflétée** (plan X local), pas une simple rotation. Nœud `mirrored:true` ⇒ `compile` négocie la composante x de TOUTE la géométrie (colliders/surfaces/mounts/dragPanels/moteur) avant la transform monde ; visuel rendu `scale.x=-1`. Les `handed` se mirrorent **même sur l'axe** (les ailes du J1 sont à la racine x=0). Clé de gouverne L/R **résolue au repère avion** (`p.x<0`→aileronL).
+    - **Élevons** : les gouvernes d'aile font tangage + roulis (`PlaneRig` : `aileronL/R += roulis ± élevon`), gain leva `wingElevon` (0.6).
+    - **J1 reconstruit** : 2 demi-ailes (paire miroir) + 2 demi-stabs (paire) + 1 dérive + moteur + train.
+    - **Validé preview** : J1 rendu identique (paires) et **vole** (décolle, monte ; `bank 0` = pas d'asymétrie de roulis) ✅ ; aile miroir gauche `normal.y=+1` (portance vers le haut, non inversée) + `aileronL` ✅ ; pose 1 aile en Miroir ON → **paire** (4+4 bandes, normales +Y) ✅.
+    - 🟡 Trim un peu cabré avec la nouvelle géométrie (borné par `maxPitch`) — à recalibrer au feeling.
+  - [ ] 2-F save/load (sérialise le graphe) ; **snap de translation** (item demandé) → 2-G transition polish.
 - Jalons suivants (ordre dossier §15) : carburant/snap → monde minimal → cargo/mission → recherche → carte → modes → polish.
 
 ## 8. Décisions & valeurs calibrées (à compléter au fil de l'eau)

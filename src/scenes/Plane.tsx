@@ -67,37 +67,48 @@ function FuselageModel() {
   )
 }
 
-function WingModel() {
+// Demi-aile : racine en x=0, s'étend vers +X (le miroir applique scale.x=-1).
+// L'aileron suit la clé de gouverne du côté (gauche si la pièce est miroir).
+function WingModel({ mirrored }: { mirrored?: boolean }) {
   return (
     <group>
-      {/* Caisson d'aile fixe (partie avant) */}
-      <mesh position={[0, 0, -0.05]} castShadow receiveShadow>
-        <boxGeometry args={[7.2, 0.16, 1.0]} />
+      <mesh position={[1.7, 0, -0.05]} castShadow receiveShadow>
+        <boxGeometry args={[3.4, 0.16, 1.0]} />
         <meshStandardMaterial color={palette.planeWing} flatShading />
       </mesh>
-      {/* Ailerons (bord de fuite, extérieurs) */}
-      <ControlFlap controlKey="aileronL" axis="x" hinge={[-2.2, 0, 0.45]} size={[1.9, 0.12, 0.45]} />
-      <ControlFlap controlKey="aileronR" axis="x" hinge={[2.2, 0, 0.45]} size={[1.9, 0.12, 0.45]} />
+      {/* Élevon (bord de fuite, moitié extérieure) */}
+      <ControlFlap
+        controlKey={mirrored ? 'aileronL' : 'aileronR'}
+        axis="x"
+        hinge={[2.55, 0, 0.45]}
+        size={[1.7, 0.12, 0.45]}
+      />
     </group>
   )
 }
 
-function StabilizerModel() {
+// Demi-stabilisateur horizontal : racine x=0 → +X, gouverne = profondeur.
+function HorizontalStabModel() {
   return (
     <group>
-      {/* Plan horizontal fixe + élévateur */}
-      <mesh position={[0, 0, -0.15]} castShadow receiveShadow>
-        <boxGeometry args={[2.8, 0.13, 0.6]} />
+      <mesh position={[0.7, 0, -0.15]} castShadow receiveShadow>
+        <boxGeometry args={[1.4, 0.13, 0.6]} />
         <meshStandardMaterial color={palette.planeWing} flatShading />
       </mesh>
-      <ControlFlap controlKey="elevator" axis="x" hinge={[0, 0, 0.15]} size={[2.6, 0.11, 0.4]} />
+      <ControlFlap controlKey="elevator" axis="x" hinge={[0.7, 0, 0.15]} size={[1.3, 0.11, 0.4]} />
+    </group>
+  )
+}
 
-      {/* Dérive fixe + gouvernail */}
-      <mesh position={[0, 0.55, -0.05]} castShadow>
+// Dérive verticale : racine y=0 → +Y, gouverne = gouvernail (lacet).
+function VerticalFinModel() {
+  return (
+    <group>
+      <mesh position={[0, 0.52, -0.05]} castShadow>
         <boxGeometry args={[0.14, 1.05, 0.6]} />
         <meshStandardMaterial color={palette.planeTail} flatShading />
       </mesh>
-      <ControlFlap controlKey="rudder" axis="y" hinge={[0, 0.55, 0.25]} sign={-1} size={[0.13, 1.0, 0.4]} />
+      <ControlFlap controlKey="rudder" axis="y" hinge={[0, 0.52, 0.25]} sign={-1} size={[0.13, 1.0, 0.4]} />
     </group>
   )
 }
@@ -152,14 +163,14 @@ function LandingGearModel() {
   )
 }
 
-function PartModel({ part }: { part: Part }) {
+function PartModel({ part, mirrored }: { part: Part; mirrored?: boolean }) {
   switch (part.category) {
     case 'fuselage':
       return <FuselageModel />
     case 'wing':
-      return <WingModel />
+      return <WingModel mirrored={mirrored} />
     case 'stabilizer':
-      return <StabilizerModel />
+      return part.id === 'fin.mk1' ? <VerticalFinModel /> : <HorizontalStabModel />
     case 'engine':
       return <EngineModel />
     case 'landingGear':
@@ -169,9 +180,11 @@ function PartModel({ part }: { part: Part }) {
 
 function PlacedPartModel({ placed }: { placed: PlacedPart }) {
   const part = getPart(placed.partId)
+  // Miroir : reflet par X (scale.x = -1) ⇒ la pièce « gauche » d'une paire.
+  const scale: [number, number, number] = placed.mirrored ? [-1, 1, 1] : [1, 1, 1]
   return (
-    <group position={placed.position} rotation={placed.rotation} scale={placed.scale}>
-      <PartModel part={part} />
+    <group position={placed.position} rotation={placed.rotation} scale={scale}>
+      <PartModel part={part} mirrored={placed.mirrored} />
     </group>
   )
 }

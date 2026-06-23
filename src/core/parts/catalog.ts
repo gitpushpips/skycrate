@@ -34,30 +34,45 @@ const fuselageMk1: FuselagePart = {
   description: 'Fuselage de base, déformable. Porte le carburant initial de l’avion.',
 }
 
+// Aile à UN seul côté : on en pose une par une (le mode Miroir crée la paire).
 const wingMk1: WingPart = {
   id: 'wing.mk1',
   name: 'Aile portante Mk1',
   category: 'wing',
-  weight: 1.5, // 🟡
-  cost: 80, // 🟡
-  researchCost: 0,
-  lift: 1.0, // 🟡 valeur relative de référence
-  drag: 0.12, // 🟡
-  strength: 2.25, // ✅ exemple du dossier → rupture à 225 m/s
-  description: 'Aile d’entrée de gamme. Portance/traînée forfaitaires.',
-}
-
-const stabilizerMk1: StabilizerPart = {
-  id: 'stabilizer.mk1',
-  name: 'Empennage Mk1',
-  category: 'stabilizer',
-  weight: 0.6, // 🟡
+  weight: 0.8, // 🟡 (demi-aile)
   cost: 40, // 🟡
   researchCost: 0,
-  lift: 0.25, // 🟡
-  drag: 0.05, // 🟡
+  lift: 0.5, // 🟡 demi-portance (la paire ≈ 1.0)
+  drag: 0.06, // 🟡
+  strength: 2.25, // ✅ exemple du dossier → rupture à 225 m/s
+  description: 'Demi-aile portante (une par côté). Gouverne en élevon.',
+}
+
+// Empennage en pièces séparées : un stabilisateur horizontal par côté + une dérive.
+const stabilizerMk1: StabilizerPart = {
+  id: 'stabilizer.mk1',
+  name: 'Stab. horizontal Mk1',
+  category: 'stabilizer',
+  weight: 0.3, // 🟡
+  cost: 20, // 🟡
+  researchCost: 0,
+  lift: 0.12, // 🟡 (la paire ≈ 0.25)
+  drag: 0.025, // 🟡
   strength: 2.5, // 🟡 (→ 250 m/s)
-  description: 'Stabilisateur arrière. Petite portance de contrôle.',
+  description: 'Demi-stabilisateur horizontal (gouverne de profondeur).',
+}
+
+const finMk1: StabilizerPart = {
+  id: 'fin.mk1',
+  name: 'Dérive Mk1',
+  category: 'stabilizer',
+  weight: 0.3, // 🟡
+  cost: 20, // 🟡
+  researchCost: 0,
+  lift: 0.0, // surface verticale : pas de portance verticale
+  drag: 0.025, // 🟡
+  strength: 2.5, // 🟡
+  description: 'Dérive verticale (gouvernail / lacet).',
 }
 
 const woodEngine: EnginePart = {
@@ -91,6 +106,7 @@ export const PARTS_LIST: readonly Part[] = [
   fuselageMk1,
   wingMk1,
   stabilizerMk1,
+  finMk1,
   woodEngine,
   landingGearMk1,
 ]

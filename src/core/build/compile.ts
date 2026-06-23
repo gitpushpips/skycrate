@@ -95,6 +95,8 @@ export function worldTransforms(aircraft: Aircraft): Map<string, WorldTf> {
   return cache
 }
 
+type ControlRole = 'roll' | 'pitch' | 'yaw'
+
 interface LocalStrip {
   name: string
   position: [number, number, number]
@@ -105,60 +107,42 @@ interface LocalStrip {
   stallAngle: number
   zeroLiftDrag: number
   incidence?: number
-  controlKey?: ControlKey
+  /** Rôle de gouverne ; la clé concrète (aileronL/R…) est résolue au repère avion. */
+  controlRole?: ControlRole
   controlEffectiveness?: number
 }
 
-/** Subdivise une surface portante en bandes (repère pièce). */
+/**
+ * Subdivise une surface portante (à UN côté) en bandes le long de l'envergure,
+ * de la racine (centre−½span) au bout (centre+½span). La fraction extérieure
+ * (`controlFraction`) porte la gouverne. La clé L/R est résolue plus tard selon
+ * la position MONDE (compile), pour gérer les demi-ailes miroir.
+ */
 function generateStrips(s: BpLiftingSurface, nodeId: string): LocalStrip[] {
   const out: LocalStrip[] = []
-  const control = s.control
   const span = new THREE.Vector3(s.spanAxis[0], s.spanAxis[1], s.spanAxis[2]).normalize()
   const center = new THREE.Vector3(s.center[0], s.center[1], s.center[2])
-  const make = (
-    pos: THREE.Vector3,
-    area: number,
-    controlKey: ControlKey | undefined,
-    name: string,
-  ): LocalStrip => ({
-    name,
-    position: [pos.x, pos.y, pos.z],
-    chord: s.chord,
-    normal: s.normal,
-    area,
-    liftSlope: s.liftSlope,
-    stallAngle: s.stallAngle,
-    zeroLiftDrag: s.zeroLiftDrag,
-    incidence: s.incidence,
-    controlKey,
-    controlEffectiveness: controlKey ? s.controlEffectiveness : undefined,
-  })
-
-  if (control === 'roll') {
-    const per = s.stripsPerSide ?? 4
-    const halfSpan = s.span / 2
-    const rootGap = s.rootGap ?? 0
-    const areaPer = s.area / (2 * per)
-    const cf = s.controlFraction ?? 0.5
-    for (const side of [-1, 1] as const) {
-      for (let i = 0; i < per; i++) {
-        const frac = (i + 0.5) / per
-        const dist = side * (rootGap + frac * (halfSpan - rootGap))
-        const pos = center.clone().addScaledVector(span, dist)
-        const key: ControlKey | undefined = frac > cf ? (side < 0 ? 'aileronL' : 'aileronR') : undefined
-        out.push(make(pos, areaPer, key, `wing.${nodeId}.${side < 0 ? 'L' : 'R'}${i}`))
-      }
-    }
-  } else {
-    const n = s.stripsPerSide ?? 1
-    const areaPer = s.area / n
-    const key: ControlKey | undefined =
-      control === 'pitch' ? 'elevator' : control === 'yaw' ? 'rudder' : undefined
-    for (let i = 0; i < n; i++) {
-      const frac = (i + 0.5) / n - 0.5
-      const pos = center.clone().addScaledVector(span, frac * s.span)
-      out.push(make(pos, areaPer, key, `${control ?? 'surf'}.${nodeId}.${i}`))
-    }
+  const n = s.stripsPerSide ?? 1
+  const areaPer = s.area / n
+  const ctrlFrac = s.controlFraction ?? 1
+  const prefix = s.control === 'roll' ? 'wing' : (s.control ?? 'surf')
+  for (let i = 0; i < n; i++) {
+    const along = (i + 0.5) / n // 0 = racine, 1 = bout
+    const pos = center.clone().addScaledVector(span, (along - 0.5) * s.span)
+    const isControl = s.control !== undefined && along >= 1 - ctrlFrac
+    out.push({
+      name: `${prefix}.${nodeId}.${i}`,
+      position: [pos.x, pos.y, pos.z],
+      chord: s.chord,
+      normal: s.normal,
+      area: areaPer,
+      liftSlope: s.liftSlope,
+      stallAngle: s.stallAngle,
+      zeroLiftDrag: s.zeroLiftDrag,
+      incidence: s.incidence,
+      controlRole: isControl ? s.control : undefined,
+      controlEffectiveness: isControl ? s.controlEffectiveness : undefined,
+    })
   }
   return out
 }
@@ -182,44 +166,61 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
     const { quat, pos } = wt.get(node.nodeId)!
     _e.setFromQuaternion(quat)
     const rotEuler: [number, number, number] = [_e.x, _e.y, _e.z]
+    // Pièce miroir : géométrie reflétée par le plan X LOCAL (négation de la
+    // composante x) avant la transform monde ⇒ vraie symétrie gauche/droite.
+    const mx = node.mirrored ? -1 : 1
+    const toWorld = (v: readonly [number, number, number]) =>
+      _v.set(v[0] * mx, v[1], v[2]).applyQuaternion(quat).add(pos)
+    const dirToWorld = (v: readonly [number, number, number]) =>
+      new THREE.Vector3(v[0] * mx, v[1], v[2]).applyQuaternion(quat)
 
-    placed.push({ partId: node.partId, position: [pos.x, pos.y, pos.z], rotation: rotEuler })
+    placed.push({
+      partId: node.partId,
+      position: [pos.x, pos.y, pos.z],
+      rotation: rotEuler,
+      mirrored: node.mirrored,
+    })
 
     for (const col of bp.colliders) {
       const off = col.offset ?? [0, 0, 0]
-      _v.set(off[0], off[1], off[2]).applyQuaternion(quat).add(pos)
+      const w = toWorld(off)
       colliders.push({
         nodeId: node.nodeId,
         half: col.half,
-        position: [_v.x, _v.y, _v.z],
+        position: [w.x, w.y, w.z],
         rotation: rotEuler,
         mass: part.weight,
       })
     }
 
     bp.mounts?.forEach((m, idx) => {
-      const wp = new THREE.Vector3(m.position[0], m.position[1], m.position[2]).applyQuaternion(quat).add(pos)
-      const wn = new THREE.Vector3(m.normal[0], m.normal[1], m.normal[2]).applyQuaternion(quat).normalize()
+      const wp = toWorld(m.position)
+      const wpArr: [number, number, number] = [wp.x, wp.y, wp.z]
+      const wn = dirToWorld(m.normal).normalize()
       mounts.push({
         id: `${node.nodeId}.mount${idx}`,
         hostNodeId: node.nodeId,
-        localPosition: m.position,
-        localNormal: m.normal,
-        position: [wp.x, wp.y, wp.z],
+        localPosition: [m.position[0] * mx, m.position[1], m.position[2]],
+        localNormal: [m.normal[0] * mx, m.normal[1], m.normal[2]],
+        position: wpArr,
         normal: [wn.x, wn.y, wn.z],
       })
     })
 
     for (const s of bp.surfaces ?? []) {
       for (const strip of generateStrips(s, node.nodeId)) {
-        const p = new THREE.Vector3(strip.position[0], strip.position[1], strip.position[2])
-          .applyQuaternion(quat)
-          .add(pos)
-        const c = new THREE.Vector3(strip.chord[0], strip.chord[1], strip.chord[2]).applyQuaternion(quat)
-        const n = new THREE.Vector3(strip.normal[0], strip.normal[1], strip.normal[2]).applyQuaternion(quat)
+        const p = toWorld(strip.position)
+        const pArr: [number, number, number] = [p.x, p.y, p.z]
+        const c = dirToWorld(strip.chord)
+        const n = dirToWorld(strip.normal)
+        // Résolution L/R de la gouverne selon la position MONDE (gère le miroir).
+        let controlKey: ControlKey | undefined
+        if (strip.controlRole === 'roll') controlKey = p.x < 0 ? 'aileronL' : 'aileronR'
+        else if (strip.controlRole === 'pitch') controlKey = 'elevator'
+        else if (strip.controlRole === 'yaw') controlKey = 'rudder'
         surfaces.push({
           name: strip.name,
-          position: [p.x, p.y, p.z],
+          position: pArr,
           chord: [c.x, c.y, c.z],
           normal: [n.x, n.y, n.z],
           area: strip.area,
@@ -227,38 +228,26 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
           stallAngle: strip.stallAngle,
           zeroLiftDrag: strip.zeroLiftDrag,
           incidence: strip.incidence,
-          controlKey: strip.controlKey,
+          controlKey,
           controlEffectiveness: strip.controlEffectiveness,
         })
       }
     }
 
     bp.dragPanels?.forEach((panel, idx) => {
-      const p = new THREE.Vector3(panel.position[0], panel.position[1], panel.position[2])
-        .applyQuaternion(quat)
-        .add(pos)
-      const n = new THREE.Vector3(panel.normal[0], panel.normal[1], panel.normal[2]).applyQuaternion(quat)
+      const p = toWorld(panel.position)
+      const n = dirToWorld(panel.normal)
       dragPanels.push({ name: `${node.nodeId}.panel${idx}`, position: [p.x, p.y, p.z], normal: [n.x, n.y, n.z], area: panel.area })
     })
 
     if (bp.engine && part.category === 'engine') {
-      const dir = new THREE.Vector3(
-        bp.engine.thrustDir[0],
-        bp.engine.thrustDir[1],
-        bp.engine.thrustDir[2],
-      ).applyQuaternion(quat)
+      const dir = dirToWorld(bp.engine.thrustDir)
       if (node.settings?.engineReversed) dir.negate()
       dir.normalize()
-      const point = new THREE.Vector3(
-        bp.engine.point[0],
-        bp.engine.point[1],
-        bp.engine.point[2],
-      )
-        .applyQuaternion(quat)
-        .add(pos)
+      const point = toWorld(bp.engine.point)
       engines.push({
         dir,
-        point,
+        point: point.clone(),
         thrust: part.thrust,
         fuelUsage: part.fuelUsage,
         limit: node.settings?.thrustLimit ?? 1,
