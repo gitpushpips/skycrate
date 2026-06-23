@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { Edges } from '@react-three/drei'
 import { Plane } from './Plane'
 import { GhostPlane } from './GhostPlane'
+import { TransformGizmo } from './TransformGizmo'
 import { compileAircraft } from '../core/build/compile'
 import { descendantsOf } from '../core/build/graph'
 import { getPart } from '../core/parts'
@@ -129,6 +130,17 @@ export function HangarEditor({
     return set
   }, [selectedNodeId, graph])
 
+  // Gizmo de transform sur la pièce sélectionnée (pas la racine, hors mode pose).
+  const gizmo = useMemo(() => {
+    if (!selectedNodeId || selectedPartId) return null
+    const node = graph.nodes.find((n) => n.nodeId === selectedNodeId)
+    if (!node || node.parentId === null) return null
+    const world = aircraft.transforms.get(selectedNodeId)
+    const parentWorld = aircraft.transforms.get(node.parentId)
+    if (!world || !parentWorld) return null
+    return { world, parentWorld }
+  }, [selectedNodeId, selectedPartId, graph, aircraft])
+
   const placeAt = (mount: CompiledMount) => {
     if (!selectedPartId) return
     // Garde-fou budget : on ne pose pas une pièce qui dépasse le plafond de coins.
@@ -200,6 +212,11 @@ export function HangarEditor({
             </mesh>
           )
         })}
+
+      {/* Gizmo translate/rotate sur la pièce sélectionnée. */}
+      {gizmo && (
+        <TransformGizmo key={selectedNodeId} world={gizmo.world} parentWorld={gizmo.parentWorld} />
+      )}
 
       {/* Surlignage du sous-arbre sélectionné (arêtes). */}
       {highlighted &&

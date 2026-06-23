@@ -55,17 +55,18 @@ export interface CompiledAircraft {
   colliders: CompiledCollider[]
   engines: EngineInstance[]
   mounts: CompiledMount[] // points d'accroche (éditeur)
+  transforms: Map<string, WorldTf> // repère avion par nœud (gizmo/miroir)
   referenceForward: THREE.Vector3 // moteur principal
   stats: AssemblyStats
 }
 
-interface WorldTf {
+export interface WorldTf {
   quat: THREE.Quaternion
   pos: THREE.Vector3
 }
 
 /** Transform absolue (repère avion) de chaque nœud, par composition de la chaîne. */
-function worldTransforms(aircraft: Aircraft): Map<string, WorldTf> {
+export function worldTransforms(aircraft: Aircraft): Map<string, WorldTf> {
   const byId = new Map(aircraft.nodes.map((n) => [n.nodeId, n]))
   const cache = new Map<string, WorldTf>()
   const compute = (node: PartNode): WorldTf => {
@@ -108,18 +109,10 @@ interface LocalStrip {
   controlEffectiveness?: number
 }
 
-/**
- * Subdivise une surface portante en bandes (repère pièce). `controlOverride`
- * (réglage d'instance `controlAxis`, Jalon 2-E) force l'axe de gouverne ; sinon
- * on garde celui déclaré par le blueprint.
- */
-function generateStrips(
-  s: BpLiftingSurface,
-  nodeId: string,
-  controlOverride?: 'roll' | 'pitch' | 'yaw',
-): LocalStrip[] {
+/** Subdivise une surface portante en bandes (repère pièce). */
+function generateStrips(s: BpLiftingSurface, nodeId: string): LocalStrip[] {
   const out: LocalStrip[] = []
-  const control = controlOverride ?? s.control
+  const control = s.control
   const span = new THREE.Vector3(s.spanAxis[0], s.spanAxis[1], s.spanAxis[2]).normalize()
   const center = new THREE.Vector3(s.center[0], s.center[1], s.center[2])
   const make = (
@@ -218,7 +211,7 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
     })
 
     for (const s of bp.surfaces ?? []) {
-      for (const strip of generateStrips(s, node.nodeId, node.settings?.controlAxis)) {
+      for (const strip of generateStrips(s, node.nodeId)) {
         const p = new THREE.Vector3(strip.position[0], strip.position[1], strip.position[2])
           .applyQuaternion(quat)
           .add(pos)
@@ -282,6 +275,7 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
     colliders,
     engines,
     mounts,
+    transforms: wt,
     referenceForward: referenceForward ?? new THREE.Vector3(0, 0, -1),
     stats,
   }

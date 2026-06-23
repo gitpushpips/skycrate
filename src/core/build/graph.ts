@@ -28,6 +28,8 @@ export interface PartNode {
   /** Rotation (Euler, radians) relative au parent. */
   rotation: [number, number, number]
   settings?: PartSettings
+  /** Jumeau miroir (mode mirror) : id de l'autre pièce de la paire symétrique. */
+  mirrorId?: string
 }
 
 export interface Aircraft {

@@ -11,6 +11,7 @@ import { Hud } from './ui/Hud'
 import { StatsPanel } from './ui/StatsPanel'
 import { PartsPalette } from './ui/PartsPalette'
 import { PartInspector } from './ui/PartInspector'
+import { EditorTools } from './ui/EditorTools'
 import { EditorHint } from './ui/EditorHint'
 import { ModeToggle } from './ui/ModeToggle'
 import { compileAircraft } from './core/build/compile'
@@ -58,6 +59,7 @@ export default function App() {
           <PartsPalette available={available} />
           <StatsPanel aircraft={aircraft} budget={coinsBudget} available={available} />
           <PartInspector />
+          <EditorTools />
           <EditorHint />
         </>
       ) : (

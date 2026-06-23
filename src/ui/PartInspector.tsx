@@ -4,18 +4,10 @@ import { useBuild } from '../store/build'
 
 /**
  * Inspecteur de pièce (Jalon 2-E) : apparaît quand une pièce du build est
- * sélectionnée. Écrit dans `node.settings` (graphe). Réglages selon la catégorie :
- *  - moteur : sens (normal/inversé — règle 1, la réf. directionnelle suit) + poussée max (règle 2) ;
- *  - surface portante (aile/empennage) : axe de gouverne forcé (sinon auto).
+ * sélectionnée. Écrit dans `node.settings` (graphe). Réglage moteur : sens
+ * (normal/inversé — règle 1, la réf. directionnelle suit) + poussée max (règle 2).
+ * La position/orientation se règlent au gizmo (transform), pas ici.
  */
-type Axis = 'pitch' | 'roll' | 'yaw'
-const AXES: { key: Axis | 'auto'; label: string }[] = [
-  { key: 'auto', label: 'Auto' },
-  { key: 'pitch', label: 'Tangage' },
-  { key: 'roll', label: 'Roulis' },
-  { key: 'yaw', label: 'Lacet' },
-]
-
 export function PartInspector() {
   const graph = useBuild((s) => s.aircraft)
   const selectedNodeId = useBuild((s) => s.selectedNodeId)
@@ -67,29 +59,9 @@ export function PartInspector() {
         </>
       )}
 
-      {(part.category === 'wing' || part.category === 'stabilizer') && (
-        <Field label="Axe de gouverne">
-          <div style={styles.seg}>
-            {AXES.map((a) => (
-              <SegBtn
-                key={a.key}
-                active={(settings.controlAxis ?? 'auto') === a.key}
-                onClick={() =>
-                  updateSettings(node.nodeId, {
-                    controlAxis: a.key === 'auto' ? undefined : a.key,
-                  })
-                }
-              >
-                {a.label}
-              </SegBtn>
-            ))}
-          </div>
-        </Field>
+      {part.category !== 'engine' && (
+        <p style={styles.none}>Position et orientation : utilise le gizmo (Déplacer / Tourner).</p>
       )}
-
-      {part.category !== 'engine' &&
-        part.category !== 'wing' &&
-        part.category !== 'stabilizer' && <p style={styles.none}>Aucun réglage pour cette pièce.</p>}
 
       {!isRoot && (
         <button type="button" style={styles.remove} onClick={() => removeNode(node.nodeId)}>

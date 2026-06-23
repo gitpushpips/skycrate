@@ -14,7 +14,7 @@ export function EditorHint() {
   if (selectedPartId) {
     text = 'Survole un point vert pour poser • R : rotation 90° (Maj : 45°) • Échap : annuler'
   } else if (selectedNodeId) {
-    text = 'Suppr : retirer la pièce (+ ses enfants) • Ctrl+Z : annuler • Échap : désélectionner'
+    text = 'Gizmo : Déplacer / Tourner (bas-gauche) • Suppr : retirer • Ctrl+Z : annuler • Échap : désélectionner'
   } else {
     text = 'Choisis une pièce dans la palette, ou clique une pièce du build pour la sélectionner'
   }
