@@ -13,6 +13,10 @@ ne jamais importer d'asset, nom, logo ou texte de l'original.
 **Spécification de référence** : [`aviassembly-dossier-recreation.md`](./aviassembly-dossier-recreation.md) — à consulter en permanence.
 Valeurs chiffrées clés : section 14 du dossier. Données à relever en jeu : section 16.
 
+**Référence catalogue (Jalon recherche/extension)** : [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md) — pièces
+génériques par catégorie, calibrées sur de vrais avions répartis en **tiers T0-T7** (silhouettes maison, **aucun nom
+de marque** en jeu). À utiliser quand on étendra le catalogue (chaque pièce portera un `tier`).
+
 ## 2. Stack (versions épinglées, compat vérifiée)
 
 | Domaine | Paquet | Version |
@@ -149,6 +153,7 @@ npm run format     # prettier --write
   - [x] **2-F — save / load.** `core/save` (`storage.ts`) : `serializeAircraft` (`{version,aircraft}` JSON) + `parseAircraft` → **validation** (racine présente, `getPart` sur chaque pièce, parents existants) avant injection ⇒ un graphe corrompu n'entre jamais dans l'éditeur. Slots **localStorage** (`skycrate.save.<nom>` : `saveToSlot`/`loadFromSlot`/`listSaves`/`deleteSlot`) + **export/import** fichier `.json` (`downloadAircraft` / `FileReader`). UI `ui/SaveLoadPanel.tsx` (bas-droite, repliable) : nom + Sauver, liste des slots (Charger/Supprimer), Exporter/Importer. Chargement via `setAircraft` (budget réévalué tout seul dans le bandeau). Validé preview : sauver → slot localStorage (v1, 8 nœuds) ✅ ; modifier (9) puis Charger → restauré (8) ✅ ; slot corrompu (pièce inconnue) → graphe **inchangé** (rejet) ✅.
   - [ ] 2-G transition polish (chevauchement chip COINS ↔ leva ; recalibrage trim ; ressenti vol).
 - Jalons suivants (ordre dossier §15) : carburant/snap → monde minimal → cargo/mission → recherche → carte → modes → polish.
+- **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 
 ## 8. Décisions & valeurs calibrées (à compléter au fil de l'eau)
 
