@@ -13,6 +13,7 @@ import { PartsPalette } from './ui/PartsPalette'
 import { PartInspector } from './ui/PartInspector'
 import { EditorTools } from './ui/EditorTools'
 import { EditorHint } from './ui/EditorHint'
+import { SaveLoadPanel } from './ui/SaveLoadPanel'
 import { ModeToggle } from './ui/ModeToggle'
 import { compileAircraft } from './core/build/compile'
 import { coinsAvailable } from './core/economy'
@@ -60,6 +61,7 @@ export default function App() {
           <StatsPanel aircraft={aircraft} budget={coinsBudget} available={available} />
           <PartInspector />
           <EditorTools />
+          <SaveLoadPanel />
           <EditorHint />
         </>
       ) : (
