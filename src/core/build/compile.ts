@@ -108,9 +108,18 @@ interface LocalStrip {
   controlEffectiveness?: number
 }
 
-/** Subdivise une surface portante en bandes (repère pièce). */
-function generateStrips(s: BpLiftingSurface, nodeId: string): LocalStrip[] {
+/**
+ * Subdivise une surface portante en bandes (repère pièce). `controlOverride`
+ * (réglage d'instance `controlAxis`, Jalon 2-E) force l'axe de gouverne ; sinon
+ * on garde celui déclaré par le blueprint.
+ */
+function generateStrips(
+  s: BpLiftingSurface,
+  nodeId: string,
+  controlOverride?: 'roll' | 'pitch' | 'yaw',
+): LocalStrip[] {
   const out: LocalStrip[] = []
+  const control = controlOverride ?? s.control
   const span = new THREE.Vector3(s.spanAxis[0], s.spanAxis[1], s.spanAxis[2]).normalize()
   const center = new THREE.Vector3(s.center[0], s.center[1], s.center[2])
   const make = (
@@ -132,7 +141,7 @@ function generateStrips(s: BpLiftingSurface, nodeId: string): LocalStrip[] {
     controlEffectiveness: controlKey ? s.controlEffectiveness : undefined,
   })
 
-  if (s.control === 'roll') {
+  if (control === 'roll') {
     const per = s.stripsPerSide ?? 4
     const halfSpan = s.span / 2
     const rootGap = s.rootGap ?? 0
@@ -151,11 +160,11 @@ function generateStrips(s: BpLiftingSurface, nodeId: string): LocalStrip[] {
     const n = s.stripsPerSide ?? 1
     const areaPer = s.area / n
     const key: ControlKey | undefined =
-      s.control === 'pitch' ? 'elevator' : s.control === 'yaw' ? 'rudder' : undefined
+      control === 'pitch' ? 'elevator' : control === 'yaw' ? 'rudder' : undefined
     for (let i = 0; i < n; i++) {
       const frac = (i + 0.5) / n - 0.5
       const pos = center.clone().addScaledVector(span, frac * s.span)
-      out.push(make(pos, areaPer, key, `${s.control ?? 'surf'}.${nodeId}.${i}`))
+      out.push(make(pos, areaPer, key, `${control ?? 'surf'}.${nodeId}.${i}`))
     }
   }
   return out
@@ -209,7 +218,7 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
     })
 
     for (const s of bp.surfaces ?? []) {
-      for (const strip of generateStrips(s, node.nodeId)) {
+      for (const strip of generateStrips(s, node.nodeId, node.settings?.controlAxis)) {
         const p = new THREE.Vector3(strip.position[0], strip.position[1], strip.position[2])
           .applyQuaternion(quat)
           .add(pos)

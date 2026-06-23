@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { J1_AIRCRAFT } from '../core/build/j1'
 import { descendantsOf } from '../core/build/graph'
-import type { Aircraft, PartNode } from '../core/build/graph'
+import type { Aircraft, PartNode, PartSettings } from '../core/build/graph'
 
 /**
  * État de l'éditeur (Jalon 2). Le graphe `aircraft` est compilé à la volée par App.
@@ -32,6 +32,8 @@ interface BuildState {
   ) => void
   /** Retire une pièce et tout son sous-arbre (jamais la racine). */
   removeNode: (nodeId: string) => void
+  /** Met à jour les réglages d'instance d'une pièce (moteur inverse/limite, axe gouverne). */
+  updateSettings: (nodeId: string, patch: Partial<PartSettings>) => void
   /** Annule la dernière édition (un seul pas). */
   undo: () => void
 }
@@ -75,6 +77,18 @@ export const useBuild = create<BuildState>((set) => ({
         selectedNodeId: null,
       }
     }),
+
+  // Réglage « live » (pas un pas d'édition structurelle ⇒ ne touche pas `past`,
+  // pour ne pas noyer l'undo sous les changements de curseur).
+  updateSettings: (nodeId, patch) =>
+    set((s) => ({
+      aircraft: {
+        ...s.aircraft,
+        nodes: s.aircraft.nodes.map((n) =>
+          n.nodeId === nodeId ? { ...n, settings: { ...n.settings, ...patch } } : n,
+        ),
+      },
+    })),
 
   undo: () =>
     set((s) => (s.past ? { aircraft: s.past, past: null, selectedNodeId: null } : {})),

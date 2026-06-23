@@ -56,6 +56,7 @@ export function HangarEditor({
     ;(window as unknown as Record<string, unknown>).__hangar = {
       store: useBuild,
       mounts: aircraft.mounts,
+      compiled: aircraft,
       project: (p: [number, number, number]) => {
         const v = new THREE.Vector3(p[0], p[1], p[2]).project(camera)
         return [((v.x + 1) / 2) * size.width, ((1 - v.y) / 2) * size.height]

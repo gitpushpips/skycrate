@@ -129,7 +129,13 @@ npm run format     # prettier --write
     - **Leva** `useEconomyTunables` (« Économie › budget (coins) », défaut 500) ; App calcule `available = coinsAvailable(budget, stats.totalCost)` et le diffuse (HangarScene→`HangarEditor`, `PartsPalette`, `StatsPanel`).
     - **UI/garde** : `StatsPanel` chip **COINS** = `dispo / budget` (rouge si ≤ 0), + chip COÛT (= `totalCost`). `PartsPalette` **grise + désactive** toute pièce dont `cost > available`. `HangarEditor.placeAt` refuse la pose si `!canAfford` (garde-fou). Pas de monnaie « scrap » ni de recherche ici (Jalon recherche plus tard).
     - **Validation** (preview) : J1 = COÛT 310 / COINS 190/500 ✅ ; dépense → grisage (aile 80 désactivée à dispo 30, train 30 OK à 30) ✅ ; surbudget → chip rouge « -50/500 » ✅ ; retrait → remboursement (−50 → +30) ✅.
-  - [ ] 2-E réglages pièce (moteur inverse/limite, axe gouverne) → 2-F save/load (sérialise le graphe) → 2-G transition polish.
+  - [x] **2-E — réglages par pièce.** Inspecteur de la pièce sélectionnée (`ui/PartInspector.tsx`, haut-droite) écrivant dans `node.settings` (graphe). Recompilé à la volée ⇒ effet immédiat.
+    - **Moteur** (règles 1-2) : sens **Normal/Inversé** (`engineReversed`) ⇒ `compile` négocie la poussée ET `referenceForward` (caméra + commandes suivent le moteur) ; **Poussée max** 0-100 % (`thrustLimit`) ⇒ `engine.limit`.
+    - **Surface portante** (aile/empennage) : **axe de gouverne** forcé `Auto/Tangage/Roulis/Lacet` (`controlAxis`) ⇒ `generateStrips(controlOverride)` ré-affecte le `controlKey` + le découpage (roll = bandes L/R + ailerons ; pitch/yaw = bandes centrales). « Auto » = défaut du blueprint.
+    - **Store** : `updateSettings(nodeId, patch)` — réglage « live » (ne touche PAS `past` ⇒ pas de spam d'undo sur les curseurs). Bouton « Retirer la pièce » dans l'inspecteur (masqué pour la racine).
+    - **Validation** (preview) : inverse moteur → `dir`/`referenceForward` passent `-Z`→`+Z` ✅, `thrustLimit 0.5` → `engine.limit 0.5` ✅, aile `controlAxis:'pitch'` → bandes `pitch.wing.*` toutes `elevator` ✅, inspecteur reflète l'état (Tangage actif) ✅. `window.__hangar.compiled` ajouté à la télémétrie DEV.
+    - 🟡 Polish à faire (2-G) : le chip COINS (bandeau) chevauche le widget leva replié en haut-droite sur viewport étroit.
+  - [ ] 2-F save/load (sérialise le graphe) → 2-G transition polish.
 - Jalons suivants (ordre dossier §15) : carburant/snap → monde minimal → cargo/mission → recherche → carte → modes → polish.
 
 ## 8. Décisions & valeurs calibrées (à compléter au fil de l'eau)
