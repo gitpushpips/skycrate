@@ -9,6 +9,7 @@ import { useFlightTunables } from './scenes/flightControls'
 import { Hud } from './ui/Hud'
 import { StatsPanel } from './ui/StatsPanel'
 import { PartsPalette } from './ui/PartsPalette'
+import { EditorHint } from './ui/EditorHint'
 import { ModeToggle } from './ui/ModeToggle'
 import { compileAircraft } from './core/build/compile'
 import { useBuild } from './store/build'
@@ -51,6 +52,7 @@ export default function App() {
         <>
           <PartsPalette />
           <StatsPanel aircraft={aircraft} />
+          <EditorHint />
         </>
       ) : (
         <Hud />

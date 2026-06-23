@@ -76,6 +76,16 @@ export interface PartBlueprint {
 
 export const BLUEPRINTS: Record<string, PartBlueprint> = {
   'fuselage.mk1': {
+    // Points d'accroche le long du fuselage (repère pièce). Centrés (les pièces
+    // du set sont symétriques) ⇒ une pièce posée s'aligne naturellement.
+    mounts: [
+      { position: [0, 0, -2.5], normal: [0, 0, -1] }, // nez (moteur)
+      { position: [0, -0.05, 0.15], normal: [0, 1, 0] }, // milieu (aile)
+      { position: [0, 0.18, 2.05], normal: [0, 1, 0] }, // queue (empennage)
+      { position: [0, 0, 0], normal: [0, -1, 0] }, // ventre (train)
+      { position: [0, 0.5, -0.6], normal: [0, 1, 0] }, // dessus avant
+      { position: [0, 0.5, 0.8], normal: [0, 1, 0] }, // dessus arrière
+    ],
     colliders: [{ half: [0.45, 0.475, 2.0] }],
     dragPanels: [
       { position: [0, 0.05, 2.0], normal: [0, 0, 1], area: 0.6 }, // arrière
@@ -87,6 +97,12 @@ export const BLUEPRINTS: Record<string, PartBlueprint> = {
   },
 
   'wing.mk1': {
+    // Bouts d'aile + dessus : permet d'empiler/prolonger (aile haute, rallonges).
+    mounts: [
+      { position: [3.5, 0, 0], normal: [1, 0, 0] }, // bout droit
+      { position: [-3.5, 0, 0], normal: [-1, 0, 0] }, // bout gauche
+      { position: [0, 0.1, 0], normal: [0, 1, 0] }, // dessus
+    ],
     colliders: [{ half: [3.6, 0.08, 0.75] }],
     surfaces: [
       {

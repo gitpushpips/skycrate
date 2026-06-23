@@ -1,21 +1,14 @@
-import { useMemo } from 'react'
 import { Grid, OrbitControls } from '@react-three/drei'
-import { Plane } from './Plane'
+import { HangarEditor } from './HangarEditor'
 import { SUN_POSITION } from '../core/world/orientation'
 import type { CompiledAircraft } from '../core/build/compile'
-import type { PlaneAssembly } from '../core/assembly'
 
 /**
- * Mode HANGAR (Jalon 2-B) : studio neutre + grille de référence + caméra orbitale
- * autour du build. L'avion est affiché depuis le graphe COMPILÉ (`placed`) via le
- * rendu `Plane` existant — pas de physique ici.
+ * Mode HANGAR (Jalon 2-B/2-C) : studio neutre + grille de référence + caméra
+ * orbitale autour du build. La pose interactive (mounts, fantôme, sélection,
+ * Del/Ctrl+Z) vit dans `HangarEditor` — pas de physique ici.
  */
 export function HangarScene({ aircraft }: { aircraft: CompiledAircraft }) {
-  const assembly = useMemo<PlaneAssembly>(
-    () => ({ id: 'build', name: 'build', parts: aircraft.placed }),
-    [aircraft],
-  )
-
   return (
     <>
       <color attach="background" args={['#3b4a63']} />
@@ -53,9 +46,7 @@ export function HangarScene({ aircraft }: { aircraft: CompiledAircraft }) {
         fadeStrength={1.5}
       />
 
-      <group position={[0, 0, 0]}>
-        <Plane assembly={assembly} />
-      </group>
+      <HangarEditor aircraft={aircraft} />
 
       <OrbitControls
         makeDefault

@@ -16,10 +16,28 @@ import type { Aircraft, PartNode } from './graph'
  */
 
 export interface CompiledCollider {
+  /** Nœud source (pour la sélection/surlignage dans l'éditeur). */
+  nodeId: string
   half: [number, number, number]
   position: [number, number, number]
   rotation: [number, number, number]
   mass: number
+}
+
+/** Point d'accroche d'une pièce posée, exprimé pour l'éditeur (Jalon 2-C). */
+export interface CompiledMount {
+  /** Identifiant stable du mount (host + index). */
+  id: string
+  /** Pièce qui porte ce mount (= parent de la pièce à poser). */
+  hostNodeId: string
+  /** Position en repère du host (= position relative de l'enfant à créer). */
+  localPosition: [number, number, number]
+  /** Normale en repère du host (axe de rotation de pose). */
+  localNormal: [number, number, number]
+  /** Position en repère avion (rendu + raycast). */
+  position: [number, number, number]
+  /** Normale en repère avion. */
+  normal: [number, number, number]
 }
 
 export interface EngineInstance {
@@ -36,6 +54,7 @@ export interface CompiledAircraft {
   dragPanels: DragPanelDef[]
   colliders: CompiledCollider[]
   engines: EngineInstance[]
+  mounts: CompiledMount[] // points d'accroche (éditeur)
   referenceForward: THREE.Vector3 // moteur principal
   stats: AssemblyStats
 }
@@ -152,6 +171,7 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
   const dragPanels: DragPanelDef[] = []
   const colliders: CompiledCollider[] = []
   const engines: EngineInstance[] = []
+  const mounts: CompiledMount[] = []
   let referenceForward: THREE.Vector3 | null = null
 
   for (const node of aircraft.nodes) {
@@ -166,8 +186,27 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
     for (const col of bp.colliders) {
       const off = col.offset ?? [0, 0, 0]
       _v.set(off[0], off[1], off[2]).applyQuaternion(quat).add(pos)
-      colliders.push({ half: col.half, position: [_v.x, _v.y, _v.z], rotation: rotEuler, mass: part.weight })
+      colliders.push({
+        nodeId: node.nodeId,
+        half: col.half,
+        position: [_v.x, _v.y, _v.z],
+        rotation: rotEuler,
+        mass: part.weight,
+      })
     }
+
+    bp.mounts?.forEach((m, idx) => {
+      const wp = new THREE.Vector3(m.position[0], m.position[1], m.position[2]).applyQuaternion(quat).add(pos)
+      const wn = new THREE.Vector3(m.normal[0], m.normal[1], m.normal[2]).applyQuaternion(quat).normalize()
+      mounts.push({
+        id: `${node.nodeId}.mount${idx}`,
+        hostNodeId: node.nodeId,
+        localPosition: m.position,
+        localNormal: m.normal,
+        position: [wp.x, wp.y, wp.z],
+        normal: [wn.x, wn.y, wn.z],
+      })
+    })
 
     for (const s of bp.surfaces ?? []) {
       for (const strip of generateStrips(s, node.nodeId)) {
@@ -233,6 +272,7 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
     dragPanels,
     colliders,
     engines,
+    mounts,
     referenceForward: referenceForward ?? new THREE.Vector3(0, 0, -1),
     stats,
   }

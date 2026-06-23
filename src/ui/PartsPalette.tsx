@@ -99,7 +99,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 13,
     textAlign: 'left',
   },
-  cellActive: { borderColor: '#e0a23a', background: 'rgba(224,162,58,0.18)' },
+  cellActive: { border: '1px solid #e0a23a', background: 'rgba(224,162,58,0.18)' },
   cellName: { fontWeight: 600 },
   cellCost: { fontSize: 12, color: '#9fb0bd', fontVariantNumeric: 'tabular-nums' },
 }
