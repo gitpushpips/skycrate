@@ -1,8 +1,8 @@
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { getPart } from '../core/parts'
-import type { Part } from '../core/parts'
+import type { Part, WingPart, WingPlanform } from '../core/parts'
 import type { PlaneAssembly, PlacedPart } from '../core/assembly'
 import type { ControlKey } from '../core/physics/aerodynamics'
 import { palette } from './palette'
@@ -67,23 +67,63 @@ function FuselageModel() {
   )
 }
 
+// Dimensions de silhouette par planforme (repère pièce : racine x=0 → +X,
+// corde le long de Z, avant = -Z, sweep = décalage du bout vers l'arrière).
+interface WingShape {
+  span: number
+  rootChord: number
+  tipChord: number
+  sweep: number
+  thickness: number
+}
+const WING_SHAPES: Record<WingPlanform, WingShape> = {
+  straight: { span: 3.4, rootChord: 1.0, tipChord: 1.0, sweep: 0.0, thickness: 0.16 },
+  tapered: { span: 3.6, rootChord: 1.3, tipChord: 0.7, sweep: 0.15, thickness: 0.15 },
+  laminar: { span: 3.8, rootChord: 1.25, tipChord: 0.6, sweep: 0.1, thickness: 0.12 },
+  swept: { span: 4.5, rootChord: 1.6, tipChord: 0.7, sweep: 1.2, thickness: 0.12 },
+  delta: { span: 3.5, rootChord: 2.6, tipChord: 0.2, sweep: 2.0, thickness: 0.12 },
+  biplane: { span: 3.4, rootChord: 1.0, tipChord: 1.0, sweep: 0.0, thickness: 0.16 },
+}
+
+/** Géométrie d'aile extrudée depuis le contour de la planforme (corde×envergure). */
+function useWingGeometry(s: WingShape): THREE.BufferGeometry {
+  return useMemo(() => {
+    const shape = new THREE.Shape()
+    shape.moveTo(0, -s.rootChord / 2) // emplanture, bord d'attaque
+    shape.lineTo(s.span, -s.tipChord / 2 + s.sweep) // bout, bord d'attaque
+    shape.lineTo(s.span, s.tipChord / 2 + s.sweep) // bout, bord de fuite
+    shape.lineTo(0, s.rootChord / 2) // emplanture, bord de fuite
+    shape.closePath()
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: s.thickness, bevelEnabled: false })
+    geo.translate(0, 0, -s.thickness / 2)
+    geo.rotateX(Math.PI / 2) // corde→Z (avant -Z), épaisseur→Y
+    geo.computeVertexNormals()
+    return geo
+  }, [s])
+}
+
 // Demi-aile : racine en x=0, s'étend vers +X (le miroir applique scale.x=-1).
 // L'aileron suit la clé de gouverne du côté (gauche si la pièce est miroir).
-function WingModel({ mirrored }: { mirrored?: boolean }) {
+function WingModel({ part, mirrored }: { part: WingPart; mirrored?: boolean }) {
+  const geo = useWingGeometry(WING_SHAPES[part.planform])
+  const aileron: ControlKey = mirrored ? 'aileronL' : 'aileronR'
+  if (part.planform === 'straight') {
+    // Aile droite « pionnier » : caisson + élevon animé (look du J1 conservé).
+    return (
+      <group>
+        <mesh position={[1.7, 0, -0.05]} castShadow receiveShadow>
+          <boxGeometry args={[3.4, 0.16, 1.0]} />
+          <meshStandardMaterial color={palette.planeWing} flatShading />
+        </mesh>
+        <ControlFlap controlKey={aileron} axis="x" hinge={[2.55, 0, 0.45]} size={[1.7, 0.12, 0.45]} />
+      </group>
+    )
+  }
+  // Planformes effilée / laminaire / flèche / delta : silhouette extrudée.
   return (
-    <group>
-      <mesh position={[1.7, 0, -0.05]} castShadow receiveShadow>
-        <boxGeometry args={[3.4, 0.16, 1.0]} />
-        <meshStandardMaterial color={palette.planeWing} flatShading />
-      </mesh>
-      {/* Élevon (bord de fuite, moitié extérieure) */}
-      <ControlFlap
-        controlKey={mirrored ? 'aileronL' : 'aileronR'}
-        axis="x"
-        hinge={[2.55, 0, 0.45]}
-        size={[1.7, 0.12, 0.45]}
-      />
-    </group>
+    <mesh geometry={geo} castShadow receiveShadow>
+      <meshStandardMaterial color={palette.planeWing} flatShading />
+    </mesh>
   )
 }
 
@@ -168,7 +208,7 @@ function PartModel({ part, mirrored }: { part: Part; mirrored?: boolean }) {
     case 'fuselage':
       return <FuselageModel />
     case 'wing':
-      return <WingModel mirrored={mirrored} />
+      return <WingModel part={part} mirrored={mirrored} />
     case 'stabilizer':
       return part.id === 'fin.mk1' ? <VerticalFinModel /> : <HorizontalStabModel />
     case 'engine':

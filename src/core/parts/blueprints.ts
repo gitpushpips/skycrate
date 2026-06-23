@@ -131,6 +131,124 @@ export const BLUEPRINTS: Record<string, PartBlueprint> = {
     ],
   },
 
+  // Demi-aile effilée (T1) : un peu plus d'envergure, traînée plus basse, robuste.
+  'wing.tapered': {
+    handed: true,
+    mounts: [
+      { position: [3.6, 0, 0], normal: [1, 0, 0] },
+      { position: [1.8, 0.1, 0], normal: [0, 1, 0] },
+      { position: [1.8, -0.06, 0], normal: [0, -1, 0] },
+    ],
+    colliders: [{ half: [1.8, 0.075, 0.7], offset: [1.8, 0, 0] }],
+    surfaces: [
+      {
+        center: [1.8, 0, 0],
+        chord: [0, 0, -1],
+        normal: [0, 1, 0],
+        spanAxis: [1, 0, 0],
+        span: 3.6,
+        area: 5.0,
+        liftSlope: 5.0,
+        stallAngle: 0.28,
+        zeroLiftDrag: 0.01,
+        incidence: 0.03,
+        control: 'roll',
+        controlEffectiveness: 0.5,
+        stripsPerSide: 4,
+        controlFraction: 0.5,
+      },
+    ],
+  },
+
+  // Demi-aile laminaire (T3) : profil fin, excellent L/D, snap haut.
+  'wing.laminar': {
+    handed: true,
+    mounts: [
+      { position: [3.8, 0, 0], normal: [1, 0, 0] },
+      { position: [1.9, 0.09, 0], normal: [0, 1, 0] },
+      { position: [1.9, -0.05, 0], normal: [0, -1, 0] },
+    ],
+    colliders: [{ half: [1.9, 0.07, 0.68], offset: [1.9, 0, 0] }],
+    surfaces: [
+      {
+        center: [1.9, 0, 0],
+        chord: [0, 0, -1],
+        normal: [0, 1, 0],
+        spanAxis: [1, 0, 0],
+        span: 3.8,
+        area: 5.2,
+        liftSlope: 5.2,
+        stallAngle: 0.26,
+        zeroLiftDrag: 0.008,
+        incidence: 0.025,
+        control: 'roll',
+        controlEffectiveness: 0.5,
+        stripsPerSide: 4,
+        controlFraction: 0.5,
+      },
+    ],
+  },
+
+  // Demi-aile en flèche (T4) : grande envergure, pente de portance réduite
+  // (décolle vite), traînée très basse à haute vitesse.
+  'wing.swept': {
+    handed: true,
+    mounts: [
+      { position: [4.5, 0, 0.6], normal: [1, 0, 0] },
+      { position: [2.25, 0.09, 0.3], normal: [0, 1, 0] },
+      { position: [2.25, -0.05, 0.3], normal: [0, -1, 0] },
+    ],
+    colliders: [{ half: [2.25, 0.07, 0.95], offset: [2.25, 0, 0.35] }],
+    surfaces: [
+      {
+        center: [2.25, 0, 0.2],
+        chord: [0, 0, -1],
+        normal: [0, 1, 0],
+        spanAxis: [1, 0, 0],
+        span: 4.5,
+        area: 5.5,
+        liftSlope: 4.0,
+        stallAngle: 0.3,
+        zeroLiftDrag: 0.006,
+        incidence: 0.02,
+        control: 'roll',
+        controlEffectiveness: 0.45,
+        stripsPerSide: 4,
+        controlFraction: 0.5,
+      },
+    ],
+  },
+
+  // Demi-aile delta (T5) : grande corde, faible portance basse vitesse, décrochage
+  // tardif (vol à forte incidence), traînée minimale, snap extrême.
+  'wing.delta': {
+    handed: true,
+    mounts: [
+      { position: [3.5, 0, 0.9], normal: [1, 0, 0] },
+      { position: [1.5, 0.09, 0], normal: [0, 1, 0] },
+      { position: [1.5, -0.05, 0], normal: [0, -1, 0] },
+    ],
+    colliders: [{ half: [1.75, 0.07, 1.3], offset: [1.75, 0, 0.2] }],
+    surfaces: [
+      {
+        center: [1.75, 0, 0.1],
+        chord: [0, 0, -1],
+        normal: [0, 1, 0],
+        spanAxis: [1, 0, 0],
+        span: 3.5,
+        area: 6.0,
+        liftSlope: 3.5,
+        stallAngle: 0.45,
+        zeroLiftDrag: 0.005,
+        incidence: 0.0,
+        control: 'roll',
+        controlEffectiveness: 0.45,
+        stripsPerSide: 4,
+        controlFraction: 0.45,
+      },
+    ],
+  },
+
   // Demi-stabilisateur horizontal (gouverne de profondeur) : racine x=0 → +X.
   'stabilizer.mk1': {
     handed: true,

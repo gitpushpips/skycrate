@@ -66,9 +66,14 @@ export interface FuselagePart extends BasePart {
   readonly cargo: number
 }
 
+/** Planformes d'aile (réf. catalogue) — détermine la silhouette + le caractère. */
+export type WingPlanform = 'straight' | 'tapered' | 'laminar' | 'swept' | 'delta' | 'biplane'
+
 /** Aile : portance/traînée forfaitaires (pas de Cl/Cd — règle 4) + rupture (règle 5). */
 export interface WingPart extends BasePart {
   readonly category: 'wing'
+  /** Planforme (silhouette + caractère aéro). */
+  readonly planform: WingPlanform
   /** Portance forfaitaire (valeur relative ; × coef global × f(v)). */
   readonly lift: number
   /** Traînée forfaitaire (valeur relative ; × coef global × f(v)). */

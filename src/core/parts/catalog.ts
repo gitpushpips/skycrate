@@ -35,19 +35,82 @@ const fuselageMk1: FuselagePart = {
   description: 'Fuselage de base, déformable. Porte le carburant initial de l’avion.',
 }
 
-// Aile à UN seul côté : on en pose une par une (le mode Miroir crée la paire).
+// Ailes à UN seul côté (le mode Miroir crée la paire). Une planforme par palier :
+// le caractère (portance basse vitesse, traînée, rupture) vient des stats + des
+// surfaces du blueprint ; la silhouette se lit à l'écran. Valeurs 🟡 calibrables.
 const wingMk1: WingPart = {
   id: 'wing.mk1',
-  name: 'Aile portante Mk1',
+  name: 'Aile droite — Pionnier',
   category: 'wing',
   tier: 'T0',
+  planform: 'straight',
   weight: 0.8, // 🟡 (demi-aile)
   cost: 40, // 🟡
   researchCost: 0,
   lift: 0.5, // 🟡 demi-portance (la paire ≈ 1.0)
   drag: 0.06, // 🟡
   strength: 2.25, // ✅ exemple du dossier → rupture à 225 m/s
-  description: 'Demi-aile portante (une par côté). Gouverne en élevon.',
+  description: 'Demi-aile droite épaisse : portance basse vitesse, fragile. Élevon.',
+}
+
+const wingTapered: WingPart = {
+  id: 'wing.tapered',
+  name: 'Aile effilée — Brousse',
+  category: 'wing',
+  tier: 'T1',
+  planform: 'tapered',
+  weight: 0.9, // 🟡
+  cost: 70, // 🟡
+  researchCost: 8, // 🟡
+  lift: 0.55, // 🟡
+  drag: 0.045, // 🟡
+  strength: 3.0, // 🟡 → 300 m/s
+  description: 'Demi-aile effilée métal : bon compromis portance/traînée, robuste.',
+}
+
+const wingLaminar: WingPart = {
+  id: 'wing.laminar',
+  name: 'Aile laminaire — Course',
+  category: 'wing',
+  tier: 'T3',
+  planform: 'laminar',
+  weight: 1.1, // 🟡
+  cost: 160, // 🟡
+  researchCost: 30, // 🟡
+  lift: 0.6, // 🟡
+  drag: 0.03, // 🟡 profil laminaire (réf. Cd₀ 0,0163)
+  strength: 4.5, // 🟡 → 450 m/s
+  description: 'Demi-aile laminaire haute perf. : excellent L/D, ailes solides.',
+}
+
+const wingSwept: WingPart = {
+  id: 'wing.swept',
+  name: 'Aile en flèche — Ligne',
+  category: 'wing',
+  tier: 'T4',
+  planform: 'swept',
+  weight: 1.6, // 🟡
+  cost: 300, // 🟡
+  researchCost: 60, // 🟡
+  lift: 0.45, // 🟡 portance basse vitesse réduite (décollage rapide)
+  drag: 0.022, // 🟡 faible traînée à haute vitesse
+  strength: 6.0, // 🟡 → 600 m/s
+  description: 'Demi-aile en flèche : faible traînée rapide, décolle vite, snap haut.',
+}
+
+const wingDelta: WingPart = {
+  id: 'wing.delta',
+  name: 'Aile delta — Chasse',
+  category: 'wing',
+  tier: 'T5',
+  planform: 'delta',
+  weight: 1.8, // 🟡
+  cost: 420, // 🟡
+  researchCost: 110, // 🟡
+  lift: 0.4, // 🟡 faible portance basse vitesse
+  drag: 0.018, // 🟡
+  strength: 8.0, // 🟡 → 800 m/s
+  description: 'Demi-aile delta : très haute vitesse, manœuvrable, snap extrême.',
 }
 
 // Empennage en pièces séparées : un stabilisateur horizontal par côté + une dérive.
@@ -111,6 +174,10 @@ const landingGearMk1: LandingGearPart = {
 export const PARTS_LIST: readonly Part[] = [
   fuselageMk1,
   wingMk1,
+  wingTapered,
+  wingLaminar,
+  wingSwept,
+  wingDelta,
   stabilizerMk1,
   finMk1,
   woodEngine,
