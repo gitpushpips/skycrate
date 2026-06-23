@@ -24,6 +24,7 @@ const fuselageMk1: FuselagePart = {
   id: 'fuselage.mk1',
   name: 'Caisson Mk1',
   category: 'fuselage',
+  tier: 'T0',
   deformable: true,
   weight: 3, // 🟡
   cost: 100, // 🟡
@@ -39,6 +40,7 @@ const wingMk1: WingPart = {
   id: 'wing.mk1',
   name: 'Aile portante Mk1',
   category: 'wing',
+  tier: 'T0',
   weight: 0.8, // 🟡 (demi-aile)
   cost: 40, // 🟡
   researchCost: 0,
@@ -53,6 +55,7 @@ const stabilizerMk1: StabilizerPart = {
   id: 'stabilizer.mk1',
   name: 'Stab. horizontal Mk1',
   category: 'stabilizer',
+  tier: 'T0',
   weight: 0.3, // 🟡
   cost: 20, // 🟡
   researchCost: 0,
@@ -66,6 +69,7 @@ const finMk1: StabilizerPart = {
   id: 'fin.mk1',
   name: 'Dérive Mk1',
   category: 'stabilizer',
+  tier: 'T0',
   weight: 0.3, // 🟡
   cost: 20, // 🟡
   researchCost: 0,
@@ -79,6 +83,7 @@ const woodEngine: EnginePart = {
   id: 'engine.wood',
   name: 'Moteur à bois',
   category: 'engine',
+  tier: 'T0',
   kind: 'wood',
   weight: 1.2, // 🟡
   cost: 60, // 🟡
@@ -94,6 +99,7 @@ const landingGearMk1: LandingGearPart = {
   id: 'landingGear.mk1',
   name: 'Train fixe Mk1',
   category: 'landingGear',
+  tier: 'T0',
   weight: 0.5, // 🟡
   cost: 30, // 🟡
   researchCost: 0,

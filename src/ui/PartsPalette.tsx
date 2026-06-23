@@ -21,7 +21,8 @@ export function PartsPalette({ available }: { available: number }) {
   const [cat, setCat] = useState<PartCategory>('wing')
   const selected = useBuild((s) => s.selectedPartId)
   const selectPart = useBuild((s) => s.selectPart)
-  const parts = getPartsByCategory(cat)
+  // Triées par palier (T0 → T7) pour lire la progression dans l'onglet.
+  const parts = [...getPartsByCategory(cat)].sort((a, b) => a.tier.localeCompare(b.tier))
 
   return (
     <div style={styles.root}>
@@ -55,7 +56,10 @@ export function PartsPalette({ available }: { available: number }) {
               }}
               title={affordable ? p.description : `Budget insuffisant (${p.cost} coins)`}
             >
-              <span style={styles.cellName}>{p.name}</span>
+              <span style={styles.cellName}>
+                <span style={styles.tierBadge}>{p.tier}</span>
+                {p.name}
+              </span>
               <span style={{ ...styles.cellCost, ...(affordable ? null : styles.cellCostOver) }}>
                 {p.cost} ⛀
               </span>
@@ -110,7 +114,16 @@ const styles: Record<string, CSSProperties> = {
   },
   cellActive: { border: '1px solid #e0a23a', background: 'rgba(224,162,58,0.18)' },
   cellDisabled: { opacity: 0.4, cursor: 'not-allowed' },
-  cellName: { fontWeight: 600 },
+  cellName: { fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 },
+  tierBadge: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: '#1a1208',
+    background: '#8fa7d6',
+    borderRadius: 4,
+    padding: '1px 4px',
+    letterSpacing: 0.5,
+  },
   cellCost: { fontSize: 12, color: '#9fb0bd', fontVariantNumeric: 'tabular-nums' },
   cellCostOver: { color: '#e8857b' },
 }

@@ -17,8 +17,23 @@
 
 export type PartCategory = 'fuselage' | 'wing' | 'stabilizer' | 'engine' | 'landingGear'
 
-/** Familles de moteurs citées au dossier §5 (roster à compléter). */
-export type EngineKind = 'wood' | 'propeller' | 'jet' | 'rocket' | 'electric'
+/**
+ * Palier de progression (réf. `docs/catalogue-pieces.md`) : T0 pionnier bois/toile
+ * → T1 aviation générale → T2 utilitaire turboprop → T3 warbird → T4 jet de ligne
+ * → T5 chasseur PC → T6 furtif → T7 expérimental/fusée. Calibré sur de vrais avions
+ * (silhouettes maison, aucun nom de marque) ; servira à l'arbre de recherche.
+ */
+export type Tier = 'T0' | 'T1' | 'T2' | 'T3' | 'T4' | 'T5' | 'T6' | 'T7'
+
+/** Familles de moteurs (dossier §5 + extension catalogue) — définit le caractère. */
+export type EngineKind =
+  | 'wood'
+  | 'propeller'
+  | 'turboprop'
+  | 'turbofan'
+  | 'afterburner'
+  | 'rocket'
+  | 'electric'
 
 /** États de poussée d'un moteur à l'exécution (dossier §5, règle 2). */
 export type ThrustState = 'full' | 'off' | 'reverse'
@@ -28,6 +43,8 @@ interface BasePart {
   /** Notre nom maison — ne jamais réutiliser un nom de l'original. */
   readonly name: string
   readonly category: PartCategory
+  /** Palier de progression (T0-T7). */
+  readonly tier: Tier
   /** Masse (unités internes). Plus de masse ⇒ + de portance requise, accél. plus lente. */
   readonly weight: number
   /** Coins : budget de construction REMBOURSÉ au retrait (plafond, pas une conso — règle 7). */
