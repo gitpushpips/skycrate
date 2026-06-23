@@ -23,6 +23,8 @@ export interface FlightTunables {
   // Gouvernes
   maxDeflectionDeg: number
   servoRate: number
+  /** Part de tangage mélangée aux gouvernes d'aile (élevons) : 0 = ailerons purs. */
+  wingElevon: number
   // Caméra
   camDistance: number
   camHeight: number
@@ -69,6 +71,7 @@ export function useFlightTunables(): FlightTunables {
     gouvernes: folder({
       maxDeflectionDeg: { value: 15, min: 5, max: 45, step: 1, label: 'déflexion max°' },
       servoRate: { value: 12, min: 2, max: 40, step: 1, label: 'vitesse servo' },
+      wingElevon: { value: 0.6, min: 0, max: 1, step: 0.05, label: 'élevons (tangage aile)' },
     }),
     caméra: folder({
       camDistance: { value: 11, min: 4, max: 30, step: 0.5, label: 'distance' },

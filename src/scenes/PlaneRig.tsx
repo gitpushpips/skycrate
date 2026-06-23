@@ -141,9 +141,11 @@ export function PlaneRig({ aircraft, tunables }: PlaneRigProps) {
     const md = THREE.MathUtils.degToRad(tunables.maxDeflectionDeg)
     const k = Math.min(1, FIXED_DT * tunables.servoRate)
     const c = controls.current
+    // Gouvernes d'aile = élevons : roulis (différentiel) + tangage (collectif).
+    const elevon = -inp.pitch * md * tunables.wingElevon
     c.elevator += (-inp.pitch * md - c.elevator) * k
-    c.aileronL += (inp.roll * md - c.aileronL) * k
-    c.aileronR += (-inp.roll * md - c.aileronR) * k
+    c.aileronL += (inp.roll * md + elevon - c.aileronL) * k
+    c.aileronR += (-inp.roll * md + elevon - c.aileronR) * k
     c.rudder += (-inp.yaw * md - c.rudder) * k
 
     rb.resetForces(false)
