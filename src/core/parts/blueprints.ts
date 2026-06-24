@@ -300,6 +300,36 @@ export const BLUEPRINTS: Record<string, PartBlueprint> = {
     dragPanels: [{ position: [0, 0, -0.45], normal: [0, 0, -1], area: 0.79 }],
   },
 
+  'engine.piston': {
+    colliders: [{ half: [0.46, 0.46, 0.45] }],
+    engine: { thrustDir: [0, 0, -1], point: [0, 0, 0] },
+    dragPanels: [{ position: [0, 0, -0.5], normal: [0, 0, -1], area: 0.66 }],
+  },
+
+  'engine.turboprop': {
+    colliders: [{ half: [0.42, 0.42, 0.7] }],
+    engine: { thrustDir: [0, 0, -1], point: [0, 0, 0.2] },
+    dragPanels: [{ position: [0, 0, -0.75], normal: [0, 0, -1], area: 0.55 }],
+  },
+
+  'engine.turbofan': {
+    colliders: [{ half: [0.55, 0.55, 0.85] }],
+    engine: { thrustDir: [0, 0, -1], point: [0, 0, 0.3] },
+    dragPanels: [{ position: [0, 0, -0.9], normal: [0, 0, -1], area: 0.95 }],
+  },
+
+  'engine.afterburner': {
+    colliders: [{ half: [0.45, 0.45, 1.0] }],
+    engine: { thrustDir: [0, 0, -1], point: [0, 0, 0.4] },
+    dragPanels: [{ position: [0, 0, -1.05], normal: [0, 0, -1], area: 0.64 }],
+  },
+
+  'engine.rocket': {
+    colliders: [{ half: [0.4, 0.4, 0.9] }],
+    engine: { thrustDir: [0, 0, -1], point: [0, 0, 0.5] },
+    dragPanels: [{ position: [0, 0, -0.95], normal: [0, 0, -1], area: 0.5 }],
+  },
+
   'landingGear.mk1': {
     colliders: [{ half: [1.0, 0.12, 1.4], offset: [0, -1.15, 0] }],
   },

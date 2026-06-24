@@ -158,6 +158,88 @@ const woodEngine: EnginePart = {
   description: 'Moteur bas de gamme, gourmand. Plein / arrêt / inverse.',
 }
 
+// Moteurs par type — le caractère vient du couple poussée/conso (réf. catalogue).
+const pistonEngine: EnginePart = {
+  id: 'engine.piston',
+  name: 'Moteur à pistons — Léger',
+  category: 'engine',
+  tier: 'T1',
+  kind: 'propeller',
+  weight: 1.4, // 🟡
+  cost: 90, // 🟡
+  researchCost: 10, // 🟡
+  thrust: 35, // 🟡
+  fuelUsage: 1.5, // 🟡 efficace
+  reversible: true,
+  stackable: false,
+  description: 'Piston à hélice : poussée modérée, sobre, vitesse de pointe plafonnée.',
+}
+
+const turbopropEngine: EnginePart = {
+  id: 'engine.turboprop',
+  name: 'Turbopropulseur — Brousse',
+  category: 'engine',
+  tier: 'T2',
+  kind: 'turboprop',
+  weight: 2.2, // 🟡
+  cost: 180, // 🟡
+  researchCost: 28, // 🟡
+  thrust: 60, // 🟡 bonne poussée basse vitesse
+  fuelUsage: 3, // 🟡 raisonnable
+  reversible: true,
+  stackable: false,
+  description: 'Turboprop : puissance et poussée basse vitesse, court-terrain.',
+}
+
+const turbofanEngine: EnginePart = {
+  id: 'engine.turbofan',
+  name: 'Turbofan — Ligne',
+  category: 'engine',
+  tier: 'T4',
+  kind: 'turbofan',
+  weight: 4.0, // 🟡
+  cost: 380, // 🟡
+  researchCost: 70, // 🟡
+  thrust: 110, // 🟡 forte poussée, efficace à haute vitesse
+  fuelUsage: 5, // 🟡
+  reversible: false,
+  stackable: false,
+  description: 'Turbofan : forte poussée, efficace en croisière, exige de la vitesse.',
+}
+
+const afterburnerEngine: EnginePart = {
+  id: 'engine.afterburner',
+  name: 'Turboréacteur PC — Chasse',
+  category: 'engine',
+  tier: 'T5',
+  kind: 'afterburner',
+  weight: 3.6, // 🟡
+  cost: 520, // 🟡
+  researchCost: 130, // 🟡
+  thrust: 130, // 🟡 à sec
+  fuelUsage: 6, // 🟡 à sec
+  reversible: false,
+  stackable: false,
+  afterburner: { thrustMult: 2.2, fuelMult: 6 }, // 🟡 PC : poussée énorme, conso catastrophique
+  description: 'Turboréacteur avec postcombustion (Espace) : poussée énorme, conso catastrophique.',
+}
+
+const rocketEngine: EnginePart = {
+  id: 'engine.rocket',
+  name: 'Moteur-fusée — Expérimental',
+  category: 'engine',
+  tier: 'T7',
+  kind: 'rocket',
+  weight: 2.0, // 🟡
+  cost: 700, // 🟡
+  researchCost: 220, // 🟡
+  thrust: 300, // 🟡 poussée extrême
+  fuelUsage: 40, // 🟡 brûle très vite (durée courte)
+  reversible: false,
+  stackable: true,
+  description: 'Fusée empilable : poussée extrême, combustion très courte. Pour le délire.',
+}
+
 const landingGearMk1: LandingGearPart = {
   id: 'landingGear.mk1',
   name: 'Train fixe Mk1',
@@ -181,6 +263,11 @@ export const PARTS_LIST: readonly Part[] = [
   stabilizerMk1,
   finMk1,
   woodEngine,
+  pistonEngine,
+  turbopropEngine,
+  turbofanEngine,
+  afterburnerEngine,
+  rocketEngine,
   landingGearMk1,
 ]
 

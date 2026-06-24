@@ -8,15 +8,17 @@ import { useEffect, useRef } from 'react'
  *   Roulis  : A gauche            · D droite
  *   Lacet   : Q gauche            · E droite
  *   Moteur  : Shift plein gaz     · C inverse        · (rien) arrêt
+ *   PC      : Espace postcombustion (moteurs équipés)
  */
 export interface FlightInputState {
   pitch: number // -1 piqué .. +1 cabré
   roll: number // -1 gauche .. +1 droite
   yaw: number // -1 gauche .. +1 droite
   throttle: number // 1 plein, -1 inverse, 0 arrêt
+  boost: number // 1 postcombustion, 0 sinon
 }
 
-const ZERO: FlightInputState = { pitch: 0, roll: 0, yaw: 0, throttle: 0 }
+const ZERO: FlightInputState = { pitch: 0, roll: 0, yaw: 0, throttle: 0, boost: 0 }
 
 function compute(keys: Set<string>): FlightInputState {
   const k = (code: string) => (keys.has(code) ? 1 : 0)
@@ -25,6 +27,7 @@ function compute(keys: Set<string>): FlightInputState {
     roll: k('KeyD') - k('KeyA'),
     yaw: k('KeyE') - k('KeyQ'),
     throttle: k('ShiftLeft') || k('ShiftRight') ? 1 : k('KeyC') ? -1 : 0,
+    boost: k('Space'),
   }
 }
 

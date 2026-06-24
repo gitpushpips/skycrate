@@ -104,6 +104,12 @@ export interface EnginePart extends BasePart {
   readonly reversible: boolean
   /** Empilable en stack (ex. rockets — dossier §5). */
   readonly stackable: boolean
+  /** Postcombustion (turboréacteur PC) : bouton séparé ⇒ poussée ×`thrustMult`,
+   *  conso ×`fuelMult` (catastrophique). Absent = pas de PC. */
+  readonly afterburner?: {
+    readonly thrustMult: number
+    readonly fuelMult: number
+  }
 }
 
 /** Train d'atterrissage : pas de freins (règle 3) ; seuil de collapse à l'impact. */

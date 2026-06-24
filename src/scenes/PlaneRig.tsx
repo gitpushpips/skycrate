@@ -97,7 +97,6 @@ export function PlaneRig({ aircraft, tunables }: PlaneRigProps) {
 
   // Carburant + rupture structurelle (étape 6).
   const fuelMax = stats.totalFuelUnits
-  const totalFuelUsage = useMemo(() => stats.engines.reduce((s, e) => s + e.fuelUsage, 0), [stats])
   const fuel = useRef(fuelMax)
   const brokenRef = useRef(false) // autorité physique (frais dans le pas fixe)
   const hudTick = useRef(0)
@@ -119,9 +118,14 @@ export function PlaneRig({ aircraft, tunables }: PlaneRigProps) {
     const inp = input.current
     const speed = _vel.length()
 
-    // Carburant : conso = Σ fuelUsage × |throttle| × dt ; moteur coupé à sec.
+    // Carburant : conso = Σ fuelUsage × |throttle| × dt (× fuelMult en PC) ; coupé à sec.
+    const boosting = inp.boost > 0 && inp.throttle > 0
     if (inp.throttle !== 0 && fuel.current > 0) {
-      fuel.current = Math.max(0, fuel.current - totalFuelUsage * Math.abs(inp.throttle) * FIXED_DT)
+      let burn = 0
+      for (const eng of engines) {
+        burn += eng.fuelUsage * (boosting && eng.afterburner ? eng.afterburner.fuelMult : 1)
+      }
+      fuel.current = Math.max(0, fuel.current - burn * Math.abs(inp.throttle) * FIXED_DT)
     }
     const effThrottle = fuel.current > 0 ? inp.throttle : 0
 
@@ -176,9 +180,12 @@ export function PlaneRig({ aircraft, tunables }: PlaneRigProps) {
     }
 
     // Poussée : chaque moteur applique sa force à SON point, le long de SON axe.
+    // Postcombustion (Espace, gaz vers l'avant) : ×thrustMult sur les moteurs équipés.
+    const boostThrust = inp.boost > 0 && effThrottle > 0
     for (const eng of engines) {
       _thrust.copy(eng.dir).applyQuaternion(_Q)
-      const mag = tunables.thrustCoef * eng.thrust * eng.limit * tunables.maxThrustLimit * effThrottle
+      const ab = boostThrust && eng.afterburner ? eng.afterburner.thrustMult : 1
+      const mag = tunables.thrustCoef * eng.thrust * eng.limit * tunables.maxThrustLimit * effThrottle * ab
       _thrust.multiplyScalar(mag)
       _ePoint.copy(eng.point).applyQuaternion(_Q).add(_P)
       rb.addForceAtPoint(_thrust, _ePoint, true)

@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { getPart } from '../core/parts'
-import type { Part, WingPart, WingPlanform } from '../core/parts'
+import type { EngineKind, Part, WingPart, WingPlanform } from '../core/parts'
 import type { PlaneAssembly, PlacedPart } from '../core/assembly'
 import type { ControlKey } from '../core/physics/aerodynamics'
 import { palette } from './palette'
@@ -153,21 +153,58 @@ function VerticalFinModel() {
   )
 }
 
-function EngineModel() {
+// Silhouette par type : hélice (cowl + pales à l'avant -Z) pour piston/turboprop,
+// nacelle + tuyère arrière (+Z) pour les jets/fusée (lueur d'échappement à chaud).
+function EngineModel({ kind }: { kind: EngineKind }) {
+  const prop = kind === 'wood' || kind === 'propeller' || kind === 'turboprop' || kind === 'electric'
+  if (prop) {
+    const blades = kind === 'turboprop' ? 4 : 2
+    const len = kind === 'turboprop' ? 1.1 : 0.7
+    const r = kind === 'turboprop' ? 0.42 : 0.52
+    return (
+      <group>
+        <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[r * 0.9, r, len, 14]} />
+          <meshStandardMaterial color={palette.planeCowl} flatShading metalness={0.3} roughness={0.6} />
+        </mesh>
+        <mesh position={[0, 0, -len / 2 - 0.06]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.15, 0.15, 0.2, 8]} />
+          <meshStandardMaterial color={palette.planeHub} flatShading />
+        </mesh>
+        {Array.from({ length: blades }).map((_, i) => (
+          <mesh
+            key={i}
+            position={[0, 0, -len / 2 - 0.12]}
+            rotation={[0, 0, (i / blades) * Math.PI]}
+            castShadow
+          >
+            <boxGeometry args={[0.13, 2.1, 0.05]} />
+            <meshStandardMaterial color={palette.planeProp} flatShading />
+          </mesh>
+        ))}
+      </group>
+    )
+  }
+  const len = kind === 'afterburner' ? 2.0 : kind === 'rocket' ? 1.7 : 1.6
+  const r = kind === 'turbofan' ? 0.55 : 0.42
+  const hot = kind === 'afterburner' || kind === 'rocket'
   return (
     <group>
       <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-        <cylinderGeometry args={[0.5, 0.56, 0.7, 12]} />
-        <meshStandardMaterial color={palette.planeCowl} flatShading metalness={0.3} roughness={0.6} />
+        <cylinderGeometry args={[r, r, len, 16]} />
+        <meshStandardMaterial color={palette.planeCowl} flatShading metalness={0.45} roughness={0.5} />
       </mesh>
-      <mesh position={[0, 0, -0.42]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-        <cylinderGeometry args={[0.16, 0.16, 0.2, 8]} />
-        <meshStandardMaterial color={palette.planeHub} flatShading />
+      {/* Tuyère arrière (+Z). */}
+      <mesh position={[0, 0, len / 2 + 0.05]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[r * 0.85, r * 0.6, 0.25, 16]} />
+        <meshStandardMaterial color={palette.planeHub} flatShading metalness={0.6} roughness={0.4} />
       </mesh>
-      <mesh position={[0, 0, -0.52]} rotation={[0, 0, 0.25]} castShadow>
-        <boxGeometry args={[0.13, 2.2, 0.05]} />
-        <meshStandardMaterial color={palette.planeProp} flatShading />
-      </mesh>
+      {hot && (
+        <mesh position={[0, 0, len / 2 + 0.25]}>
+          <sphereGeometry args={[r * 0.45, 12, 12]} />
+          <meshBasicMaterial color="#ff7a3a" transparent opacity={0.55} />
+        </mesh>
+      )}
     </group>
   )
 }
@@ -212,7 +249,7 @@ function PartModel({ part, mirrored }: { part: Part; mirrored?: boolean }) {
     case 'stabilizer':
       return part.id === 'fin.mk1' ? <VerticalFinModel /> : <HorizontalStabModel />
     case 'engine':
-      return <EngineModel />
+      return <EngineModel kind={part.kind} />
     case 'landingGear':
       return <LandingGearModel />
   }

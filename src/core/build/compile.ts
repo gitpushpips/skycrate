@@ -46,6 +46,8 @@ export interface EngineInstance {
   thrust: number // poussée max (catalogue)
   fuelUsage: number
   limit: number // 0..1
+  /** Postcombustion (si le moteur en a) : multiplie poussée/conso quand activée. */
+  afterburner?: { thrustMult: number; fuelMult: number }
 }
 
 export interface CompiledAircraft {
@@ -251,6 +253,7 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
         thrust: part.thrust,
         fuelUsage: part.fuelUsage,
         limit: node.settings?.thrustLimit ?? 1,
+        afterburner: part.afterburner,
       })
       if (!referenceForward) referenceForward = dir.clone()
     }
