@@ -56,6 +56,9 @@ export function aggregateStats(assembly: PlaneAssembly): AssemblyStats {
         electricCharge += part.electricCharge
         totalCargo += part.cargo
         break
+      case 'cabin':
+        totalCargo += part.cargo
+        break
       case 'wing':
         totalLift += part.lift
         totalDrag += part.drag

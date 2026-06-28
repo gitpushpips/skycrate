@@ -102,6 +102,75 @@ export const BLUEPRINTS: Record<string, PartBlueprint> = {
     ],
   },
 
+  // Fuselage moyen (GA) : un peu plus gros que le Caisson.
+  'fuselage.medium': {
+    mounts: [
+      { position: [0, 0, -2.4], normal: [0, 0, -1] },
+      { position: [0, -0.05, 0.1], normal: [0, 1, 0] },
+      { position: [0, 0.25, 2.2], normal: [0, 1, 0] },
+      { position: [0, 0, 0], normal: [0, -1, 0] },
+      { position: [0, 0.58, -0.5], normal: [0, 1, 0] },
+      { position: [0, 0.58, 0.9], normal: [0, 1, 0] },
+    ],
+    colliders: [{ half: [0.55, 0.56, 2.3] }],
+    dragPanels: [
+      { position: [0, 0.06, 2.3], normal: [0, 0, 1], area: 0.9 },
+      { position: [0, 0.57, 0], normal: [0, 1, 0], area: 5.0 },
+      { position: [0, -0.57, 0], normal: [0, -1, 0], area: 5.0 },
+      { position: [-0.55, 0, 0], normal: [-1, 0, 0], area: 5.2 },
+      { position: [0.55, 0, 0], normal: [1, 0, 0], area: 5.2 },
+    ],
+  },
+
+  // Gros fuselage utilitaire : large et long (énorme volume).
+  'fuselage.large': {
+    mounts: [
+      { position: [0, 0, -2.7], normal: [0, 0, -1] },
+      { position: [0, -0.1, 0], normal: [0, 1, 0] },
+      { position: [0, 0.3, 2.5], normal: [0, 1, 0] },
+      { position: [0, -0.1, 0], normal: [0, -1, 0] },
+      { position: [0, 0.78, -0.6], normal: [0, 1, 0] },
+      { position: [0, 0.78, 1.0], normal: [0, 1, 0] },
+    ],
+    colliders: [{ half: [0.78, 0.72, 2.6] }],
+    dragPanels: [
+      { position: [0, 0.08, 2.6], normal: [0, 0, 1], area: 1.7 },
+      { position: [0, 0.72, 0], normal: [0, 1, 0], area: 8.0 },
+      { position: [0, -0.72, 0], normal: [0, -1, 0], area: 8.0 },
+      { position: [-0.78, 0, 0], normal: [-1, 0, 0], area: 7.5 },
+      { position: [0.78, 0, 0], normal: [1, 0, 0], area: 7.5 },
+    ],
+  },
+
+  // Cockpit vitré : petit module sur le dessus.
+  'cabin.cockpit': {
+    mounts: [{ position: [0, -0.35, 0], normal: [0, -1, 0] }],
+    colliders: [{ half: [0.4, 0.34, 0.72], offset: [0, 0, 0] }],
+    dragPanels: [{ position: [0, 0.36, 0], normal: [0, 1, 0], area: 1.1 }],
+  },
+
+  // Soute cargo : boîte trapue (gros volume).
+  'cabin.cargo': {
+    mounts: [{ position: [0, -0.5, 0], normal: [0, -1, 0] }],
+    colliders: [{ half: [0.55, 0.5, 1.0] }],
+    dragPanels: [
+      { position: [0, 0.5, 0], normal: [0, 1, 0], area: 2.0 },
+      { position: [0.55, 0, 0], normal: [1, 0, 0], area: 1.9 },
+      { position: [-0.55, 0, 0], normal: [-1, 0, 0], area: 1.9 },
+    ],
+  },
+
+  // Cabine passagers : tube long à hublots.
+  'cabin.passenger': {
+    mounts: [{ position: [0, -0.55, 0], normal: [0, -1, 0] }],
+    colliders: [{ half: [0.56, 0.56, 1.5] }],
+    dragPanels: [
+      { position: [0, 0.56, 0], normal: [0, 1, 0], area: 3.2 },
+      { position: [0.56, 0, 0], normal: [1, 0, 0], area: 3.3 },
+      { position: [-0.56, 0, 0], normal: [-1, 0, 0], area: 3.3 },
+    ],
+  },
+
   // Demi-aile : racine en x=0, s'étend vers +X (le miroir reflète vers −X).
   'wing.mk1': {
     handed: true,

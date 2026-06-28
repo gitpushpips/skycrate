@@ -15,7 +15,7 @@
  *   - les valeurs RELATIVES par pièce se calibrent en éditant le catalogue.
  */
 
-export type PartCategory = 'fuselage' | 'wing' | 'stabilizer' | 'engine' | 'landingGear'
+export type PartCategory = 'fuselage' | 'cabin' | 'wing' | 'stabilizer' | 'engine' | 'landingGear'
 
 /**
  * Palier de progression (réf. `docs/catalogue-pieces.md`) : T0 pionnier bois/toile
@@ -34,6 +34,12 @@ export type EngineKind =
   | 'afterburner'
   | 'rocket'
   | 'electric'
+
+/** Tailles de fuselage (silhouette + volume) du petit au gros porteur. */
+export type FuselageSize = 'small' | 'medium' | 'large'
+
+/** Types de cabine (cockpit vitré, soute cargo, cabine passagers). */
+export type CabinKind = 'cockpit' | 'cargo' | 'passenger'
 
 /** États de poussée d'un moteur à l'exécution (dossier §5, règle 2). */
 export type ThrustState = 'full' | 'off' | 'reverse'
@@ -54,15 +60,25 @@ interface BasePart {
   readonly description?: string
 }
 
-/** Fuselage : seule pièce déformable (règle 8). Porte le carburant de base de l'avion. */
+/** Fuselage : corps porteur (déformable, règle 8). Porte le carburant de base. */
 export interface FuselagePart extends BasePart {
   readonly category: 'fuselage'
   readonly deformable: true
+  /** Taille (silhouette + colliders). */
+  readonly size: FuselageSize
   /** ×100. Avion de base = 1 (→ 100 u) (dossier §6, §14). */
   readonly fuel: number
   /** Charge électrique de base = 0,05 (dossier §6, §14). */
   readonly electricCharge: number
-  /** Volume de cargo (les cockpits en ajoutent surtout — dossier §3 ; 0 pour le J1). */
+  /** Volume de cargo (les cabines en sont la source principale — dossier §3). */
+  readonly cargo: number
+}
+
+/** Cabine / cockpit : module qui apporte du **cargo** (volume), plusieurs autorisés. */
+export interface CabinPart extends BasePart {
+  readonly category: 'cabin'
+  readonly kind: CabinKind
+  /** Volume de cargo apporté. */
   readonly cargo: number
 }
 
@@ -121,6 +137,7 @@ export interface LandingGearPart extends BasePart {
 
 export type Part =
   | FuselagePart
+  | CabinPart
   | WingPart
   | StabilizerPart
   | EnginePart

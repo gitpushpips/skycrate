@@ -11,6 +11,7 @@ import { useBuild } from '../store/build'
  */
 const CATEGORIES: { key: PartCategory; label: string }[] = [
   { key: 'fuselage', label: 'Fuselage' },
+  { key: 'cabin', label: 'Cabine' },
   { key: 'wing', label: 'Aile' },
   { key: 'stabilizer', label: 'Empennage' },
   { key: 'engine', label: 'Moteur' },
