@@ -68,72 +68,94 @@ function FuselageModel() {
   )
 }
 
-// Dimensions de silhouette par planforme (repère pièce : racine x=0 → +X,
-// corde le long de Z, avant = -Z, sweep = décalage du bout vers l'arrière).
+// Profil d'aile cambré (corde 0 = bord d'attaque → 1 = bord de fuite ; y =
+// épaisseur en fraction de corde). Boucle fermée BA → extrados → BF → intrados.
+const AIRFOIL: ReadonlyArray<readonly [number, number]> = [
+  [0.0, 0.0],
+  [0.025, 0.045],
+  [0.08, 0.07],
+  [0.18, 0.082],
+  [0.3, 0.08],
+  [0.5, 0.063],
+  [0.7, 0.041],
+  [0.88, 0.02],
+  [1.0, 0.004],
+  [1.0, -0.004],
+  [0.88, -0.012],
+  [0.7, -0.02],
+  [0.5, -0.026],
+  [0.3, -0.026],
+  [0.18, -0.022],
+  [0.08, -0.014],
+  [0.025, -0.006],
+]
+
+// Caractère de chaque planforme (repère pièce : racine x=0 → +X, corde le long
+// de Z avec BA en -Z, sweep = décalage du bout vers l'arrière, thickMul = épaisseur).
 interface WingShape {
   span: number
   rootChord: number
   tipChord: number
   sweep: number
-  thickness: number
+  thickMul: number
 }
 const WING_SHAPES: Record<WingPlanform, WingShape> = {
-  straight: { span: 3.4, rootChord: 1.0, tipChord: 1.0, sweep: 0.0, thickness: 0.16 },
-  tapered: { span: 3.6, rootChord: 1.3, tipChord: 0.7, sweep: 0.15, thickness: 0.15 },
-  laminar: { span: 3.8, rootChord: 1.25, tipChord: 0.6, sweep: 0.1, thickness: 0.12 },
-  swept: { span: 4.5, rootChord: 1.6, tipChord: 0.7, sweep: 1.2, thickness: 0.12 },
-  delta: { span: 3.5, rootChord: 2.6, tipChord: 0.2, sweep: 2.0, thickness: 0.12 },
-  biplane: { span: 3.4, rootChord: 1.0, tipChord: 1.0, sweep: 0.0, thickness: 0.16 },
+  straight: { span: 3.4, rootChord: 1.05, tipChord: 0.95, sweep: 0.05, thickMul: 1.4 },
+  tapered: { span: 3.6, rootChord: 1.35, tipChord: 0.72, sweep: 0.22, thickMul: 1.0 },
+  laminar: { span: 3.8, rootChord: 1.25, tipChord: 0.6, sweep: 0.14, thickMul: 0.78 },
+  swept: { span: 4.5, rootChord: 1.6, tipChord: 0.72, sweep: 1.25, thickMul: 0.72 },
+  delta: { span: 3.5, rootChord: 2.6, tipChord: 0.22, sweep: 2.0, thickMul: 0.6 },
+  biplane: { span: 3.4, rootChord: 1.05, tipChord: 0.95, sweep: 0.05, thickMul: 1.4 },
 }
 
-/** Géométrie d'aile extrudée depuis le contour de la planforme (corde×envergure). */
+/** Aile « loftée » : extrusion du profil le long de l'envergure, puis effilement +
+ *  flèche par déformation des sommets (root z=0 → tip z=1). ⇒ vrai profil d'aile. */
 function useWingGeometry(s: WingShape): THREE.BufferGeometry {
   return useMemo(() => {
-    const shape = new THREE.Shape()
-    shape.moveTo(0, -s.rootChord / 2) // emplanture, bord d'attaque
-    shape.lineTo(s.span, -s.tipChord / 2 + s.sweep) // bout, bord d'attaque
-    shape.lineTo(s.span, s.tipChord / 2 + s.sweep) // bout, bord de fuite
-    shape.lineTo(0, s.rootChord / 2) // emplanture, bord de fuite
-    shape.closePath()
-    // Petit biseau ⇒ bords (attaque/fuite) arrondis = silhouette plus finie.
-    const bevel = Math.min(0.05, s.thickness * 0.35)
-    const core = Math.max(0.02, s.thickness - bevel * 2)
-    const geo = new THREE.ExtrudeGeometry(shape, {
-      depth: core,
-      bevelEnabled: true,
-      bevelThickness: bevel,
-      bevelSize: bevel,
-      bevelSegments: 2,
-    })
-    geo.translate(0, 0, -(core + bevel) / 2)
-    geo.rotateX(Math.PI / 2) // corde→Z (avant -Z), épaisseur→Y
+    const shape = new THREE.Shape(AIRFOIL.map(([x, y]) => new THREE.Vector2(x, y)))
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: 1, steps: 1, bevelEnabled: false })
+    const pos = geo.attributes.position
+    const v = new THREE.Vector3()
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i)
+      const f = v.z // fraction d'envergure (0 emplanture, 1 bout)
+      const chord = s.rootChord + (s.tipChord - s.rootChord) * f
+      pos.setXYZ(
+        i,
+        f * s.span, // envergure → X
+        v.y * chord * s.thickMul, // épaisseur → Y (∝ corde)
+        (v.x - 0.25) * chord + s.sweep * f, // corde → Z (BA -Z, quart-avant au centre) + flèche
+      )
+    }
+    pos.needsUpdate = true
     geo.computeVertexNormals()
     return geo
   }, [s])
 }
 
-// Demi-aile : racine en x=0, s'étend vers +X (le miroir applique scale.x=-1).
-// L'aileron suit la clé de gouverne du côté (gauche si la pièce est miroir).
+// Demi-aile : profil loft + aileron/élevon animé au bord de fuite extérieur.
+// Le miroir applique scale.x=-1 ; la gouverne suit la clé du côté.
 function WingModel({ part, mirrored }: { part: WingPart; mirrored?: boolean }) {
-  const geo = useWingGeometry(WING_SHAPES[part.planform])
+  const s = WING_SHAPES[part.planform]
+  const geo = useWingGeometry(s)
   const aileron: ControlKey = mirrored ? 'aileronL' : 'aileronR'
-  if (part.planform === 'straight') {
-    // Aile droite « pionnier » : caisson + élevon animé (look du J1 conservé).
-    return (
-      <group>
-        <mesh position={[1.7, 0, -0.05]} castShadow receiveShadow>
-          <boxGeometry args={[3.4, 0.16, 1.0]} />
-          <meshStandardMaterial color={palette.planeWing} flatShading />
-        </mesh>
-        <ControlFlap controlKey={aileron} axis="x" hinge={[2.55, 0, 0.45]} size={[1.7, 0.12, 0.45]} />
-      </group>
-    )
-  }
-  // Planformes effilée / laminaire / flèche / delta : silhouette extrudée.
+  // Gouverne : bande au bord de fuite, moitié extérieure (~72 % d'envergure).
+  const fc = 0.72
+  const chordF = s.rootChord + (s.tipChord - s.rootChord) * fc
+  const flapChord = (part.planform === 'delta' ? 0.22 : 0.32) * chordF
+  const teZ = (1 - 0.25) * chordF + s.sweep * fc // bord de fuite à la station fc
   return (
-    <mesh geometry={geo} castShadow receiveShadow>
-      <meshStandardMaterial color={palette.planeWing} flatShading />
-    </mesh>
+    <group>
+      <mesh geometry={geo} castShadow receiveShadow>
+        <meshStandardMaterial color={palette.planeWing} roughness={0.7} metalness={0.05} />
+      </mesh>
+      <ControlFlap
+        controlKey={aileron}
+        axis="x"
+        hinge={[fc * s.span, 0, teZ - flapChord]}
+        size={[0.34 * s.span, 0.04 * chordF + 0.05, flapChord]}
+      />
+    </group>
   )
 }
 
@@ -258,6 +280,29 @@ function Spinner({ z, r, len, color }: { z: number; r: number; len: number; colo
   )
 }
 
+// Tuyère à pétales (« plumes de dinde ») d'un réacteur militaire : couronne de
+// volets axiaux légèrement convergents (look variable géométrie).
+function NozzlePetals({ z, r }: { z: number; r: number }) {
+  return (
+    <group position={[0, 0, z]}>
+      {Array.from({ length: 12 }).map((_, i) => {
+        const a = (i / 12) * Math.PI * 2
+        return (
+          <mesh
+            key={i}
+            position={[Math.cos(a) * r * 0.82, Math.sin(a) * r * 0.82, 0]}
+            rotation={[0.18, 0, a]}
+            castShadow
+          >
+            <boxGeometry args={[r * 0.42, 0.05, 0.34]} />
+            <meshStandardMaterial color={palette.planeMetal} flatShading metalness={0.7} roughness={0.35} />
+          </mesh>
+        )
+      })}
+    </group>
+  )
+}
+
 // Couronne de cylindres = moteur en étoile (identité du « bois »/radial).
 function RadialCylinders({ r }: { r: number }) {
   return (
@@ -325,50 +370,60 @@ function EngineModel({ kind }: { kind: EngineKind }) {
       )
     }
     case 'turbofan': {
-      // Turbofan : grosse nacelle + lèvre d'entrée + soufflante visible + tuyère.
-      const r = 0.55
+      // Turbofan haut taux de dilution : nacelle large et courte, grosse lèvre
+      // d'entrée, soufflante + spinner bien visibles, cône d'éjection central.
+      const r = 0.58
       return (
         <group>
           <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[r, r * 0.82, 1.5, 18]} />
-            <meshStandardMaterial color={palette.planeJetBody} flatShading metalness={0.5} roughness={0.45} />
+            <cylinderGeometry args={[r, r * 0.78, 1.45, 20]} />
+            <meshStandardMaterial color={palette.planeJetBody} flatShading metalness={0.45} roughness={0.5} />
           </mesh>
-          {/* Lèvre d'entrée (-Z). */}
-          <mesh position={[0, 0, -0.78]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <torusGeometry args={[r * 0.92, 0.07, 8, 20]} />
-            <meshStandardMaterial color={palette.planeMetal} flatShading metalness={0.7} roughness={0.3} />
+          {/* Lèvre d'entrée épaisse (-Z). */}
+          <mesh position={[0, 0, -0.74]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <torusGeometry args={[r * 0.94, 0.1, 10, 22]} />
+            <meshStandardMaterial color={palette.planeMetal} flatShading metalness={0.6} roughness={0.35} />
           </mesh>
-          {/* Soufflante (tourne avec le régime). */}
-          <SpinningProp z={-0.66} blades={14} bladeLen={r * 1.5} width={0.05} />
-          <Spinner z={-0.6} r={0.12} len={0.3} color={palette.planeExhaust} />
-          <mesh position={[0, 0, 0.8]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[r * 0.7, r * 0.5, 0.25, 18]} />
+          {/* Soufflante (tourne avec le régime) + grand spinner conique. */}
+          <SpinningProp z={-0.64} blades={18} bladeLen={r * 1.62} width={0.045} />
+          <Spinner z={-0.7} r={0.16} len={0.42} color={palette.planeMetal} />
+          {/* Tuyère + cône d'éjection central (plug). */}
+          <mesh position={[0, 0, 0.78]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[r * 0.62, r * 0.48, 0.3, 20]} />
             <meshStandardMaterial color={palette.planeExhaust} flatShading metalness={0.6} roughness={0.4} />
           </mesh>
-          <JetExhaust z={0.95} r={r * 0.6} />
+          <mesh position={[0, 0, 0.95]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <coneGeometry args={[r * 0.42, 0.55, 16]} />
+            <meshStandardMaterial color={palette.planeMetal} flatShading metalness={0.6} roughness={0.4} />
+          </mesh>
+          <JetExhaust z={0.85} r={r * 0.55} />
         </group>
       )
     }
     case 'afterburner': {
-      // Turboréacteur PC : nacelle fine + canne segmentée + tuyère + flamme.
-      const r = 0.42
+      // Turboréacteur militaire avec PC : corps fin et long, lèvre d'entrée fine,
+      // anneaux de chambre PC, tuyère à pétales variable, flamme.
+      const r = 0.4
       return (
         <group>
           <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[r, r, 1.5, 16]} />
+            <cylinderGeometry args={[r, r * 0.94, 1.7, 16]} />
             <meshStandardMaterial color={palette.planeJetBody} flatShading metalness={0.5} roughness={0.4} />
           </mesh>
-          <mesh position={[0, 0, -0.7]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <torusGeometry args={[r * 0.95, 0.05, 8, 18]} />
+          {/* Lèvre d'entrée fine (-Z). */}
+          <mesh position={[0, 0, -0.82]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <torusGeometry args={[r * 0.96, 0.05, 8, 18]} />
             <meshStandardMaterial color={palette.planeMetal} flatShading metalness={0.7} roughness={0.3} />
           </mesh>
-          {/* Canne de postcombustion segmentée. */}
-          {[0.78, 0.92].map((z) => (
+          {/* Anneaux de la chambre de postcombustion. */}
+          {[0.55, 0.72, 0.89].map((z) => (
             <mesh key={z} position={[0, 0, z]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-              <cylinderGeometry args={[r * 0.78, r * 0.62, 0.16, 16]} />
-              <meshStandardMaterial color={palette.planeExhaust} flatShading metalness={0.65} roughness={0.35} />
+              <torusGeometry args={[r * 0.92, 0.045, 8, 16]} />
+              <meshStandardMaterial color={palette.planeExhaust} flatShading metalness={0.65} roughness={0.4} />
             </mesh>
           ))}
+          {/* Tuyère à pétales (variable geometry). */}
+          <NozzlePetals z={1.0} r={r} />
           <JetExhaust z={1.05} r={r} flame="pc" />
         </group>
       )
