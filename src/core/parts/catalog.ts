@@ -317,14 +317,28 @@ const rocketEngine: EnginePart = {
 
 const landingGearMk1: LandingGearPart = {
   id: 'landingGear.mk1',
-  name: 'Train fixe Mk1',
+  name: 'Train fixe — Léger',
   category: 'landingGear',
   tier: 'T0',
   weight: 0.5, // 🟡
   cost: 30, // 🟡
   researchCost: 0,
   strength: 1.0, // 🟡 seuil de collapse provisoire
-  description: 'Train d’atterrissage fixe. Pas de freins (règle 3).',
+  retractable: false,
+  description: 'Train fixe, robuste court-terrain. Traîne (roues exposées). Pas de freins.',
+}
+
+const landingGearRetract: LandingGearPart = {
+  id: 'landingGear.retract',
+  name: 'Train rétractable',
+  category: 'landingGear',
+  tier: 'T3',
+  weight: 0.9, // 🟡 plus lourd (mécanisme)
+  cost: 110, // 🟡
+  researchCost: 32, // 🟡
+  strength: 1.2, // 🟡
+  retractable: true,
+  description: 'Se rentre en vol ⇒ traînée quasi nulle, mais plus lourd. (T3+)',
 }
 
 /** Toutes les pièces définies, dans l'ordre d'introduction. */
@@ -349,6 +363,7 @@ export const PARTS_LIST: readonly Part[] = [
   afterburnerEngine,
   rocketEngine,
   landingGearMk1,
+  landingGearRetract,
 ]
 
 /** Identifiants des pièces composant l'avion en dur du Jalon 1 (assemblé à l'étape 3). */

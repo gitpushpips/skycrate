@@ -133,6 +133,8 @@ export interface LandingGearPart extends BasePart {
   readonly category: 'landingGear'
   /** Seuil de robustesse / collapse (provisoire — non issu du dossier). */
   readonly strength: number
+  /** Rétractable (se rentre en vol ⇒ moins de traînée, plus lourd) vs fixe. */
+  readonly retractable: boolean
 }
 
 export type Part =

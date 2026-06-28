@@ -13,6 +13,7 @@ import { canAfford } from '../core/economy'
 import type { CompiledAircraft, WorldTf } from '../core/build/compile'
 import type { Aircraft, PartNode } from '../core/build/graph'
 import { useBuild } from '../store/build'
+import { useHud } from '../store/hud'
 
 /**
  * Couche interactive de l'éditeur. Sur le build affiché :
@@ -85,6 +86,7 @@ export function HangarEditor({
     if (!import.meta.env.DEV) return
     ;(window as unknown as Record<string, unknown>).__hangar = {
       store: useBuild,
+      hud: useHud,
       compiled: aircraft,
       project: (p: [number, number, number]) => {
         const v = new THREE.Vector3(p[0], p[1], p[2]).project(camera)

@@ -401,6 +401,14 @@ export const BLUEPRINTS: Record<string, PartBlueprint> = {
 
   'landingGear.mk1': {
     colliders: [{ half: [1.0, 0.12, 1.4], offset: [0, -1.15, 0] }],
+    // Roues/jambes exposées : un peu de traînée (face au vent + dessous).
+    dragPanels: [{ position: [0, -1.0, -0.3], normal: [0, 0, -1], area: 0.5 }],
+  },
+
+  // Train rétractable : même empreinte au sol, mais escamotable ⇒ pas de panneau
+  // de traînée permanent (rentré en vol par le visuel + faible traînée).
+  'landingGear.retract': {
+    colliders: [{ half: [1.0, 0.12, 1.4], offset: [0, -1.15, 0] }],
   },
 }
 

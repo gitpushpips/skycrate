@@ -15,6 +15,7 @@ import type { ControlKey } from '../core/physics/aerodynamics'
 import { palette } from './palette'
 import { useControlsRef } from './controlsContext'
 import { useThrottle } from '../store/throttle'
+import { useHud } from '../store/hud'
 
 /**
  * Rendu low-poly procédural de l'avion. Repère local : nez = -Z, haut = +Y.
@@ -697,15 +698,36 @@ function Strut({ position, height }: { position: [number, number, number]; heigh
   )
 }
 
-function LandingGearModel() {
+// Train : tricycle (2 jambes principales + roulette). Le rétractable se rentre
+// dans le ventre quand l'avion est en l'air (altitude HUD), avec des trappes.
+function LandingGearModel({ retractable }: { retractable?: boolean }) {
+  const ref = useRef<THREE.Group>(null)
+  const t = useRef(0)
+  useFrame((_, dt) => {
+    if (!ref.current || !retractable) return
+    const target = useHud.getState().altitude > 5 ? 1 : 0
+    t.current += (target - t.current) * Math.min(1, dt * 2.5)
+    ref.current.position.y = t.current * 1.18 // remonte les roues dans le ventre
+    ref.current.rotation.x = t.current * 0.5 // bascule vers l'arrière
+  })
   return (
     <group>
-      <Strut position={[1.05, -0.72, -0.3]} height={0.55} />
-      <Strut position={[-1.05, -0.72, -0.3]} height={0.55} />
-      <Wheel position={[1.05, -0.95, -0.3]} radius={0.34} />
-      <Wheel position={[-1.05, -0.95, -0.3]} radius={0.34} />
-      <Strut position={[0, -0.82, 2.0]} height={0.55} />
-      <Wheel position={[0, -1.09, 2.0]} radius={0.2} />
+      {/* Trappes de train (rétractable) — restent au ventre. */}
+      {retractable &&
+        ([1.05, -1.05] as const).map((x) => (
+          <mesh key={x} position={[x, -0.46, -0.3]} castShadow>
+            <boxGeometry args={[0.42, 0.04, 0.7]} />
+            <meshStandardMaterial color={palette.planeBody} flatShading />
+          </mesh>
+        ))}
+      <group ref={ref}>
+        <Strut position={[1.05, -0.72, -0.3]} height={0.55} />
+        <Strut position={[-1.05, -0.72, -0.3]} height={0.55} />
+        <Wheel position={[1.05, -0.95, -0.3]} radius={0.34} />
+        <Wheel position={[-1.05, -0.95, -0.3]} radius={0.34} />
+        <Strut position={[0, -0.82, 2.0]} height={0.55} />
+        <Wheel position={[0, -1.09, 2.0]} radius={0.2} />
+      </group>
     </group>
   )
 }
@@ -723,7 +745,7 @@ function PartModel({ part, mirrored }: { part: Part; mirrored?: boolean }) {
     case 'engine':
       return <EngineModel kind={part.kind} />
     case 'landingGear':
-      return <LandingGearModel />
+      return <LandingGearModel retractable={part.retractable} />
   }
 }
 

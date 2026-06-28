@@ -298,6 +298,9 @@ export function PlaneRig({ aircraft, tunables }: PlaneRigProps) {
     return () => window.removeEventListener('keydown', onReset)
   }, [fuelMax])
 
+  // Retour au hangar : remet l'altitude HUD à 0 ⇒ le train rétractable se ressort.
+  useEffect(() => () => useHud.setState({ altitude: 0 }), [])
+
   return (
     <>
       <RigidBody
