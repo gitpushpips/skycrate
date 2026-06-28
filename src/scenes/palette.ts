@@ -36,4 +36,11 @@ export const palette = {
   planeTire: '#222428',
   planeStrut: '#787e83',
   planeGlass: '#a9cfdd',
+  // Identité moteurs (par type)
+  planeMetal: '#9aa1a8', // alu / acier clair
+  planeBrass: '#b98a3e', // cuivre / laiton (radial, spinner ancien)
+  planeJetBody: '#4a5159', // nacelle réacteur
+  planeRocket: '#d8d2c4', // corps fusée clair
+  planeRocketTip: '#b23b2b', // ogive
+  planeExhaust: '#1c1d20', // tuyère sombre
 } as const
