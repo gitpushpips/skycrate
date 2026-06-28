@@ -113,7 +113,7 @@ const WING_SHAPES: Record<WingPlanform, WingShape> = {
 function useWingGeometry(s: WingShape): THREE.BufferGeometry {
   return useMemo(() => {
     const shape = new THREE.Shape(AIRFOIL.map(([x, y]) => new THREE.Vector2(x, y)))
-    const geo = new THREE.ExtrudeGeometry(shape, { depth: 1, steps: 1, bevelEnabled: false })
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: 1, steps: 1, bevelEnabled: false }).toNonIndexed()
     const pos = geo.attributes.position
     const v = new THREE.Vector3()
     for (let i = 0; i < pos.count; i++) {
@@ -126,6 +126,17 @@ function useWingGeometry(s: WingShape): THREE.BufferGeometry {
         v.y * chord * s.thickMul, // épaisseur → Y (∝ corde)
         (v.x - 0.25) * chord + s.sweep * f, // corde → Z (BA -Z, quart-avant au centre) + flèche
       )
+    }
+    // Le swap corde↔envergure ci-dessus reflète la géométrie (det −1) ⇒ on inverse
+    // l'ordre des sommets de chaque triangle pour rétablir des faces sortantes
+    // (sinon l'extrados, culé en backface, disparaît).
+    const a = pos.array as Float32Array
+    for (let i = 0; i < a.length; i += 9) {
+      for (let k = 0; k < 3; k++) {
+        const t = a[i + 3 + k]
+        a[i + 3 + k] = a[i + 6 + k]
+        a[i + 6 + k] = t
+      }
     }
     pos.needsUpdate = true
     geo.computeVertexNormals()
@@ -147,13 +158,14 @@ function WingModel({ part, mirrored }: { part: WingPart; mirrored?: boolean }) {
   return (
     <group>
       <mesh geometry={geo} castShadow receiveShadow>
-        <meshStandardMaterial color={palette.planeWing} roughness={0.7} metalness={0.05} />
+        <meshStandardMaterial color={palette.planeWing} roughness={0.72} metalness={0.04} />
       </mesh>
+      {/* Aileron/élevon : fine surface affleurante au bord de fuite (épaisseur ≈ BF). */}
       <ControlFlap
         controlKey={aileron}
         axis="x"
         hinge={[fc * s.span, 0, teZ - flapChord]}
-        size={[0.34 * s.span, 0.04 * chordF + 0.05, flapChord]}
+        size={[0.32 * s.span, 0.035, flapChord]}
       />
     </group>
   )
@@ -233,9 +245,13 @@ function JetExhaust({ z, r, flame: mode }: { z: number; r: number; flame?: 'pc' 
     const t = state.clock.elapsedTime
     const flick = 0.85 + Math.sin(t * 45) * 0.1 + Math.sin(t * 17) * 0.05
     if (glow.current) {
-      const s = (0.5 + level * 0.9) * flick
-      glow.current.scale.set(s, s, s)
-      ;(glow.current.material as THREE.MeshBasicMaterial).opacity = 0.25 + level * 0.4
+      const on = level > 0.03 // pas de lueur à l'arrêt
+      glow.current.visible = on
+      if (on) {
+        const s = (0.6 + level * 0.7) * flick
+        glow.current.scale.set(s, s, s)
+        ;(glow.current.material as THREE.MeshBasicMaterial).opacity = level * 0.5
+      }
     }
     if (flame.current && flameMat.current) {
       const on = mode === 'pc' ? boost && level > 0.05 : mode === 'always' ? level > 0.2 : false
@@ -277,29 +293,6 @@ function Spinner({ z, r, len, color }: { z: number; r: number; len: number; colo
       <coneGeometry args={[r, len, 12]} />
       <meshStandardMaterial color={color} flatShading metalness={0.5} roughness={0.4} />
     </mesh>
-  )
-}
-
-// Tuyère à pétales (« plumes de dinde ») d'un réacteur militaire : couronne de
-// volets axiaux légèrement convergents (look variable géométrie).
-function NozzlePetals({ z, r }: { z: number; r: number }) {
-  return (
-    <group position={[0, 0, z]}>
-      {Array.from({ length: 12 }).map((_, i) => {
-        const a = (i / 12) * Math.PI * 2
-        return (
-          <mesh
-            key={i}
-            position={[Math.cos(a) * r * 0.82, Math.sin(a) * r * 0.82, 0]}
-            rotation={[0.18, 0, a]}
-            castShadow
-          >
-            <boxGeometry args={[r * 0.42, 0.05, 0.34]} />
-            <meshStandardMaterial color={palette.planeMetal} flatShading metalness={0.7} roughness={0.35} />
-          </mesh>
-        )
-      })}
-    </group>
   )
 }
 
@@ -370,61 +363,85 @@ function EngineModel({ kind }: { kind: EngineKind }) {
       )
     }
     case 'turbofan': {
-      // Turbofan haut taux de dilution : nacelle large et courte, grosse lèvre
-      // d'entrée, soufflante + spinner bien visibles, cône d'éjection central.
+      // Turbofan haut taux de dilution : conduit OUVERT (soufflante visible dans
+      // l'entrée), lèvre annulaire, cône central d'éjection (plug). Pas de flamme.
       const r = 0.58
       return (
         <group>
           <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[r, r * 0.78, 1.45, 20]} />
-            <meshStandardMaterial color={palette.planeJetBody} flatShading metalness={0.45} roughness={0.5} />
+            <cylinderGeometry args={[r, r * 0.8, 1.45, 22, 1, true]} />
+            <meshStandardMaterial
+              color={palette.planeJetBody}
+              flatShading
+              metalness={0.45}
+              roughness={0.5}
+              side={THREE.DoubleSide}
+            />
           </mesh>
-          {/* Lèvre d'entrée épaisse (-Z). */}
-          <mesh position={[0, 0, -0.74]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <torusGeometry args={[r * 0.94, 0.1, 10, 22]} />
+          {/* Lèvre d'entrée = anneau autour de l'axe (torus par défaut, trou sur Z). */}
+          <mesh position={[0, 0, -0.72]} castShadow>
+            <torusGeometry args={[r * 0.93, 0.09, 12, 26]} />
             <meshStandardMaterial color={palette.planeMetal} flatShading metalness={0.6} roughness={0.35} />
           </mesh>
-          {/* Soufflante (tourne avec le régime) + grand spinner conique. */}
-          <SpinningProp z={-0.64} blades={18} bladeLen={r * 1.62} width={0.045} />
-          <Spinner z={-0.7} r={0.16} len={0.42} color={palette.planeMetal} />
-          {/* Tuyère + cône d'éjection central (plug). */}
-          <mesh position={[0, 0, 0.78]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[r * 0.62, r * 0.48, 0.3, 20]} />
-            <meshStandardMaterial color={palette.planeExhaust} flatShading metalness={0.6} roughness={0.4} />
+          {/* Disque sombre = fond moteur (cache l'intérieur du conduit). */}
+          <mesh position={[0, 0, -0.48]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[r * 0.84, r * 0.84, 0.05, 22]} />
+            <meshStandardMaterial color="#15171c" flatShading roughness={0.75} />
           </mesh>
-          <mesh position={[0, 0, 0.95]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <coneGeometry args={[r * 0.42, 0.55, 16]} />
-            <meshStandardMaterial color={palette.planeMetal} flatShading metalness={0.6} roughness={0.4} />
+          {/* Soufflante visible dans l'entrée (tourne avec le régime) + spinner. */}
+          <SpinningProp z={-0.58} blades={20} bladeLen={r * 1.66} width={0.05} />
+          <Spinner z={-0.68} r={0.15} len={0.34} color={palette.planeMetal} />
+          {/* Tuyère froide + cône central (plug). */}
+          <mesh position={[0, 0, 0.82]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[r * 0.6, r * 0.46, 0.3, 22]} />
+            <meshStandardMaterial color={palette.planeExhaust} flatShading metalness={0.55} roughness={0.45} />
           </mesh>
-          <JetExhaust z={0.85} r={r * 0.55} />
+          <mesh position={[0, 0, 1.0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <coneGeometry args={[r * 0.4, 0.5, 18]} />
+            <meshStandardMaterial color={palette.planeMetal} flatShading metalness={0.55} roughness={0.45} />
+          </mesh>
         </group>
       )
     }
     case 'afterburner': {
-      // Turboréacteur militaire avec PC : corps fin et long, lèvre d'entrée fine,
-      // anneaux de chambre PC, tuyère à pétales variable, flamme.
+      // Turboréacteur militaire avec PC : corps fin et long, lèvre annulaire,
+      // anneaux de chambre PC, tuyère convergente à facettes (pétales), flamme.
       const r = 0.4
       return (
         <group>
           <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[r, r * 0.94, 1.7, 16]} />
+            <cylinderGeometry args={[r, r * 0.96, 1.7, 18]} />
             <meshStandardMaterial color={palette.planeJetBody} flatShading metalness={0.5} roughness={0.4} />
           </mesh>
-          {/* Lèvre d'entrée fine (-Z). */}
-          <mesh position={[0, 0, -0.82]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <torusGeometry args={[r * 0.96, 0.05, 8, 18]} />
+          {/* Lèvre d'entrée (anneau autour de l'axe). */}
+          <mesh position={[0, 0, -0.84]} castShadow>
+            <torusGeometry args={[r * 0.95, 0.05, 8, 20]} />
             <meshStandardMaterial color={palette.planeMetal} flatShading metalness={0.7} roughness={0.3} />
           </mesh>
-          {/* Anneaux de la chambre de postcombustion. */}
-          {[0.55, 0.72, 0.89].map((z) => (
-            <mesh key={z} position={[0, 0, z]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-              <torusGeometry args={[r * 0.92, 0.045, 8, 16]} />
-              <meshStandardMaterial color={palette.planeExhaust} flatShading metalness={0.65} roughness={0.4} />
+          {/* Compresseur sombre au fond de l'entrée. */}
+          <mesh position={[0, 0, -0.78]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[r * 0.82, r * 0.82, 0.05, 16]} />
+            <meshStandardMaterial color="#15171c" flatShading roughness={0.7} />
+          </mesh>
+          {/* Anneaux de chambre PC autour du corps (torus par défaut). */}
+          {[0.4, 0.6, 0.8].map((z) => (
+            <mesh key={z} position={[0, 0, z]} castShadow>
+              <torusGeometry args={[r * 1.0, 0.035, 8, 18]} />
+              <meshStandardMaterial color={palette.planeExhaust} flatShading metalness={0.6} roughness={0.4} />
             </mesh>
           ))}
-          {/* Tuyère à pétales (variable geometry). */}
-          <NozzlePetals z={1.0} r={r} />
-          <JetExhaust z={1.05} r={r} flame="pc" />
+          {/* Tuyère convergente à facettes (look pétales / géométrie variable). */}
+          <mesh position={[0, 0, 0.99]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[r * 0.55, r * 0.92, 0.36, 11, 1, true]} />
+            <meshStandardMaterial
+              color={palette.planeMetal}
+              flatShading
+              metalness={0.7}
+              roughness={0.35}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+          <JetExhaust z={1.2} r={r * 0.62} flame="pc" />
         </group>
       )
     }
