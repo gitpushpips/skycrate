@@ -58,6 +58,7 @@ export interface CompiledAircraft {
   engines: EngineInstance[]
   mounts: CompiledMount[] // points d'accroche (éditeur)
   transforms: Map<string, WorldTf> // repère avion par nœud (gizmo/miroir)
+  centerOfMass: [number, number, number] // CG (repère avion) — indicateur hangar
   referenceForward: THREE.Vector3 // moteur principal
   stats: AssemblyStats
 }
@@ -259,6 +260,16 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
     }
   }
 
+  // Centre de gravité = barycentre des colliders pondéré par leur masse (= ce que
+  // Rapier calcule pour le corps composé). Sert d'indicateur dans le hangar.
+  const com = new THREE.Vector3()
+  let comMass = 0
+  for (const c of colliders) {
+    com.addScaledVector(_v.set(c.position[0], c.position[1], c.position[2]), c.mass)
+    comMass += c.mass
+  }
+  if (comMass > 0) com.multiplyScalar(1 / comMass)
+
   const stats = aggregateStats({ id: aircraft.id, name: aircraft.name, parts: placed })
   return {
     placed,
@@ -268,6 +279,7 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
     engines,
     mounts,
     transforms: wt,
+    centerOfMass: [com.x, com.y, com.z],
     referenceForward: referenceForward ?? new THREE.Vector3(0, 0, -1),
     stats,
   }

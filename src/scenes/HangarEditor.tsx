@@ -206,6 +206,19 @@ export function HangarEditor({
     <group>
       <Plane assembly={assembly} />
 
+      {/* Centre de gravité (toujours visible, façon Aviassembly) : place tes pièces
+          pour le garder près du centre de portance des ailes. */}
+      <group position={aircraft.centerOfMass}>
+        <mesh raycast={() => null}>
+          <sphereGeometry args={[0.16, 18, 14]} />
+          <meshBasicMaterial color="#ffce3a" depthTest={false} transparent opacity={0.96} />
+        </mesh>
+        <mesh raycast={() => null} scale={1.04}>
+          <sphereGeometry args={[0.16, 10, 8]} />
+          <meshBasicMaterial color="#241a06" wireframe depthTest={false} transparent opacity={0.9} />
+        </mesh>
+      </group>
+
       {/* Fantôme de pose (snap sur la surface survolée). */}
       {ghostPlaced && <GhostPlane placed={ghostPlaced} />}
 

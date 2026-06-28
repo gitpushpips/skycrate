@@ -7,6 +7,7 @@ import type { PlaneAssembly, PlacedPart } from '../core/assembly'
 import type { ControlKey } from '../core/physics/aerodynamics'
 import { palette } from './palette'
 import { useControlsRef } from './controlsContext'
+import { useThrottle } from '../store/throttle'
 
 /**
  * Rendu low-poly procédural de l'avion. Repère local : nez = -Z, haut = +Y.
@@ -153,35 +154,110 @@ function VerticalFinModel() {
   )
 }
 
-// Silhouette par type : hélice (cowl + pales à l'avant -Z) pour piston/turboprop,
-// nacelle + tuyère arrière (+Z) pour les jets/fusée (lueur d'échappement à chaud).
+// Hélice qui tourne autour de l'axe de poussée (Z) selon le régime moteur courant
+// (jauge hangar ou throttle en vol). `bladeLen`/`blades`/`width` = identité visuelle.
+function SpinningProp({
+  z,
+  blades,
+  bladeLen,
+  width = 0.13,
+}: {
+  z: number
+  blades: number
+  bladeLen: number
+  width?: number
+}) {
+  const ref = useRef<THREE.Group>(null)
+  useFrame((_, dt) => {
+    if (!ref.current) return
+    const level = useThrottle.getState().level
+    ref.current.rotation.z += dt * level * 72 // immobile au repos → flou rapide à fond
+  })
+  const bars = Math.max(1, Math.round(blades / 2))
+  return (
+    <group ref={ref} position={[0, 0, z]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.13, 0.16, 0.22, 10]} />
+        <meshStandardMaterial color={palette.planeHub} flatShading metalness={0.4} roughness={0.5} />
+      </mesh>
+      {Array.from({ length: bars }).map((_, i) => (
+        <mesh key={i} rotation={[0, 0, (i / bars) * Math.PI]} castShadow>
+          <boxGeometry args={[width, bladeLen, 0.05]} />
+          <meshStandardMaterial color={palette.planeProp} flatShading />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+// Échappement réacteur : lueur qui s'intensifie avec le régime + flamme de
+// postcombustion (cône qui s'allonge et scintille quand le boost est actif).
+function JetExhaust({ z, r, afterburner }: { z: number; r: number; afterburner: boolean }) {
+  const glow = useRef<THREE.Mesh>(null)
+  const flame = useRef<THREE.Mesh>(null)
+  const flameMat = useRef<THREE.MeshBasicMaterial>(null)
+  useFrame((state) => {
+    const { level, boost } = useThrottle.getState()
+    const t = state.clock.elapsedTime
+    const flick = 0.85 + Math.sin(t * 45) * 0.1 + Math.sin(t * 17) * 0.05
+    if (glow.current) {
+      const s = (0.5 + level * 0.9) * flick
+      glow.current.scale.set(s, s, s)
+      ;(glow.current.material as THREE.MeshBasicMaterial).opacity = 0.25 + level * 0.4
+    }
+    if (flame.current && flameMat.current) {
+      const on = afterburner && boost && level > 0.05
+      flame.current.visible = on
+      if (on) {
+        // La hauteur du cône est son axe local Y (→ Z après rotation) ⇒ on
+        // allonge Y ; X/Z = rayon de la flamme.
+        flame.current.scale.set(r * 0.9, (1.6 + level * 2.2) * flick, r * 0.9)
+        flameMat.current.opacity = 0.55 + 0.25 * flick
+      }
+    }
+  })
+  return (
+    <group position={[0, 0, z]}>
+      <mesh ref={glow}>
+        <sphereGeometry args={[r * 0.5, 12, 12]} />
+        <meshBasicMaterial color="#ff7a3a" transparent opacity={0.3} depthWrite={false} />
+      </mesh>
+      {/* Flamme de PC : cône pointant vers l'arrière (+Z), longueur ∝ régime. */}
+      <mesh ref={flame} position={[0, 0, 0.5]} rotation={[Math.PI / 2, 0, 0]} visible={false}>
+        <coneGeometry args={[1, 1, 14, 1, true]} />
+        <meshBasicMaterial
+          ref={flameMat}
+          color="#ffb24a"
+          transparent
+          opacity={0.7}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
+  )
+}
+
+// Silhouette par type : hélice (cowl + pales animées à l'avant -Z) pour
+// piston/turboprop, nacelle + tuyère + échappement animé pour jets/fusée.
 function EngineModel({ kind }: { kind: EngineKind }) {
   const prop = kind === 'wood' || kind === 'propeller' || kind === 'turboprop' || kind === 'electric'
   if (prop) {
-    const blades = kind === 'turboprop' ? 4 : 2
-    const len = kind === 'turboprop' ? 1.1 : 0.7
-    const r = kind === 'turboprop' ? 0.42 : 0.52
+    const turbo = kind === 'turboprop'
+    const len = turbo ? 1.1 : 0.7
+    const r = turbo ? 0.42 : 0.52
     return (
       <group>
         <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-          <cylinderGeometry args={[r * 0.9, r, len, 14]} />
+          <cylinderGeometry args={[r * 0.9, r, len, turbo ? 16 : 9]} />
           <meshStandardMaterial color={palette.planeCowl} flatShading metalness={0.3} roughness={0.6} />
         </mesh>
-        <mesh position={[0, 0, -len / 2 - 0.06]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-          <cylinderGeometry args={[0.15, 0.15, 0.2, 8]} />
-          <meshStandardMaterial color={palette.planeHub} flatShading />
-        </mesh>
-        {Array.from({ length: blades }).map((_, i) => (
-          <mesh
-            key={i}
-            position={[0, 0, -len / 2 - 0.12]}
-            rotation={[0, 0, (i / blades) * Math.PI]}
-            castShadow
-          >
-            <boxGeometry args={[0.13, 2.1, 0.05]} />
-            <meshStandardMaterial color={palette.planeProp} flatShading />
-          </mesh>
-        ))}
+        <SpinningProp
+          z={-len / 2 - 0.12}
+          blades={turbo ? 4 : 2}
+          bladeLen={turbo ? 1.7 : 2.1}
+          width={turbo ? 0.1 : 0.13}
+        />
       </group>
     )
   }
@@ -199,12 +275,7 @@ function EngineModel({ kind }: { kind: EngineKind }) {
         <cylinderGeometry args={[r * 0.85, r * 0.6, 0.25, 16]} />
         <meshStandardMaterial color={palette.planeHub} flatShading metalness={0.6} roughness={0.4} />
       </mesh>
-      {hot && (
-        <mesh position={[0, 0, len / 2 + 0.25]}>
-          <sphereGeometry args={[r * 0.45, 12, 12]} />
-          <meshBasicMaterial color="#ff7a3a" transparent opacity={0.55} />
-        </mesh>
-      )}
+      <JetExhaust z={len / 2 + 0.2} r={r} afterburner={hot} />
     </group>
   )
 }

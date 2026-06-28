@@ -7,6 +7,7 @@ import { Plane } from './Plane'
 import { DetachedWing } from './DetachedWing'
 import { ControlsContext } from './controlsContext'
 import { useHud } from '../store/hud'
+import { useThrottle } from '../store/throttle'
 import type { PlaneAssembly } from '../core/assembly'
 import { computeSurfaceForce, computePanelDrag, makeSurfaceResult } from '../core/physics/aerodynamics'
 import type { Deflections } from '../core/physics/aerodynamics'
@@ -190,6 +191,8 @@ export function PlaneRig({ aircraft, tunables }: PlaneRigProps) {
       _ePoint.copy(eng.point).applyQuaternion(_Q).add(_P)
       rb.addForceAtPoint(_thrust, _ePoint, true)
     }
+    // Régime moteur courant → animation hélices/flammes (store partagé).
+    useThrottle.setState({ level: Math.abs(effThrottle), boost: boostThrust })
 
     // Capture l'inclinaison tant qu'on roule ; figée au lâché ⇒ cible du maintien
     // (clampée dans la borne pour éviter tout conflit hold ↔ borne).
