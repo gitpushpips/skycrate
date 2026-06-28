@@ -90,46 +90,65 @@ const AIRFOIL: ReadonlyArray<readonly [number, number]> = [
   [0.025, -0.006],
 ]
 
-// Caractère de chaque planforme (repère pièce : racine x=0 → +X, corde le long
-// de Z avec BA en -Z, sweep = décalage du bout vers l'arrière, thickMul = épaisseur).
+// Caractère de chaque planforme, calé sur de vrais avions (silhouettes maison).
+// Repère pièce : racine x=0 → +X, corde le long de Z (BA en -Z), sweep = décalage
+// du bout vers l'arrière, dihedral = dièdre (rad), tipRound = arrondi de saumon.
 interface WingShape {
   span: number
   rootChord: number
   tipChord: number
   sweep: number
   thickMul: number
+  dihedral: number
+  tipRound: number // 0 = bout droit/pointu (delta) … 1 = saumon arrondi (GA/warbird)
 }
 const WING_SHAPES: Record<WingPlanform, WingShape> = {
-  straight: { span: 3.4, rootChord: 1.05, tipChord: 0.95, sweep: 0.05, thickMul: 1.4 },
-  tapered: { span: 3.6, rootChord: 1.35, tipChord: 0.72, sweep: 0.22, thickMul: 1.0 },
-  laminar: { span: 3.8, rootChord: 1.25, tipChord: 0.6, sweep: 0.14, thickMul: 0.78 },
-  swept: { span: 4.5, rootChord: 1.6, tipChord: 0.72, sweep: 1.25, thickMul: 0.72 },
-  delta: { span: 3.5, rootChord: 2.6, tipChord: 0.22, sweep: 2.0, thickMul: 0.6 },
-  biplane: { span: 3.4, rootChord: 1.05, tipChord: 0.95, sweep: 0.05, thickMul: 1.4 },
+  // Biplan toile & bois (WWI) : corde épaisse quasi constante, léger dièdre, bout arrondi.
+  straight: { span: 3.4, rootChord: 1.12, tipChord: 0.98, sweep: 0.04, thickMul: 1.45, dihedral: 0.03, tipRound: 0.85 },
+  // GA brousse (Cessna) : effilée, bon dièdre, saumon bien arrondi.
+  tapered: { span: 3.8, rootChord: 1.34, tipChord: 0.7, sweep: 0.16, thickMul: 0.95, dihedral: 0.075, tipRound: 1.0 },
+  // Warbird laminaire (P-51) : fine, effilée, saumons arrondis, peu de flèche.
+  laminar: { span: 3.95, rootChord: 1.3, tipChord: 0.52, sweep: 0.18, thickMul: 0.7, dihedral: 0.06, tipRound: 1.0 },
+  // Jet de ligne (737) : flèche marquée, effilée, fin saumon (winglet ajouté).
+  swept: { span: 4.7, rootChord: 1.62, tipChord: 0.56, sweep: 1.4, thickMul: 0.68, dihedral: 0.085, tipRound: 0.25 },
+  // Chasseur delta : grande corde de racine → bout pointu, forte flèche, très fine.
+  delta: { span: 3.6, rootChord: 2.75, tipChord: 0.14, sweep: 2.2, thickMul: 0.52, dihedral: -0.015, tipRound: 0 },
+  biplane: { span: 3.4, rootChord: 1.12, tipChord: 0.98, sweep: 0.04, thickMul: 1.45, dihedral: 0.03, tipRound: 0.85 },
 }
 
-/** Aile « loftée » : extrusion du profil le long de l'envergure, puis effilement +
- *  flèche par déformation des sommets (root z=0 → tip z=1). ⇒ vrai profil d'aile. */
+/** Corde locale (effilement linéaire + arrondi elliptique du saumon). */
+function chordAt(s: WingShape, f: number): number {
+  const base = s.rootChord + (s.tipChord - s.rootChord) * f
+  if (s.tipRound <= 0) return base
+  const start = 0.8
+  if (f <= start) return base
+  const u = (f - start) / (1 - start)
+  const round = Math.sqrt(Math.max(0, 1 - u * u))
+  return base * (1 - s.tipRound + s.tipRound * round)
+}
+const dihedralAt = (s: WingShape, f: number) => Math.tan(s.dihedral) * f * s.span
+
+/** Aile « loftée » : profil extrudé puis sculpté le long de l'envergure (corde,
+ *  flèche, dièdre, saumon) ⇒ planforme fidèle avec un vrai volume de profil. */
 function useWingGeometry(s: WingShape): THREE.BufferGeometry {
   return useMemo(() => {
     const shape = new THREE.Shape(AIRFOIL.map(([x, y]) => new THREE.Vector2(x, y)))
-    const geo = new THREE.ExtrudeGeometry(shape, { depth: 1, steps: 1, bevelEnabled: false }).toNonIndexed()
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: 1, steps: 14, bevelEnabled: false }).toNonIndexed()
     const pos = geo.attributes.position
     const v = new THREE.Vector3()
     for (let i = 0; i < pos.count; i++) {
       v.fromBufferAttribute(pos, i)
       const f = v.z // fraction d'envergure (0 emplanture, 1 bout)
-      const chord = s.rootChord + (s.tipChord - s.rootChord) * f
+      const chord = chordAt(s, f)
       pos.setXYZ(
         i,
         f * s.span, // envergure → X
-        v.y * chord * s.thickMul, // épaisseur → Y (∝ corde)
-        (v.x - 0.25) * chord + s.sweep * f, // corde → Z (BA -Z, quart-avant au centre) + flèche
+        v.y * chord * s.thickMul + dihedralAt(s, f), // épaisseur (∝ corde) + dièdre
+        (v.x - 0.25) * chord + s.sweep * f, // corde → Z (BA -Z) + flèche
       )
     }
-    // Le swap corde↔envergure ci-dessus reflète la géométrie (det −1) ⇒ on inverse
-    // l'ordre des sommets de chaque triangle pour rétablir des faces sortantes
-    // (sinon l'extrados, culé en backface, disparaît).
+    // Le swap corde↔envergure reflète la géométrie (det −1) ⇒ on réinverse le
+    // winding pour des faces sortantes (sinon l'extrados disparaît en backface).
     const a = pos.array as Float32Array
     for (let i = 0; i < a.length; i += 9) {
       for (let k = 0; k < 3; k++) {
@@ -144,29 +163,83 @@ function useWingGeometry(s: WingShape): THREE.BufferGeometry {
   }, [s])
 }
 
-// Demi-aile : profil loft + aileron/élevon animé au bord de fuite extérieur.
+// Feu de navigation au saumon : vert (tribord/droite) · rouge (bâbord/gauche=miroir).
+function WingNavLight({ s, mirrored }: { s: WingShape; mirrored?: boolean }) {
+  const c = mirrored ? '#ef3b3b' : '#3be25a'
+  return (
+    <mesh position={[s.span + 0.02, dihedralAt(s, 1), s.sweep + 0.18 * chordAt(s, 0.98)]}>
+      <sphereGeometry args={[0.055, 8, 8]} />
+      <meshStandardMaterial color={c} emissive={c} emissiveIntensity={0.9} toneMapped={false} />
+    </mesh>
+  )
+}
+
+// Nervures de l'aile entoilée (look toile & bois) : fines arêtes chordwise.
+function WingRibs({ s }: { s: WingShape }) {
+  const ribs = 6
+  return (
+    <>
+      {Array.from({ length: ribs }).map((_, i) => {
+        const f = (i + 0.55) / ribs
+        const chord = chordAt(s, f)
+        const y = dihedralAt(s, f) + chord * 0.078 * s.thickMul
+        return (
+          <mesh key={i} position={[f * s.span, y, s.sweep * f + 0.22 * chord]} castShadow>
+            <boxGeometry args={[0.028, 0.022, chord * 0.82]} />
+            <meshStandardMaterial color={palette.planeWing} roughness={0.85} />
+          </mesh>
+        )
+      })}
+    </>
+  )
+}
+
+// Winglet de jet de ligne : ailette verticale au saumon, cantée vers l'extérieur.
+function Winglet({ s }: { s: WingShape }) {
+  const tipChord = chordAt(s, 0.92)
+  return (
+    <mesh
+      position={[s.span - 0.02, dihedralAt(s, 1) + 0.22, s.sweep + 0.12 * tipChord]}
+      rotation={[0, 0, -0.32]}
+      castShadow
+    >
+      <boxGeometry args={[0.05, 0.5, tipChord * 0.62]} />
+      <meshStandardMaterial color={palette.planeWing} roughness={0.5} metalness={0.12} />
+    </mesh>
+  )
+}
+
+// Demi-aile : profil loft fidèle + aileron/élevon animé + détails par planforme.
 // Le miroir applique scale.x=-1 ; la gouverne suit la clé du côté.
 function WingModel({ part, mirrored }: { part: WingPart; mirrored?: boolean }) {
   const s = WING_SHAPES[part.planform]
   const geo = useWingGeometry(s)
   const aileron: ControlKey = mirrored ? 'aileronL' : 'aileronR'
-  // Gouverne : bande au bord de fuite, moitié extérieure (~72 % d'envergure).
-  const fc = 0.72
-  const chordF = s.rootChord + (s.tipChord - s.rootChord) * fc
-  const flapChord = (part.planform === 'delta' ? 0.22 : 0.32) * chordF
-  const teZ = (1 - 0.25) * chordF + s.sweep * fc // bord de fuite à la station fc
+  const ribbed = part.planform === 'straight' || part.planform === 'biplane'
+  const laminar = part.planform === 'laminar'
+  // Gouverne : bande au bord de fuite, ~70 % d'envergure (suit dièdre/flèche).
+  const fc = 0.7
+  const chordF = chordAt(s, fc)
+  const flapChord = (part.planform === 'delta' ? 0.22 : 0.3) * chordF
+  const teZ = (1 - 0.25) * chordF + s.sweep * fc
   return (
     <group>
       <mesh geometry={geo} castShadow receiveShadow>
-        <meshStandardMaterial color={palette.planeWing} roughness={0.72} metalness={0.04} />
+        <meshStandardMaterial
+          color={palette.planeWing}
+          roughness={laminar ? 0.4 : 0.72}
+          metalness={laminar ? 0.28 : 0.04}
+        />
       </mesh>
-      {/* Aileron/élevon : fine surface affleurante au bord de fuite (épaisseur ≈ BF). */}
       <ControlFlap
         controlKey={aileron}
         axis="x"
-        hinge={[fc * s.span, 0, teZ - flapChord]}
-        size={[0.32 * s.span, 0.035, flapChord]}
+        hinge={[fc * s.span, dihedralAt(s, fc), teZ - flapChord]}
+        size={[0.3 * s.span, 0.035, flapChord]}
       />
+      {ribbed && <WingRibs s={s} />}
+      {part.planform === 'swept' && <Winglet s={s} />}
+      <WingNavLight s={s} mirrored={mirrored} />
     </group>
   )
 }
