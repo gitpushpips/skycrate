@@ -14,21 +14,17 @@ function useScatter() {
     const trees: Tree[] = []
     let guard = 0
     while (trees.length < TREE_COUNT && guard++ < TREE_COUNT * 30) {
-      const x = (rng() - 0.5) * 460
-      const z = (rng() - 0.5) * 460
+      const x = (rng() - 0.5) * 300
+      const z = (rng() - 0.5) * 300
       const r = Math.hypot(x, z)
-      // Garder dégagés : couloir de piste (nord-sud) + premier plan, et rester dans une couronne.
-      if (Math.abs(x) < 26 && Math.abs(z) < 120) continue
-      if (r < 34 || r > 240) continue
+      // Garder dégagés : couloir de piste (nord-sud) + premier plan ; rester sur
+      // le plateau de l'île de départ (rayon 150).
+      if (Math.abs(x) < 26 && Math.abs(z) < 110) continue
+      if (r < 34 || r > 140) continue
       trees.push({ x, z, s: 0.7 + rng() * 1.2, rot: rng() * Math.PI * 2, tint: rng() })
     }
 
-    const hills: Hill[] = Array.from({ length: 7 }, (_, i) => {
-      const a = (i / 7) * Math.PI * 2 + rng() * 0.5
-      const r = 210 + rng() * 90
-      return { x: Math.cos(a) * r, z: Math.sin(a) * r, s: 26 + rng() * 22, rot: rng() * Math.PI }
-    })
-
+    const hills: Hill[] = []
     return { trees, hills }
   }, [])
 }

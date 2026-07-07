@@ -65,9 +65,11 @@ const BACK_Z = new THREE.Vector3(0, 0, -1)
 interface PlaneRigProps {
   aircraft: CompiledAircraft
   tunables: FlightTunables
+  /** Point de spawn (sol) ; l'avion est posé à `spawn.y + REST_Y`. */
+  spawn?: [number, number, number]
 }
 
-export function PlaneRig({ aircraft, tunables }: PlaneRigProps) {
+export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProps) {
   const { stats, referenceForward, surfaces, dragPanels, colliders, engines } = aircraft
   const camAlign = useMemo(
     () => new THREE.Quaternion().setFromUnitVectors(BACK_Z, referenceForward),
@@ -285,7 +287,7 @@ export function PlaneRig({ aircraft, tunables }: PlaneRigProps) {
       if (e.code !== 'KeyR') return
       const rb = body.current
       if (!rb) return
-      rb.setTranslation({ x: 0, y: REST_Y, z: 0 }, true)
+      rb.setTranslation({ x: spawn[0], y: spawn[1] + REST_Y, z: spawn[2] }, true)
       rb.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true)
       rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
       rb.setAngvel({ x: 0, y: 0, z: 0 }, true)
@@ -296,7 +298,7 @@ export function PlaneRig({ aircraft, tunables }: PlaneRigProps) {
     }
     window.addEventListener('keydown', onReset)
     return () => window.removeEventListener('keydown', onReset)
-  }, [fuelMax])
+  }, [fuelMax, spawn])
 
   // Retour au hangar : remet l'altitude HUD à 0 ⇒ le train rétractable se ressort.
   useEffect(() => () => useHud.setState({ altitude: 0 }), [])
@@ -306,7 +308,7 @@ export function PlaneRig({ aircraft, tunables }: PlaneRigProps) {
       <RigidBody
         ref={body}
         colliders={false}
-        position={[0, REST_Y, 0]}
+        position={[spawn[0], spawn[1] + REST_Y, spawn[2]]}
       linearDamping={tunables.linearDamping}
       angularDamping={tunables.angularDamping}
       canSleep={false}

@@ -18,6 +18,16 @@ export const palette = {
   runway: '#9aa0a3',
   runwayLine: '#ece6d4',
 
+  // Monde ouvert : océan + biomes des îles (herbe/neige/désert) + falaises.
+  ocean: '#2c6a93',
+  oceanFoam: '#bfe3ef',
+  biomeGreen: '#86b14b',
+  biomeGreenCliff: '#6d5a3b',
+  biomeSnow: '#e9eef3',
+  biomeSnowCliff: '#9fb0bd',
+  biomeDesert: '#d8bf85',
+  biomeDesertCliff: '#a98a55',
+
   // Végétation
   treeTrunk: '#6b4a2f',
   treeFoliage: '#5e8f3e',
