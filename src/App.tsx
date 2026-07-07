@@ -36,7 +36,9 @@ export default function App() {
 
   return (
     <>
-      <Leva collapsed />
+      {/* Panneau de réglage dev : masqué en prod (le jeu tourne sur les valeurs
+          par défaut des useControls). Visible en dev pour calibrer. */}
+      <Leva collapsed hidden={import.meta.env.PROD} />
       <Canvas
         frameloop="always"
         shadows="variance"

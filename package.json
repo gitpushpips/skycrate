@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Skycrate — 3D plane-building & cargo-flight game (Aviassembly-inspired mechanics, non-commercial, own assets).",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
