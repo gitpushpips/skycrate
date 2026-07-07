@@ -36,6 +36,9 @@ export interface TerrainParams {
   shoreFalloff: number
   /** Irrégularité du littoral (0 = continent circulaire). */
   coastWobble: number
+  /** Lacs (3+B) : longueur d'onde du champ de bassins (m) + creusement (m). */
+  lakeWavelength: number
+  lakeDepth: number
 }
 
 /** Défauts calibrés au feeling (seed du jour de création du monde). */
@@ -53,6 +56,8 @@ export const DEFAULT_TERRAIN: TerrainParams = {
   mountainSharpness: 2.2,
   shoreFalloff: 0.3,
   coastWobble: 0.35,
+  lakeWavelength: 700,
+  lakeDepth: 12,
 }
 
 /** Pad du spawn : rayon plat + largeur du fondu vers le relief (m). */
@@ -82,6 +87,7 @@ export function makeTerrain(params: TerrainParams): Terrain {
   const ridges = makeFbm2D(p.seed + 101)
   const mask = makeFbm2D(p.seed + 202)
   const coast = makeFbm2D(p.seed + 303)
+  const basins = makeFbm2D(p.seed + 404)
 
   const hillP: FbmParams = {
     octaves: p.octaves,
@@ -93,6 +99,7 @@ export function makeTerrain(params: TerrainParams): Terrain {
   const ridgeP: FbmParams = { octaves: 4, frequency: 2 / p.mountainWavelength, gain: 0.5, lacunarity: 2.1 }
   const maskP: FbmParams = { octaves: 3, frequency: 1 / p.mountainWavelength, gain: 0.5, lacunarity: 2 }
   const coastP: FbmParams = { octaves: 3, frequency: 1 / 900, gain: 0.55, lacunarity: 2 }
+  const basinP: FbmParams = { octaves: 3, frequency: 1 / p.lakeWavelength, gain: 0.5, lacunarity: 2 }
 
   const [sx, , sz] = START_AIRPORT.position
 
@@ -107,6 +114,12 @@ export function makeTerrain(params: TerrainParams): Terrain {
     const ridge = Math.pow(1 - Math.abs(ridges(x, z, ridgeP)), 1.6)
     let h =
       TOP_Y + p.baseElevation + hills(x, z, hillP) * p.hillHeight + m * ridge * p.mountainHeight
+
+    // Lacs (3+B) : bassins localisés creusés dans le relief — là où le terrain
+    // est déjà bas (plaines), la dépression passe sous le niveau de la mer et
+    // se remplit d'eau ; en zone haute elle ne fait qu'une vallée.
+    const b = smoothstep(0.6, 0.78, 0.5 + 0.5 * basins(x, z, basinP))
+    h -= b * p.lakeDepth
 
     // Bord du monde → océan (rayon perturbé pour un littoral organique).
     const d = Math.hypot(x, z) * (1 + p.coastWobble * coast(x, z, coastP))

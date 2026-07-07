@@ -35,6 +35,7 @@ const C_GRASS = new THREE.Color(palette.biomeGreen)
 const C_SAND = new THREE.Color(palette.biomeDesert)
 const C_ROCK = new THREE.Color(palette.terrainRock)
 const C_SNOW = new THREE.Color(palette.biomeSnow)
+const C_SEABED = new THREE.Color(palette.seabed)
 
 /** Rampe placeholder : altitude + pente → couleur (fondus doux, pas de bords nets). */
 function rampColor(out: THREE.Color, h: number, slope: number, snowLine: number): void {
@@ -45,6 +46,9 @@ function rampColor(out: THREE.Color, h: number, slope: number, snowLine: number)
   out.lerp(C_ROCK, smoothstep(0.55, 1.0, slope) * (1 - 0.6 * snowF))
   // Plages : bande sableuse autour du niveau de la mer.
   out.lerp(C_SAND, 1 - smoothstep(SEA_Y + 0.8, SEA_Y + 2.6, h))
+  // Fond immergé : sable → vase sombre avec la profondeur (visible à travers
+  // l'eau semi-transparente ⇒ hauts-fonds/lacs clairs, océan profond foncé).
+  out.lerp(C_SEABED, smoothstep(0.6, 5.5, SEA_Y - h))
 }
 
 function buildChunkGeometry(

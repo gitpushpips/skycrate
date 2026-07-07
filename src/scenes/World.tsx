@@ -52,10 +52,23 @@ export function World() {
   return (
     <group>
       {/* Océan (nappe globale au niveau de la mer ; les creux du terrain sous
-          SEA_Y deviennent naturellement baies et étangs). */}
+          SEA_Y deviennent naturellement baies, étangs et lacs). Semi-transparent
+          pour laisser lire la profondeur (fond sableux clair → vase sombre). */}
       <mesh position={[0, SEA_Y, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[tunables.terrain.worldRadius * 2.6, tunables.terrain.worldRadius * 2.6]} />
-        <meshStandardMaterial color={palette.ocean} roughness={0.4} metalness={0.15} />
+        <meshStandardMaterial
+          color={palette.ocean}
+          roughness={0.4}
+          metalness={0.15}
+          transparent
+          opacity={0.82}
+        />
+      </mesh>
+      {/* Fond marin opaque sous la nappe : le large reste profond/opaque là où
+          aucun chunk de terrain n'existe (sinon le ciel transparaîtrait). */}
+      <mesh position={[0, SEA_Y - 10, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[tunables.terrain.worldRadius * 2.6, tunables.terrain.worldRadius * 2.6]} />
+        <meshStandardMaterial color={palette.seabed} roughness={1} />
       </mesh>
 
       <TerrainChunks

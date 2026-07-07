@@ -28,6 +28,7 @@ export const palette = {
   biomeDesert: '#d8bf85',
   biomeDesertCliff: '#a98a55',
   terrainRock: '#8b8272',
+  seabed: '#2a5a64',
 
   // Végétation
   treeTrunk: '#6b4a2f',

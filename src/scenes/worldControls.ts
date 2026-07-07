@@ -37,6 +37,10 @@ export function useWorldTunables(): WorldTunables {
       shoreFalloff: { value: DEFAULT_TERRAIN.shoreFalloff, min: 0.05, max: 0.6, step: 0.01, label: 'fondu côtier' },
       coastWobble: { value: DEFAULT_TERRAIN.coastWobble, min: 0, max: 0.8, step: 0.05, label: 'irrégularité' },
     }),
+    lacs: folder({
+      lakeWavelength: { value: DEFAULT_TERRAIN.lakeWavelength, min: 300, max: 2000, step: 50, label: 'λ bassins (m)' },
+      lakeDepth: { value: DEFAULT_TERRAIN.lakeDepth, min: 0, max: 30, step: 1, label: 'creusement (m)' },
+    }),
     'rendu terrain': folder({
       snowLine: { value: 55, min: 10, max: 250, step: 5, label: 'ligne de neige (m)' },
       viewRadius: { value: 1500, min: 400, max: 2600, step: 50, label: 'rayon chargé (m)' },
@@ -59,6 +63,8 @@ export function useWorldTunables(): WorldTunables {
       mountainSharpness: v.mountainSharpness,
       shoreFalloff: v.shoreFalloff,
       coastWobble: v.coastWobble,
+      lakeWavelength: v.lakeWavelength,
+      lakeDepth: v.lakeDepth,
     },
     snowLine: v.snowLine,
     viewRadius: v.viewRadius,
