@@ -18,7 +18,7 @@ function useScatter() {
       const z = (rng() - 0.5) * 300
       const r = Math.hypot(x, z)
       // Garder dégagés : couloir de piste (nord-sud) + premier plan ; rester sur
-      // le plateau de l'île de départ (rayon 150).
+      // le pad aplani du spawn (rayon 150, cf. core/world/terrain).
       if (Math.abs(x) < 26 && Math.abs(z) < 110) continue
       if (r < 34 || r > 140) continue
       trees.push({ x, z, s: 0.7 + rng() * 1.2, rot: rng() * Math.PI * 2, tint: rng() })

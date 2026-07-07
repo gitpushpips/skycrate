@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
+import { useFrame } from '@react-three/fiber'
 import { useControls } from 'leva'
 import { palette } from './palette'
 
@@ -12,8 +13,9 @@ export function Sky() {
   const { skyTop, skyHorizon, fogNear, fogFar } = useControls('Rendu', {
     skyTop: { value: palette.skyTop, label: 'ciel (haut)' },
     skyHorizon: { value: palette.skyHorizon, label: 'ciel (horizon)' },
-    fogNear: { value: 90, min: 10, max: 400, step: 5, label: 'fog proche' },
-    fogFar: { value: 620, min: 100, max: 2000, step: 10, label: 'fog lointain' },
+    // Défauts adaptés à l'échelle du monde ouvert (3+A) : voir les massifs de loin.
+    fogNear: { value: 220, min: 10, max: 800, step: 5, label: 'fog proche' },
+    fogFar: { value: 1500, min: 100, max: 3000, step: 10, label: 'fog lointain' },
   })
 
   const material = useMemo(
@@ -53,12 +55,19 @@ export function Sky() {
     material.uniforms.horizonColor.value.set(skyHorizon)
   }, [material, skyTop, skyHorizon])
 
+  // Le dôme suit la caméra (sur un monde de plusieurs km, un dôme fixe à
+  // l'origine finirait derrière l'avion).
+  const dome = useRef<THREE.Mesh>(null)
+  useFrame(({ camera }) => {
+    dome.current?.position.copy(camera.position)
+  })
+
   return (
     <>
       <color attach="background" args={[skyHorizon]} />
       <fog attach="fog" args={[skyHorizon, fogNear, fogFar]} />
-      <mesh renderOrder={-1} frustumCulled={false}>
-        <sphereGeometry args={[1000, 32, 16]} />
+      <mesh ref={dome} renderOrder={-1} frustumCulled={false}>
+        <sphereGeometry args={[3400, 32, 16]} />
         <primitive object={material} attach="material" />
       </mesh>
     </>

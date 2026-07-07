@@ -32,6 +32,7 @@ de marque** en jeu). À utiliser quand on étendra le catalogue (chaque pièce p
 | | postprocessing | 6.39.1 |
 | État | zustand | 5.0.14 |
 | Réglage live | leva | 0.10.1 |
+| Bruit (terrain) | simplex-noise | 4.0.3 |
 | Lang | typescript | 6.0.3 (pinné < 6.1 pour typescript-eslint) |
 | Lint/format | eslint 10.5.0 (flat config) + typescript-eslint 8.61.1 + prettier 3.8.4 |
 
@@ -164,7 +165,28 @@ npm run format     # prettier --write
   - [x] **3-D — fuselages & cabines.** Nouvelle catégorie **`cabin`** (source de cargo, plusieurs autorisées) : `cabin.cockpit` (T1, verrière), `cabin.cargo` (T2, soute), `cabin.passenger` (T4, tube à hublots) — `CabinPart {kind, cargo}` ; `aggregateStats` ajoute leur cargo. **Fuselages par taille** (`FuselageSize` small/medium/large) : `fuselage.medium` (T1), `fuselage.large` (T2, gros porteur + rampe cargo) — plus de fuel/cargo mais plus lourds. Visuels détaillés (`scenes/Plane.tsx`) : cockpit = coaming + verrière bombée + arceaux ; soute = caisson + porte + nervures ; passagers = tube clair + 2 rangées de hublots + porte ; gros fuselage = corps large + cône de queue + quille + rampe. Onglet **Cabine** dans la palette. Validé preview : CARGO 28 (cabines), FUEL/POIDS suivent les fuselages, silhouettes distinctes. 🟡 Limite : la racine reste `fuselage.mk1` (pas de swap de racine) ⇒ les gros fuselages se posent en module ; swap de racine à voir plus tard. **🔁 À RETRAVAILLER** (designs cabines/fuselages pas validés par l'utilisateur — repasse graphique + swap de racine).
   - [x] **3-E — train rétractable.** `LandingGearPart.retractable` ; `landingGear.retract` (T3, plus lourd, **pas de dragPanel** = traînée quasi nulle) vs `landingGear.mk1` (fixe, dragPanel des roues exposées). **Rétraction animée** (`scenes/Plane.tsx` `LandingGearModel`) : lit l'altitude HUD (`useHud`), remonte les roues dans le ventre + bascule, laisse les **trappes** ; `PlaneRig` remet l'altitude à 0 au retour hangar (train ressorti). Validé preview : à alt 14 le rétractable se rentre (trappes visibles), le fixe reste sorti. 🟡 **Empennages conv./T/V** reportés (un V-tail demande un mixage ruddervator profondeur+lacet ; faisable au gizmo en attendant).
   - [ ] 3-F calibration leva des ratios inter-tiers.
-- Jalons suivants (ordre dossier §15) : carburant/snap → monde minimal → cargo/mission → recherche → carte → modes → polish.
+
+- **Jalon 3+ — monde ouvert à relief & biomes continus** *(en cours)* — divergence assumée vs Aviassembly :
+  **continent continu** (biomes fondus, façon Minecraft) bordé d'océan, pas un archipel. Procédural **seedé**
+  (un seed = un monde) + curation par-dessus (aérodromes, landmarks). Un « monde minimal v1 » à îles plates a
+  servi de checkpoint (commit `76108a6`) avant remplacement.
+  - [x] **3+A — terrain à relief (chunké, seedé, leva).** `core/rng.ts` (mulberry32 déplacé depuis scenes),
+    `core/world/noise.ts` (fBm simplex seedé), `core/world/terrain.ts` (`makeTerrain(params).heightAt(x,z)` :
+    collines fBm ±hillHeight + massifs = masque basse fréquence **remappé smoothstep** × crêtes `1-|fBm|`
+    + fondu côtier radial wobblé + **pad du spawn aplani** à TOP_Y rayon 150/fondu 110 — curation temporaire
+    jusqu'au flatten 3+D). Rendu `scenes/Terrain.tsx` : **chunks 256 m** streamés autour de la caméra
+    (budget 3 géométries/frame, décharge + dispose), **LOD 2 niveaux** (64 quads < 650 m, 32 au-delà),
+    couleurs de sommets altitude/pente (sable→herbe→roche sur pente→neige > snowLine — placeholder lisible,
+    vrais biomes = 3+C), matériau partagé flatShading. `World.tsx` = océan + chunks + piste ; `world.ts`
+    réduit (aéroport de départ seul, les autres reviennent en 3+D). Leva « Monde » : seed + tous les params.
+    **Colliders 3+A = pad spawn + océan seulement** (heightfields = 3+E ⇒ se poser hors pad traverse, assumé).
+    Vérifié (seed 20260707) : spawn plat 0.00, sommet max 118 m à (840,−1120), 81 % terre, 10 % montagne,
+    12.8 % > ligne de neige ; côte + plage + massifs rocheux rendus en vol ; 0 erreur console ; build prod OK.
+  - [ ] 3+B — eau (océan + petits lacs dans les dépressions).
+  - [ ] 3+C — biomes continus (température × humidité × altitude, transitions fondues, végétation instanciée).
+  - [ ] 3+D — aérodromes parsemés (Poisson-disk + filtrage site + flatten local, longueurs variées).
+  - [ ] 3+E — landmarks, heightfields Rapier par chunk, brouillard de découverte, marqueur, hors-limites.
+- Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 
 ## 8. Décisions & valeurs calibrées (à compléter au fil de l'eau)
@@ -187,3 +209,7 @@ npm run format     # prettier --write
 - **Pas fixe (étape 5d-B)** : aéro + poussée + assistance dans `useBeforePhysicsStep` (pas la frame de rendu). Une boucle d'asservissement (assistance) à gain élevé sur un dt variable **oscille/diverge** ; le pas fixe (`FIXED_DT = 1/60`) la stabilise. Caméra + télémétrie restent au rendu (`useFrame`).
 - **Assistance (étape 5d-E)** : couple correctif **par-dessus** la physique (`core/flight/assist.ts`). Défaut = amortissement des taux + **bornes d'attitude** + **maintien actif de l'inclinaison** (`holdGain`) vers le bank **capturé au lâché du roulis** (clampé à la borne). Nécessaire car la **stabilité aéro naturelle (dièdre) remet les ailes à plat** toute seule ; le maintien la contre ⇒ l'avion **garde son virage** au lâché (demande utilisateur : NE PAS se remettre à plat). Le tangage tient le climb par simple amortissement. `levelReturn` (ailes à plat) / `altHold` (anti-perte d'alt en virage) = options à 0. ⚠️ télémétrie `window.__plane` désormais **gardée mais `import.meta.env.DEV` only** (sera remplacée par le HUD étape 6).
 - **Calibrage 5d (leva « Vol », hors dossier)** : airDensity 0.055, inducedDrag 0.05, flatPlateDrag 1, bodyDrag 0.12, thrustCoef 2.5, CD0 ailes 0.012 / empennages 0.01, calage aile 2°. Assistance : pitch/roll/yawDamp 30/70/40, limitGain 150, maxPitch 35° / maxBank 55°, déflexion gouvernes 15°. **Limite connue** : virages inclinés perdent de l'altitude (pas de maintien d'alt par défaut) → tirer pour compenser, ou monter `altHold`.
+- **Terrain 3+A (leva « Monde », hors dossier)** : **seed 20260707**, worldRadius 2200, baseElevation 6, λ collines 420 / ampl. 14, octaves 5 / gain 0.5 / lacunarité 2, montagnes λ 1500 / hauteur 110 / contraste 2.2, fondu côtier 0.3 / irrégularité 0.35, snowLine 55, viewRadius 1500 / nearRadius 650. ⚠️ Le masque de montagnosité doit être **remappé par smoothstep** (`0.58 ± 0.5/sharpness`) : un fBm normalisé ne sature jamais ±1, un simple `pow` plafonnait les sommets à ~40 % de `mountainHeight`. Vérif data par eval : `import('/src/core/world/terrain.ts?v='+Date.now())` (cache-buster obligatoire après HMR) + échantillonnage grille.
+- **Échelle monde (3+A)** : fog par défaut passé à 220/1500 (voir les massifs de loin), caméra `far` 2000→4000, **dôme de ciel suit la caméra** (rayon 3400 ; un dôme fixe à l'origine finirait derrière l'avion sur un monde de plusieurs km). Garder `viewRadius ≥ fogFar` sinon trous visibles au loin.
+- **Perf (constat 3+A)** : ~13-14 fps sur Intel HD 630 en preview, **hangar comme vol** ⇒ le goulot est le pipeline de base (N8AO + bloom + MSAA + VSM à DPR 1.25), PAS le terrain (aucune régression mesurée). Passe perf dédiée à prévoir (baisser DPR/SSAO ?) — objectif 60 fps du brief non atteint, préexistant.
+- **Déploiement Vercel** : prêt (`vercel.json` + `engines.node 22.x` + leva `hidden` en prod). Lockfile v3 contient les bindings rolldown Linux ; WASM Rapier inliné dans le bundle (pas de fichier à servir). Déploiement = compte Vercel de l'utilisateur (GitHub import ou `npx vercel`).

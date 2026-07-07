@@ -43,7 +43,7 @@ export default function App() {
         frameloop="always"
         shadows="variance"
         dpr={[1, 2]}
-        camera={{ position: [9, 4, 13], fov: 50, near: 0.1, far: 2000 }}
+        camera={{ position: [9, 4, 13], fov: 50, near: 0.1, far: 4000 }}
         gl={{ antialias: false }}
       >
         <RenderSettings />

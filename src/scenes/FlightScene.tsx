@@ -3,12 +3,16 @@ import { GameScene } from './GameScene'
 import { PlaneRig } from './PlaneRig'
 import type { CompiledAircraft } from '../core/build/compile'
 import type { FlightTunables } from './flightControls'
-import { ISLANDS, SEA_Y, START_AIRPORT, TOP_Y, WORLD_RADIUS } from '../core/world/world'
+import { SEA_Y, START_AIRPORT, TOP_Y, WORLD_RADIUS } from '../core/world/world'
+import { SPAWN_PAD_RADIUS } from '../core/world/terrain'
 
 /**
- * Mode VOL : monde ouvert (océan + îles + pistes) + monde physique Rapier +
- * l'avion compilé. Chaque île = un plateau posable (cylindre), l'océan une nappe
- * plus basse. L'avion spawn sur la piste de départ.
+ * Mode VOL : monde ouvert (océan + terrain à relief) + monde physique Rapier +
+ * l'avion compilé, spawné sur la piste de départ.
+ *
+ * ⚠️ 3+A : collisions = pad plat du spawn + nappe océan uniquement. Le relief
+ * n'a PAS encore de colliders (heightfields par chunk = 3+E) → se poser hors
+ * du pad traverse le terrain (assumé, transitoire).
  */
 export function FlightScene({
   aircraft,
@@ -23,16 +27,13 @@ export function FlightScene({
       <GameScene />
       <Physics gravity={[0, -tunables.gravity, 0]}>
         <RigidBody type="fixed" colliders={false}>
-          {/* Plateaux des îles (top posable à TOP_Y). */}
-          {ISLANDS.map((i) => (
-            <CylinderCollider
-              key={i.id}
-              args={[0.5, i.radius]}
-              position={[i.center[0], TOP_Y - 0.5, i.center[1]]}
-              friction={tunables.groundFriction}
-            />
-          ))}
-          {/* Nappe d'océan (sous les plateaux). */}
+          {/* Pad aplani du spawn (aligné sur le flatten du terrain). */}
+          <CylinderCollider
+            args={[0.5, SPAWN_PAD_RADIUS]}
+            position={[sx, TOP_Y - 0.5, sz]}
+            friction={tunables.groundFriction}
+          />
+          {/* Nappe d'océan (sous tout le monde). */}
           <CuboidCollider
             args={[WORLD_RADIUS * 1.2, 1, WORLD_RADIUS * 1.2]}
             position={[0, SEA_Y - 1, 0]}
