@@ -1,19 +1,22 @@
 import { useMemo } from 'react'
+import * as THREE from 'three'
 import { palette } from './palette'
-import { AIRPORTS, SEA_Y, TOP_Y } from '../core/world/world'
+import { AIRPORTS, SEA_Y } from '../core/world/world'
 import type { Airport } from '../core/world/world'
-import { makeTerrain, type TerrainParams } from '../core/world/terrain'
+import type { TerrainParams } from '../core/world/terrain'
+import { buildWorld } from '../core/world/airports'
 import { TerrainChunks } from './Terrain'
 import { Vegetation } from './Vegetation'
 import { useWorldTunables } from './worldControls'
 
 /**
- * Monde ouvert (3+A) — rendu : océan + terrain procédural chunké + pistes.
- * Convention soleil = NORD = -Z. Les colliders physiques sont montés à part
- * dans `FlightScene` (pad du spawn + océan ; heightfields par chunk = 3+E).
+ * Monde ouvert (3+A/B/C/D) — rendu : océan + terrain procédural chunké +
+ * végétation + aérodromes (piste de départ fixe + sites générés, terrain
+ * aplani sous chaque pad). Convention soleil = NORD = -Z. Les colliders
+ * physiques sont montés à part dans `FlightScene` (mêmes données buildWorld).
  */
 function Runway({ airport }: { airport: Airport }) {
-  const [x, , z] = airport.position
+  const [x, y, z] = airport.position
   const { runwayLength: L, runwayWidth: W } = airport
   const dashes = useMemo(() => {
     const n = Math.max(5, Math.round(L / 18))
@@ -21,7 +24,7 @@ function Runway({ airport }: { airport: Airport }) {
     return Array.from({ length: n }, (_, i) => -L / 2 + gap * (i + 0.5))
   }, [L])
   return (
-    <group position={[x, TOP_Y + 0.02, z]} rotation={[0, airport.heading, 0]}>
+    <group position={[x, y + 0.02, z]} rotation={[0, airport.heading, 0]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[W, L]} />
         <meshStandardMaterial color={palette.runway} roughness={0.95} />
@@ -44,11 +47,34 @@ function Runway({ airport }: { airport: Airport }) {
   )
 }
 
+/** Manche à air en bord de piste — repère visuel d'aérodrome. */
+function Windsock({ airport }: { airport: Airport }) {
+  const [x, y, z] = airport.position
+  return (
+    <group position={[x, y, z]} rotation={[0, airport.heading, 0]}>
+      <group position={[airport.runwayWidth / 2 + 6, 0, -airport.runwayLength * 0.25]}>
+        <mesh position={[0, 2.1, 0]} castShadow>
+          <cylinderGeometry args={[0.06, 0.09, 4.2, 5]} />
+          <meshStandardMaterial color={palette.planeStrut} />
+        </mesh>
+        <mesh position={[0.7, 4.0, 0]} rotation={[0, 0, -Math.PI / 2]} castShadow>
+          <coneGeometry args={[0.32, 1.4, 6, 1, true]} />
+          <meshStandardMaterial color={palette.windsock} side={THREE.DoubleSide} />
+        </mesh>
+      </group>
+    </group>
+  )
+}
+
 export function World() {
   const tunables = useWorldTunables()
-  // Régénération uniquement quand un param change réellement (clé par valeur).
+  // Régénération uniquement quand un param change réellement (clé par valeur) ;
+  // buildWorld mémoïse par la même clé ⇒ instance partagée avec FlightScene.
   const terrainKey = JSON.stringify(tunables.terrain)
-  const terrain = useMemo(() => makeTerrain(JSON.parse(terrainKey) as TerrainParams), [terrainKey])
+  const { terrain, airports } = useMemo(
+    () => buildWorld(JSON.parse(terrainKey) as TerrainParams),
+    [terrainKey],
+  )
 
   return (
     <group>
@@ -80,13 +106,23 @@ export function World() {
       />
       <Vegetation
         terrain={terrain}
+        airports={airports}
         snowTemp={tunables.snowTemp}
         density={tunables.vegDensity}
         radius={tunables.vegRadius}
       />
 
       {AIRPORTS.map((a) => (
-        <Runway key={a.id} airport={a} />
+        <group key={a.id}>
+          <Runway airport={a} />
+          <Windsock airport={a} />
+        </group>
+      ))}
+      {airports.map((a) => (
+        <group key={a.id}>
+          <Runway airport={a} />
+          <Windsock airport={a} />
+        </group>
       ))}
     </group>
   )

@@ -6,6 +6,7 @@ import { mulberry32 } from '../core/rng'
 import { palette } from './palette'
 import { SEA_Y, START_AIRPORT } from '../core/world/world'
 import type { Terrain } from '../core/world/terrain'
+import type { AirportSite } from '../core/world/airports'
 
 /**
  * Végétation par biome (3+C) — instanciée et streamée par chunk (même découpe
@@ -41,8 +42,49 @@ const smoothstep = (e0: number, e1: number, v: number) => {
   return t * t * (3 - 2 * t)
 }
 
+/** Emprise d'aérodrome précalculée (exclusion de végétation). */
+interface PadZone {
+  x: number
+  z: number
+  cos: number
+  sin: number
+  hw: number
+  hl: number
+  bound2: number
+}
+
+function padZones(airports: AirportSite[]): PadZone[] {
+  return airports.map((a) => {
+    const hw = a.padHalfWidth + 8
+    const hl = a.padHalfLength + 8
+    const bound = Math.hypot(hw, hl) + 1
+    return {
+      x: a.position[0],
+      z: a.position[2],
+      cos: Math.cos(a.heading),
+      sin: Math.sin(a.heading),
+      hw,
+      hl,
+      bound2: bound * bound,
+    }
+  })
+}
+
+function inPad(zones: PadZone[], x: number, z: number): boolean {
+  for (const zn of zones) {
+    const dx = x - zn.x
+    const dz = z - zn.z
+    if (dx * dx + dz * dz > zn.bound2) continue
+    const lx = dx * zn.cos - dz * zn.sin
+    const lz = dx * zn.sin + dz * zn.cos
+    if (Math.abs(lx) < zn.hw && Math.abs(lz) < zn.hl) return true
+  }
+  return false
+}
+
 function genChunk(
   terrain: Terrain,
+  zones: PadZone[],
   snowTemp: number,
   density: number,
   cx: number,
@@ -61,6 +103,7 @@ function genChunk(
     const rot = rng() * Math.PI * 2
     const size = rng()
     if (Math.hypot(x - sx, z - sz) < SPAWN_CLEAR) continue
+    if (inPad(zones, x, z)) continue // emprises d'aérodromes : nues
     const h = terrain.heightAt(x, z)
     if (h < SEA_Y + 3) continue // eau + plages : nues
     const e = 4
@@ -135,16 +178,19 @@ const tmpC = new THREE.Color()
 
 export function Vegetation({
   terrain,
+  airports,
   snowTemp,
   density,
   radius,
 }: {
   terrain: Terrain
+  airports: AirportSite[]
   snowTemp: number
   density: number
   radius: number
 }) {
   const geos = useMemo(makeGeometries, [])
+  const zones = useMemo(() => padZones(airports), [airports])
   const coniferTrunkRef = useRef<THREE.InstancedMesh>(null)
   const coniferFoliageRef = useRef<THREE.InstancedMesh>(null)
   const leafyTrunkRef = useRef<THREE.InstancedMesh>(null)
@@ -155,7 +201,7 @@ export function Vegetation({
 
   useEffect(() => {
     st.current = { cell: '', chunks: new Map() }
-  }, [terrain, snowTemp, density, radius])
+  }, [terrain, zones, snowTemp, density, radius])
 
   useFrame(({ camera }) => {
     const s = st.current
@@ -179,7 +225,8 @@ export function Vegetation({
         if (Math.hypot(centerX, centerZ) > terrain.params.worldRadius + CHUNK_SIZE) continue
         const key = `${cx},${cz}`
         wanted.add(key)
-        if (!s.chunks.has(key)) s.chunks.set(key, genChunk(terrain, snowTemp, density, cx, cz))
+        if (!s.chunks.has(key))
+          s.chunks.set(key, genChunk(terrain, zones, snowTemp, density, cx, cz))
       }
     }
     for (const key of s.chunks.keys()) if (!wanted.has(key)) s.chunks.delete(key)

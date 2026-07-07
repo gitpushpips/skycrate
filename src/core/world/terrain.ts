@@ -44,6 +44,12 @@ export interface TerrainParams {
   humidityWavelength: number
   /** Refroidissement par mètre d'altitude (la neige d'altitude en découle). */
   altitudeLapse: number
+  /** Aérodromes (3+D) : nombre cible, espacement min (m), altitude max du site
+   *  (m) et dénivelé max toléré sur l'emprise avant rejet (m). */
+  airportCount: number
+  airportMinDist: number
+  airportMaxAlt: number
+  airportFlatness: number
 }
 
 /** Défauts calibrés au feeling (seed du jour de création du monde). */
@@ -66,6 +72,10 @@ export const DEFAULT_TERRAIN: TerrainParams = {
   tempWavelength: 1600,
   humidityWavelength: 1100,
   altitudeLapse: 0.0045,
+  airportCount: 10,
+  airportMinDist: 700,
+  airportMaxAlt: 55,
+  airportFlatness: 7,
 }
 
 /** Pad du spawn : rayon plat + largeur du fondu vers le relief (m). */

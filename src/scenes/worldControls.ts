@@ -54,6 +54,12 @@ export function useWorldTunables(): WorldTunables {
       vegDensity: { value: 1, min: 0, max: 3, step: 0.1, label: 'densité' },
       vegRadius: { value: 900, min: 300, max: 1600, step: 50, label: 'rayon (m)' },
     }),
+    aérodromes: folder({
+      airportCount: { value: DEFAULT_TERRAIN.airportCount, min: 0, max: 24, step: 1, label: 'nombre' },
+      airportMinDist: { value: DEFAULT_TERRAIN.airportMinDist, min: 300, max: 1500, step: 50, label: 'espacement min (m)' },
+      airportMaxAlt: { value: DEFAULT_TERRAIN.airportMaxAlt, min: 10, max: 120, step: 5, label: 'altitude max (m)' },
+      airportFlatness: { value: DEFAULT_TERRAIN.airportFlatness, min: 2, max: 20, step: 1, label: 'tolérance dénivelé (m)' },
+    }),
     'rendu terrain': folder({
       viewRadius: { value: 1500, min: 400, max: 2600, step: 50, label: 'rayon chargé (m)' },
       nearRadius: { value: 650, min: 200, max: 1500, step: 50, label: 'rayon plein détail (m)' },
@@ -80,6 +86,10 @@ export function useWorldTunables(): WorldTunables {
       tempWavelength: v.tempWavelength,
       humidityWavelength: v.humidityWavelength,
       altitudeLapse: v.altitudeLapse,
+      airportCount: v.airportCount,
+      airportMinDist: v.airportMinDist,
+      airportMaxAlt: v.airportMaxAlt,
+      airportFlatness: v.airportFlatness,
     },
     snowTemp: v.snowTemp,
     vegDensity: v.vegDensity,

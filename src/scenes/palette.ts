@@ -34,6 +34,7 @@ export const palette = {
   biomeBoreal: '#547a43', // froid + humide
   biomeLush: '#79b648', // chaud + humide
   cactus: '#5c8f4b',
+  windsock: '#e8622d',
 
   // Végétation
   treeTrunk: '#6b4a2f',
