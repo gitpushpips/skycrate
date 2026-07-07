@@ -31,16 +31,38 @@ const smoothstep = (e0: number, e1: number, v: number) => {
   return t * t * (3 - 2 * t)
 }
 
-const C_GRASS = new THREE.Color(palette.biomeGreen)
 const C_SAND = new THREE.Color(palette.biomeDesert)
 const C_ROCK = new THREE.Color(palette.terrainRock)
 const C_SNOW = new THREE.Color(palette.biomeSnow)
 const C_SEABED = new THREE.Color(palette.seabed)
+// Pôles climatiques (3+C) : sol = blend bilinéaire température × humidité.
+const C_COLD_DRY = new THREE.Color(palette.biomeSteppe)
+const C_HOT_DRY = new THREE.Color(palette.biomeDesert)
+const C_COLD_WET = new THREE.Color(palette.biomeBoreal)
+const C_HOT_WET = new THREE.Color(palette.biomeLush)
+const tmpDry = new THREE.Color()
+const tmpWet = new THREE.Color()
 
-/** Rampe placeholder : altitude + pente → couleur (fondus doux, pas de bords nets). */
-function rampColor(out: THREE.Color, h: number, slope: number, snowLine: number): void {
-  out.copy(C_GRASS)
-  const snowF = smoothstep(snowLine, snowLine + 14, h)
+/**
+ * Rampe biomique (3+C) : sol par climat (bilinéaire température × humidité —
+ * continu par construction, aucune frontière nette), neige quand il fait froid
+ * (l'altitude refroidit via le lapse ⇒ sommets blancs quel que soit le biome),
+ * roche sur pentes, plage et fond immergé par altitude.
+ */
+function rampColor(
+  out: THREE.Color,
+  h: number,
+  slope: number,
+  t: number,
+  u: number,
+  snowTemp: number,
+): void {
+  tmpDry.copy(C_COLD_DRY).lerp(C_HOT_DRY, t)
+  tmpWet.copy(C_COLD_WET).lerp(C_HOT_WET, t)
+  // L'herbe tient jusqu'à une sécheresse marquée : seul le vrai sec (u < ~0.3)
+  // vire steppe/sable, sinon la prairie reste verte.
+  out.copy(tmpDry).lerp(tmpWet, smoothstep(0.15, 0.6, u))
+  const snowF = 1 - smoothstep(snowTemp, snowTemp + 0.1, t)
   out.lerp(C_SNOW, snowF)
   // Roche sur les pentes raides (atténuée sous la neige → sommets lisibles).
   out.lerp(C_ROCK, smoothstep(0.55, 1.0, slope) * (1 - 0.6 * snowF))
@@ -56,7 +78,7 @@ function buildChunkGeometry(
   cx: number,
   cz: number,
   res: number,
-  snowLine: number,
+  snowTemp: number,
 ): THREE.BufferGeometry {
   const step = CHUNK_SIZE / res
   const n = res + 1
@@ -76,6 +98,8 @@ function buildChunkGeometry(
     for (let i = 0; i < n; i++) {
       const k = j * n + i
       const h = heights[k]
+      const wx = ox + i * step
+      const wz = oz + j * step
       positions[k * 3] = i * step
       positions[k * 3 + 1] = h
       positions[k * 3 + 2] = j * step
@@ -86,7 +110,8 @@ function buildChunkGeometry(
       const j1 = Math.min(res, j + 1)
       const dx = (heights[j * n + i1] - heights[j * n + i0]) / ((i1 - i0) * step)
       const dz = (heights[j1 * n + i] - heights[j0 * n + i]) / ((j1 - j0) * step)
-      rampColor(color, h, Math.hypot(dx, dz), snowLine)
+      const { temperature, humidity } = terrain.climateAt(wx, wz, h)
+      rampColor(color, h, Math.hypot(dx, dz), temperature, humidity, snowTemp)
       colors[k * 3] = color.r
       colors[k * 3 + 1] = color.g
       colors[k * 3 + 2] = color.b
@@ -130,15 +155,15 @@ const terrainMaterial = new THREE.MeshStandardMaterial({
 function TerrainChunk({
   terrain,
   spec,
-  snowLine,
+  snowTemp,
 }: {
   terrain: Terrain
   spec: ChunkSpec
-  snowLine: number
+  snowTemp: number
 }) {
   const geometry = useMemo(
-    () => buildChunkGeometry(terrain, spec.cx, spec.cz, spec.res, snowLine),
-    [terrain, spec.cx, spec.cz, spec.res, snowLine],
+    () => buildChunkGeometry(terrain, spec.cx, spec.cz, spec.res, snowTemp),
+    [terrain, spec.cx, spec.cz, spec.res, snowTemp],
   )
   useEffect(() => () => geometry.dispose(), [geometry])
   return (
@@ -153,12 +178,12 @@ function TerrainChunk({
 
 export function TerrainChunks({
   terrain,
-  snowLine,
+  snowTemp,
   viewRadius,
   nearRadius,
 }: {
   terrain: Terrain
-  snowLine: number
+  snowTemp: number
   viewRadius: number
   nearRadius: number
 }) {
@@ -177,7 +202,7 @@ export function TerrainChunks({
     st.current.desiredRes = new Map()
     st.current.have = new Map()
     setChunks([])
-  }, [terrain, snowLine, viewRadius, nearRadius])
+  }, [terrain, snowTemp, viewRadius, nearRadius])
 
   useFrame(({ camera }) => {
     const s = st.current
@@ -240,7 +265,7 @@ export function TerrainChunks({
   return (
     <>
       {chunks.map((c) => (
-        <TerrainChunk key={`${c.key}:${c.res}`} terrain={terrain} spec={c} snowLine={snowLine} />
+        <TerrainChunk key={`${c.key}:${c.res}`} terrain={terrain} spec={c} snowTemp={snowTemp} />
       ))}
     </>
   )

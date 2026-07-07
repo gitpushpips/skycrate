@@ -2,14 +2,17 @@ import { useControls, folder } from 'leva'
 import { DEFAULT_TERRAIN, type TerrainParams } from '../core/world/terrain'
 
 /**
- * Réglages du monde procédural à chaud (leva « Monde », 3+A). 🟡 Tout est hors
- * dossier (calibrage feel) : un seed + les mêmes params ⇒ le même monde.
+ * Réglages du monde procédural à chaud (leva « Monde », 3+A/B/C). 🟡 Tout est
+ * hors dossier (calibrage feel) : un seed + les mêmes params ⇒ le même monde.
  * Changer un param régénère le terrain (streaming progressif, cf. Terrain.tsx).
  */
 export interface WorldTunables {
   terrain: TerrainParams
-  /** Altitude d'apparition de la neige de sommet (m) — placeholder biome 3+C. */
-  snowLine: number
+  /** Température sous laquelle le sol devient neigeux (0..1, cf. climat 3+C). */
+  snowTemp: number
+  /** Densité de végétation (multiplicateur) + rayon de peuplement (m). */
+  vegDensity: number
+  vegRadius: number
   /** Rayon de chargement des chunks (m) — à garder ≥ fog lointain. */
   viewRadius: number
   /** Rayon plein détail ; au-delà = chunks demi-résolution (LOD). */
@@ -41,8 +44,17 @@ export function useWorldTunables(): WorldTunables {
       lakeWavelength: { value: DEFAULT_TERRAIN.lakeWavelength, min: 300, max: 2000, step: 50, label: 'λ bassins (m)' },
       lakeDepth: { value: DEFAULT_TERRAIN.lakeDepth, min: 0, max: 30, step: 1, label: 'creusement (m)' },
     }),
+    climat: folder({
+      tempWavelength: { value: DEFAULT_TERRAIN.tempWavelength, min: 600, max: 4000, step: 50, label: 'λ température (m)' },
+      humidityWavelength: { value: DEFAULT_TERRAIN.humidityWavelength, min: 600, max: 4000, step: 50, label: 'λ humidité (m)' },
+      altitudeLapse: { value: DEFAULT_TERRAIN.altitudeLapse, min: 0, max: 0.01, step: 0.0005, label: 'refroidissement /m' },
+      snowTemp: { value: 0.08, min: 0, max: 0.5, step: 0.01, label: 'température neige' },
+    }),
+    végétation: folder({
+      vegDensity: { value: 1, min: 0, max: 3, step: 0.1, label: 'densité' },
+      vegRadius: { value: 900, min: 300, max: 1600, step: 50, label: 'rayon (m)' },
+    }),
     'rendu terrain': folder({
-      snowLine: { value: 55, min: 10, max: 250, step: 5, label: 'ligne de neige (m)' },
       viewRadius: { value: 1500, min: 400, max: 2600, step: 50, label: 'rayon chargé (m)' },
       nearRadius: { value: 650, min: 200, max: 1500, step: 50, label: 'rayon plein détail (m)' },
     }),
@@ -65,8 +77,13 @@ export function useWorldTunables(): WorldTunables {
       coastWobble: v.coastWobble,
       lakeWavelength: v.lakeWavelength,
       lakeDepth: v.lakeDepth,
+      tempWavelength: v.tempWavelength,
+      humidityWavelength: v.humidityWavelength,
+      altitudeLapse: v.altitudeLapse,
     },
-    snowLine: v.snowLine,
+    snowTemp: v.snowTemp,
+    vegDensity: v.vegDensity,
+    vegRadius: v.vegRadius,
     viewRadius: v.viewRadius,
     nearRadius: v.nearRadius,
   }

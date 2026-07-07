@@ -4,6 +4,7 @@ import { AIRPORTS, SEA_Y, TOP_Y } from '../core/world/world'
 import type { Airport } from '../core/world/world'
 import { makeTerrain, type TerrainParams } from '../core/world/terrain'
 import { TerrainChunks } from './Terrain'
+import { Vegetation } from './Vegetation'
 import { useWorldTunables } from './worldControls'
 
 /**
@@ -73,9 +74,15 @@ export function World() {
 
       <TerrainChunks
         terrain={terrain}
-        snowLine={tunables.snowLine}
+        snowTemp={tunables.snowTemp}
         viewRadius={tunables.viewRadius}
         nearRadius={tunables.nearRadius}
+      />
+      <Vegetation
+        terrain={terrain}
+        snowTemp={tunables.snowTemp}
+        density={tunables.vegDensity}
+        radius={tunables.vegRadius}
       />
 
       {AIRPORTS.map((a) => (

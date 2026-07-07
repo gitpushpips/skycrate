@@ -39,6 +39,11 @@ export interface TerrainParams {
   /** Lacs (3+B) : longueur d'onde du champ de bassins (m) + creusement (m). */
   lakeWavelength: number
   lakeDepth: number
+  /** Climat (3+C) : longueurs d'onde des champs température/humidité (m). */
+  tempWavelength: number
+  humidityWavelength: number
+  /** Refroidissement par mètre d'altitude (la neige d'altitude en découle). */
+  altitudeLapse: number
 }
 
 /** Défauts calibrés au feeling (seed du jour de création du monde). */
@@ -58,6 +63,9 @@ export const DEFAULT_TERRAIN: TerrainParams = {
   coastWobble: 0.35,
   lakeWavelength: 700,
   lakeDepth: 12,
+  tempWavelength: 1600,
+  humidityWavelength: 1100,
+  altitudeLapse: 0.0045,
 }
 
 /** Pad du spawn : rayon plat + largeur du fondu vers le relief (m). */
@@ -67,10 +75,22 @@ export const SPAWN_PAD_FALLOFF = 110
 /** Fond marin (sous le niveau de la mer) vers lequel fond le bord du monde. */
 const SEA_BED_Y = SEA_Y - 9
 
+/** Climat local, normalisé 0..1 (0 = froid/sec, 1 = chaud/humide). */
+export interface Climate {
+  temperature: number
+  humidity: number
+}
+
 export interface Terrain {
   params: TerrainParams
   /** Altitude du sol au point (x, z) du repère monde. */
   heightAt(x: number, z: number): number
+  /**
+   * Climat au point (x, z) — température (bruit − refroidissement d'altitude)
+   * × humidité (bruit indépendant). Passer `h` si déjà connue (évite un
+   * recalcul de heightAt).
+   */
+  climateAt(x: number, z: number, h?: number): Climate
 }
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)
@@ -88,6 +108,8 @@ export function makeTerrain(params: TerrainParams): Terrain {
   const mask = makeFbm2D(p.seed + 202)
   const coast = makeFbm2D(p.seed + 303)
   const basins = makeFbm2D(p.seed + 404)
+  const temp = makeFbm2D(p.seed + 505)
+  const humid = makeFbm2D(p.seed + 606)
 
   const hillP: FbmParams = {
     octaves: p.octaves,
@@ -100,6 +122,8 @@ export function makeTerrain(params: TerrainParams): Terrain {
   const maskP: FbmParams = { octaves: 3, frequency: 1 / p.mountainWavelength, gain: 0.5, lacunarity: 2 }
   const coastP: FbmParams = { octaves: 3, frequency: 1 / 900, gain: 0.55, lacunarity: 2 }
   const basinP: FbmParams = { octaves: 3, frequency: 1 / p.lakeWavelength, gain: 0.5, lacunarity: 2 }
+  const tempP: FbmParams = { octaves: 3, frequency: 1 / p.tempWavelength, gain: 0.5, lacunarity: 2 }
+  const humidP: FbmParams = { octaves: 3, frequency: 1 / p.humidityWavelength, gain: 0.5, lacunarity: 2 }
 
   const [sx, , sz] = START_AIRPORT.position
 
@@ -132,5 +156,18 @@ export function makeTerrain(params: TerrainParams): Terrain {
     return lerp(TOP_Y, h, w)
   }
 
-  return { params: p, heightAt }
+  // Étalement des champs climat : le fBm brut sature rarement ±1 (les extrêmes
+  // chaud/sec n'existeraient presque pas) → remap smoothstep. La température
+  // est remappée BIAISÉE CHAUD : le grand froid devient rare au niveau de la
+  // mer, et seule l'altitude (lapse fort) atteint les températures de neige ⇒
+  // sommets blancs garantis sans moitié de monde enneigée (plaines neigeuses
+  // = seulement le cœur des blobs les plus froids).
+  const climateAt = (x: number, z: number, h = heightAt(x, z)): Climate => ({
+    temperature: clamp01(
+      smoothstep(-0.9, 0.55, temp(x, z, tempP)) - Math.max(0, h - TOP_Y) * p.altitudeLapse,
+    ),
+    humidity: smoothstep(-0.62, 0.62, humid(x, z, humidP)),
+  })
+
+  return { params: p, heightAt, climateAt }
 }

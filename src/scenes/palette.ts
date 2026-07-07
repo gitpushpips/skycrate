@@ -29,6 +29,11 @@ export const palette = {
   biomeDesertCliff: '#a98a55',
   terrainRock: '#8b8272',
   seabed: '#2a5a64',
+  // Pôles climatiques (3+C) : sol interpolé bilinéairement température × humidité.
+  biomeSteppe: '#a3a06a', // froid + sec
+  biomeBoreal: '#547a43', // froid + humide
+  biomeLush: '#79b648', // chaud + humide
+  cactus: '#5c8f4b',
 
   // Végétation
   treeTrunk: '#6b4a2f',

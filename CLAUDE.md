@@ -191,7 +191,27 @@ npm run format     # prettier --write
     opaque sous le large (sinon le ciel transparaîtrait). Vérifié (seed 20260707) : **1,02 %** d'eau
     intérieure, **15 zones lacustres**, lac le plus profond −12,9 m à (−150,−825) ; spawn 0.00 et sommet 118 m
     intacts ; capture en vol = lac aux berges sableuses, eau claire hauts-fonds / sombre au large ; 0 erreur.
-  - [ ] 3+C — biomes continus (température × humidité × altitude, transitions fondues, végétation instanciée).
+  - [x] **3+C — biomes continus (climat température × humidité, végétation instanciée).**
+    - **Climat** (`terrain.ts` : `climateAt(x,z,h?)`) : température = fBm (seed+505) **remappé biaisé chaud**
+      (smoothstep −0.9..0.55 — le grand froid est rare au sol) **− lapse × altitude** (0.0045/m ⇒ seuls les
+      sommets atteignent les températures de neige : pics blancs garantis sans moitié de monde enneigée) ;
+      humidité = fBm indépendant (seed+606, remap symétrique). ⚠️ Deux pièges résolus par la data : fBm brut
+      ⇒ désert quasi inexistant (extrêmes jamais atteints → remap) ; lapse fort + remap symétrique ⇒ 40 % de
+      neige (plaines froides ≈ sommets → biais chaud).
+    - **Sol** (`Terrain.tsx` `rampColor`) : blend **bilinéaire** 4 pôles (steppe froide-sèche / désert
+      chaud-sec / boréal froid-humide / luxuriant chaud-humide, palette) — continu par construction, zéro
+      frontière. Axe humidité de la couleur pondéré (smoothstep 0.15..0.6 : l'herbe reste verte jusqu'au
+      vrai sec, sinon le spawn chaud virait savane). Neige **thermique** (`snowTemp` 0.08 leva, remplace
+      snowLine) ; roche/plage/fond immergé inchangés.
+    - **Végétation** (`scenes/Vegetation.tsx`) : instanciée streamée par chunk (256 m, rayon leva 900),
+      placement déterministe (mulberry32(seed ⊕ cx ⊕ cz)), densités continues par climat — conifères (froid)
+      / feuillus (chaud) en forêt (humide), cactus au désert, rochers pentes/désert/froid, poudrage neigeux
+      des arbres par `setColorAt`. **6 draw calls** (InstancedMesh par archétype, cactus fusionné
+      mergeGeometries). Rejets : eau/plage, pente > 0.45, zone spawn 300 m (décor Scenery dédié).
+    - **Répartition (seed 20260707, data)** : prairie 36.8 % / forêt 38 % / désert 11.8 % / neige 13.3 % ;
+      spawn T 0.68 / U 0.50 (prairie chaude ✓) ; T sommet 118 m = 0.07 (neige ✓). Cœurs : forêt (−300,−1260),
+      désert (−240,−1740), plaine neigeuse (300,−1740). Vérifié preview : transitions fondues
+      prairie→steppe, pics neigeux, côte/hauts-fonds, arbres ; 0 erreur console ; fps = baseline (13).
   - [ ] 3+D — aérodromes parsemés (Poisson-disk + filtrage site + flatten local, longueurs variées).
   - [ ] 3+E — landmarks, heightfields Rapier par chunk, brouillard de découverte, marqueur, hors-limites.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
@@ -217,7 +237,7 @@ npm run format     # prettier --write
 - **Pas fixe (étape 5d-B)** : aéro + poussée + assistance dans `useBeforePhysicsStep` (pas la frame de rendu). Une boucle d'asservissement (assistance) à gain élevé sur un dt variable **oscille/diverge** ; le pas fixe (`FIXED_DT = 1/60`) la stabilise. Caméra + télémétrie restent au rendu (`useFrame`).
 - **Assistance (étape 5d-E)** : couple correctif **par-dessus** la physique (`core/flight/assist.ts`). Défaut = amortissement des taux + **bornes d'attitude** + **maintien actif de l'inclinaison** (`holdGain`) vers le bank **capturé au lâché du roulis** (clampé à la borne). Nécessaire car la **stabilité aéro naturelle (dièdre) remet les ailes à plat** toute seule ; le maintien la contre ⇒ l'avion **garde son virage** au lâché (demande utilisateur : NE PAS se remettre à plat). Le tangage tient le climb par simple amortissement. `levelReturn` (ailes à plat) / `altHold` (anti-perte d'alt en virage) = options à 0. ⚠️ télémétrie `window.__plane` désormais **gardée mais `import.meta.env.DEV` only** (sera remplacée par le HUD étape 6).
 - **Calibrage 5d (leva « Vol », hors dossier)** : airDensity 0.055, inducedDrag 0.05, flatPlateDrag 1, bodyDrag 0.12, thrustCoef 2.5, CD0 ailes 0.012 / empennages 0.01, calage aile 2°. Assistance : pitch/roll/yawDamp 30/70/40, limitGain 150, maxPitch 35° / maxBank 55°, déflexion gouvernes 15°. **Limite connue** : virages inclinés perdent de l'altitude (pas de maintien d'alt par défaut) → tirer pour compenser, ou monter `altHold`.
-- **Terrain 3+A/3+B (leva « Monde », hors dossier)** : **seed 20260707**, worldRadius 2200, baseElevation 6, λ collines 420 / ampl. 14, octaves 5 / gain 0.5 / lacunarité 2, montagnes λ 1500 / hauteur 110 / contraste 2.2, fondu côtier 0.3 / irrégularité 0.35, lacs λ 700 / creusement 12, snowLine 55, viewRadius 1500 / nearRadius 650. ⚠️ Le masque de montagnosité doit être **remappé par smoothstep** (`0.58 ± 0.5/sharpness`) : un fBm normalisé ne sature jamais ±1, un simple `pow` plafonnait les sommets à ~40 % de `mountainHeight`. Vérif data par eval : `import('/src/core/world/terrain.ts?v='+Date.now())` (cache-buster obligatoire après HMR) + échantillonnage grille.
+- **Terrain 3+A/B/C (leva « Monde », hors dossier)** : **seed 20260707**, worldRadius 2200, baseElevation 6, λ collines 420 / ampl. 14, octaves 5 / gain 0.5 / lacunarité 2, montagnes λ 1500 / hauteur 110 / contraste 2.2, fondu côtier 0.3 / irrégularité 0.35, lacs λ 700 / creusement 12, climat λ temp 1600 / λ humid 1100 / lapse 0.0045 / neige 0.08, végétation densité 1 / rayon 900, viewRadius 1500 / nearRadius 650. ⚠️ Le masque de montagnosité doit être **remappé par smoothstep** (`0.58 ± 0.5/sharpness`) : un fBm normalisé ne sature jamais ±1, un simple `pow` plafonnait les sommets à ~40 % de `mountainHeight`. Vérif data par eval : `import('/src/core/world/terrain.ts?v='+Date.now())` (cache-buster obligatoire après HMR) + échantillonnage grille.
 - **Échelle monde (3+A)** : fog par défaut passé à 220/1500 (voir les massifs de loin), caméra `far` 2000→4000, **dôme de ciel suit la caméra** (rayon 3400 ; un dôme fixe à l'origine finirait derrière l'avion sur un monde de plusieurs km). Garder `viewRadius ≥ fogFar` sinon trous visibles au loin.
 - **Perf (constat 3+A)** : ~13-14 fps sur Intel HD 630 en preview, **hangar comme vol** ⇒ le goulot est le pipeline de base (N8AO + bloom + MSAA + VSM à DPR 1.25), PAS le terrain (aucune régression mesurée). Passe perf dédiée à prévoir (baisser DPR/SSAO ?) — objectif 60 fps du brief non atteint, préexistant.
 - **Déploiement Vercel** : prêt (`vercel.json` + `engines.node 22.x` + leva `hidden` en prod). Lockfile v3 contient les bindings rolldown Linux ; WASM Rapier inliné dans le bundle (pas de fichier à servir). Déploiement = compte Vercel de l'utilisateur (GitHub import ou `npx vercel`).
