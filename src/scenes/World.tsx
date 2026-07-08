@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { palette } from './palette'
 import { AIRPORTS, SEA_Y } from '../core/world/world'
 import type { Airport } from '../core/world/world'
@@ -19,31 +20,34 @@ import { useWorldUi } from '../store/world'
 function Runway({ airport }: { airport: Airport }) {
   const [x, y, z] = airport.position
   const { runwayLength: L, runwayWidth: W } = airport
-  const dashes = useMemo(() => {
+  // Marquages (seuils + pointillés d'axe) FUSIONNÉS en une seule géométrie :
+  // 2 draw calls par piste au lieu de ~13 (jalon perf).
+  const markings = useMemo(() => {
+    const parts: THREE.BufferGeometry[] = []
+    const quad = (w: number, l: number, zz: number, yy: number) => {
+      const g = new THREE.PlaneGeometry(w, l)
+      g.rotateX(-Math.PI / 2)
+      g.translate(0, yy, zz)
+      parts.push(g)
+    }
+    quad(W * 0.8, 1.6, -L / 2 + 3, 0.02) // seuils
+    quad(W * 0.8, 1.6, L / 2 - 3, 0.02)
     const n = Math.max(5, Math.round(L / 18))
     const gap = L / n
-    return Array.from({ length: n }, (_, i) => -L / 2 + gap * (i + 0.5))
-  }, [L])
+    for (let i = 0; i < n; i++) quad(0.6, 6, -L / 2 + gap * (i + 0.5), 0.03) // axe
+    const merged = mergeGeometries(parts)
+    for (const g of parts) g.dispose()
+    return merged
+  }, [L, W])
   return (
     <group position={[x, y + 0.02, z]} rotation={[0, airport.heading, 0]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[W, L]} />
         <meshStandardMaterial color={palette.runway} roughness={0.95} />
       </mesh>
-      {/* Seuils (bandes claires aux deux bouts). */}
-      {[-L / 2 + 3, L / 2 - 3].map((zz) => (
-        <mesh key={zz} position={[0, 0.02, zz]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[W * 0.8, 1.6]} />
-          <meshStandardMaterial color={palette.runwayLine} />
-        </mesh>
-      ))}
-      {/* Marquage axial. */}
-      {dashes.map((zz, i) => (
-        <mesh key={i} position={[0, 0.03, zz]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.6, 6]} />
-          <meshStandardMaterial color={palette.runwayLine} />
-        </mesh>
-      ))}
+      <mesh geometry={markings}>
+        <meshStandardMaterial color={palette.runwayLine} />
+      </mesh>
     </group>
   )
 }

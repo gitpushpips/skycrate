@@ -253,6 +253,9 @@ npm run format     # prettier --write
       (`findCape`, déterministe par seed ; seed 20260707 → (2195, 289), promontoire 40 m plein EST) — les
       autres repères sont organiques (pic 118 m, grands lacs, côtes). 🟡 OOB non testé en vol (logique
       triviale relue) ; phare non vu en jeu (position vérifiée par data).
+- **Jalon perf/optimisation** *(en cours)* — mesures + sélecteur « Rendu › qualité » (performance/équilibré/qualité,
+  défaut performance) + marquages de piste fusionnés. Détails/coûts : voir §8 « Perf ». 🟡 Reste : mesure fps
+  EN VOL en mode performance (panneau preview visible requis), vérif visuelle des 3 modes, redéploiement Vercel.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 
@@ -278,5 +281,12 @@ npm run format     # prettier --write
 - **Calibrage 5d (leva « Vol », hors dossier)** : airDensity 0.055, inducedDrag 0.05, flatPlateDrag 1, bodyDrag 0.12, thrustCoef 2.5, CD0 ailes 0.012 / empennages 0.01, calage aile 2°. Assistance : pitch/roll/yawDamp 30/70/40, limitGain 150, maxPitch 35° / maxBank 55°, déflexion gouvernes 15°. **Limite connue** : virages inclinés perdent de l'altitude (pas de maintien d'alt par défaut) → tirer pour compenser, ou monter `altHold`.
 - **Terrain 3+A/B/C (leva « Monde », hors dossier)** : **seed 20260707**, worldRadius 2200, baseElevation 6, λ collines 420 / ampl. 14, octaves 5 / gain 0.5 / lacunarité 2, montagnes λ 1500 / hauteur 110 / contraste 2.2, fondu côtier 0.3 / irrégularité 0.35, lacs λ 700 / creusement 12, climat λ temp 1600 / λ humid 1100 / lapse 0.0045 / neige 0.08, végétation densité 1 / rayon 900, aérodromes 10 / 700 m / alt 55 / tolérance 7, viewRadius 1500 / nearRadius 650 / physicsRadius 500. ⚠️ Le masque de montagnosité doit être **remappé par smoothstep** (`0.58 ± 0.5/sharpness`) : un fBm normalisé ne sature jamais ±1, un simple `pow` plafonnait les sommets à ~40 % de `mountainHeight`. Vérif data par eval : `import('/src/core/world/terrain.ts?v='+Date.now())` (cache-buster obligatoire après HMR) + échantillonnage grille.
 - **Échelle monde (3+A)** : fog par défaut passé à 220/1500 (voir les massifs de loin), caméra `far` 2000→4000, **dôme de ciel suit la caméra** (rayon 3400 ; un dôme fixe à l'origine finirait derrière l'avion sur un monde de plusieurs km). Garder `viewRadius ≥ fogFar` sinon trous visibles au loin.
-- **Perf (constat 3+A)** : ~13-14 fps sur Intel HD 630 en preview, **hangar comme vol** ⇒ le goulot est le pipeline de base (N8AO + bloom + MSAA + VSM à DPR 1.25), PAS le terrain (aucune régression mesurée). Passe perf dédiée à prévoir (baisser DPR/SSAO ?) — objectif 60 fps du brief non atteint, préexistant.
+- **Perf (jalon optimisation)** : coûts MESURÉS sur HD 630 (hangar 903×778, contexte frais, baseline 19 fps) :
+  **N8AO ≈ 22 ms (!)** même halfRes, MSAA 4× ≈ 6 ms, bloom ≈ 3,5 ms, composer ≈ 3 ms ; scène brute = 60 fps
+  (cap vsync) ; **DPR 1 vs 1.25 = neutre** (pas fill-rate bound) ; terrain/végétation/heightfields = coût nul
+  mesurable. ⇒ sélecteur leva « Rendu › qualité » (`renderQuality.ts`) : **performance** (défaut, AUCUN
+  post-process — ACES + ombres VSM restent) / **équilibré** (bloom+vignette, MSAA 0, ~45) / **qualité**
+  (pipeline complet, ~20). Leva masqué en prod ⇒ les joueurs ont « performance ». Marquages de piste fusionnés
+  (2 draws/piste au lieu de ~13). ⚠️ Mesure fps par eval rAF : la page preview passe `visibilityState:hidden`
+  quand le panneau n'est pas affiché ⇒ rAF gelé, mesure impossible — afficher le panneau d'abord.
 - **Déploiement Vercel** : prêt (`vercel.json` + `engines.node 22.x` + leva `hidden` en prod). Lockfile v3 contient les bindings rolldown Linux ; WASM Rapier inliné dans le bundle (pas de fichier à servir). Déploiement = compte Vercel de l'utilisateur (GitHub import ou `npx vercel`).
