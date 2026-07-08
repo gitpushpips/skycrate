@@ -229,7 +229,30 @@ npm run format     # prettier --write
     manche à air visible au spawn ; 0 erreur console ; build OK. 🟡 Pas encore vérifié en jeu : atterrissage
     sur un pad généré (collider cohérent par construction) ; ~13 meshes de marquage par piste (merger si la
     passe perf le demande).
-  - [ ] 3+E — landmarks, heightfields Rapier par chunk, brouillard de découverte, marqueur, hors-limites.
+  - [x] **3+E — collisions terrain, découverte, carte, marqueur, hors-limites, landmark.**
+    - **Heightfields Rapier par chunk** (`scenes/TerrainColliders.tsx`) : streamés autour de l'avion
+      (rayon leva `physicsRadius` 500, budget 1/frame, décharge au-delà), matrice (64+1)² **column-major**
+      (colonnes = X, lignes = Z), même résolution que le LOD visuel proche ⇒ surfaces identiques. Toggle leva
+      `colliders (debug)` (⚠️ le rendu debug de ~13 heightfields tombe à ~3 fps sur HD 630 — outil de vérif,
+      pas un mode de jeu). **Vérifié** : wireframe aligné au terrain ; roulage hors pad ⇒ avion porté par le
+      relief (posé incliné alt 3, pitch −8°/bank −5°), aucune traversée ; fps = baseline (13).
+    - **Découverte** (`store/world.ts` + `scenes/DiscoveryTracker.tsx`) : cellules survolées (128 m, voisinage
+      3×3, ~2 Hz) + aérodromes découverts à < 350 m ; **persisté localStorage PAR SEED** (`skycrate.world.<seed>`),
+      `ap.start` connu d'office. Vérifié : traînées des vols précédents visibles sur la carte, Bois-Noir II
+      découvert par un vol antérieur.
+    - **Carte (touche M)** (`ui/MapOverlay.tsx`) : fond peint avec `rampColor` (déplacée dans
+      `scenes/terrainRamp.ts`, partagée terrain/carte) + profondeur d'eau, généré 230² à l'ouverture (~150 ms,
+      mémoïsé par params) ; **brouillard de découverte** (cellules non visitées assombries), aérodromes
+      découverts (point + axe de piste + nom), cercle rouge = bord du monde, flèche avion (position + cap,
+      nord = haut = soleil), redraw 400 ms. **Clic = marqueur** (monde ← pixels, vérifié : centre → (−2,−2)) ;
+      matérialisé en jeu par un **faisceau orange** vertical (`MarkerBeam`, World.tsx). Échap/M ferme.
+    - **Hors-limites** (`ui/OutOfBounds.tsx`, règle 10) : au-delà de `worldRadius + 250` ⇒ alerte HUD rouge +
+      compte à rebours 10 s (réarmé au demi-tour) ; à zéro ⇒ **désassemblage** = retour hangar. HUD store
+      étendu (x/z/heading/oobSeconds — heading aussi utilisé par la flèche carte).
+    - **Landmark** : **phare** rayé blanc/rouge (lanterne émissive) sur le cap côtier le plus avancé
+      (`findCape`, déterministe par seed ; seed 20260707 → (2195, 289), promontoire 40 m plein EST) — les
+      autres repères sont organiques (pic 118 m, grands lacs, côtes). 🟡 OOB non testé en vol (logique
+      triviale relue) ; phare non vu en jeu (position vérifiée par data).
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 
@@ -253,7 +276,7 @@ npm run format     # prettier --write
 - **Pas fixe (étape 5d-B)** : aéro + poussée + assistance dans `useBeforePhysicsStep` (pas la frame de rendu). Une boucle d'asservissement (assistance) à gain élevé sur un dt variable **oscille/diverge** ; le pas fixe (`FIXED_DT = 1/60`) la stabilise. Caméra + télémétrie restent au rendu (`useFrame`).
 - **Assistance (étape 5d-E)** : couple correctif **par-dessus** la physique (`core/flight/assist.ts`). Défaut = amortissement des taux + **bornes d'attitude** + **maintien actif de l'inclinaison** (`holdGain`) vers le bank **capturé au lâché du roulis** (clampé à la borne). Nécessaire car la **stabilité aéro naturelle (dièdre) remet les ailes à plat** toute seule ; le maintien la contre ⇒ l'avion **garde son virage** au lâché (demande utilisateur : NE PAS se remettre à plat). Le tangage tient le climb par simple amortissement. `levelReturn` (ailes à plat) / `altHold` (anti-perte d'alt en virage) = options à 0. ⚠️ télémétrie `window.__plane` désormais **gardée mais `import.meta.env.DEV` only** (sera remplacée par le HUD étape 6).
 - **Calibrage 5d (leva « Vol », hors dossier)** : airDensity 0.055, inducedDrag 0.05, flatPlateDrag 1, bodyDrag 0.12, thrustCoef 2.5, CD0 ailes 0.012 / empennages 0.01, calage aile 2°. Assistance : pitch/roll/yawDamp 30/70/40, limitGain 150, maxPitch 35° / maxBank 55°, déflexion gouvernes 15°. **Limite connue** : virages inclinés perdent de l'altitude (pas de maintien d'alt par défaut) → tirer pour compenser, ou monter `altHold`.
-- **Terrain 3+A/B/C (leva « Monde », hors dossier)** : **seed 20260707**, worldRadius 2200, baseElevation 6, λ collines 420 / ampl. 14, octaves 5 / gain 0.5 / lacunarité 2, montagnes λ 1500 / hauteur 110 / contraste 2.2, fondu côtier 0.3 / irrégularité 0.35, lacs λ 700 / creusement 12, climat λ temp 1600 / λ humid 1100 / lapse 0.0045 / neige 0.08, végétation densité 1 / rayon 900, aérodromes 10 / 700 m / alt 55 / tolérance 7, viewRadius 1500 / nearRadius 650. ⚠️ Le masque de montagnosité doit être **remappé par smoothstep** (`0.58 ± 0.5/sharpness`) : un fBm normalisé ne sature jamais ±1, un simple `pow` plafonnait les sommets à ~40 % de `mountainHeight`. Vérif data par eval : `import('/src/core/world/terrain.ts?v='+Date.now())` (cache-buster obligatoire après HMR) + échantillonnage grille.
+- **Terrain 3+A/B/C (leva « Monde », hors dossier)** : **seed 20260707**, worldRadius 2200, baseElevation 6, λ collines 420 / ampl. 14, octaves 5 / gain 0.5 / lacunarité 2, montagnes λ 1500 / hauteur 110 / contraste 2.2, fondu côtier 0.3 / irrégularité 0.35, lacs λ 700 / creusement 12, climat λ temp 1600 / λ humid 1100 / lapse 0.0045 / neige 0.08, végétation densité 1 / rayon 900, aérodromes 10 / 700 m / alt 55 / tolérance 7, viewRadius 1500 / nearRadius 650 / physicsRadius 500. ⚠️ Le masque de montagnosité doit être **remappé par smoothstep** (`0.58 ± 0.5/sharpness`) : un fBm normalisé ne sature jamais ±1, un simple `pow` plafonnait les sommets à ~40 % de `mountainHeight`. Vérif data par eval : `import('/src/core/world/terrain.ts?v='+Date.now())` (cache-buster obligatoire après HMR) + échantillonnage grille.
 - **Échelle monde (3+A)** : fog par défaut passé à 220/1500 (voir les massifs de loin), caméra `far` 2000→4000, **dôme de ciel suit la caméra** (rayon 3400 ; un dôme fixe à l'origine finirait derrière l'avion sur un monde de plusieurs km). Garder `viewRadius ≥ fogFar` sinon trous visibles au loin.
 - **Perf (constat 3+A)** : ~13-14 fps sur Intel HD 630 en preview, **hangar comme vol** ⇒ le goulot est le pipeline de base (N8AO + bloom + MSAA + VSM à DPR 1.25), PAS le terrain (aucune régression mesurée). Passe perf dédiée à prévoir (baisser DPR/SSAO ?) — objectif 60 fps du brief non atteint, préexistant.
 - **Déploiement Vercel** : prêt (`vercel.json` + `engines.node 22.x` + leva `hidden` en prod). Lockfile v3 contient les bindings rolldown Linux ; WASM Rapier inliné dans le bundle (pas de fichier à servir). Déploiement = compte Vercel de l'utilisateur (GitHub import ou `npx vercel`).

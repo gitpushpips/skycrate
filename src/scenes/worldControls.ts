@@ -17,6 +17,10 @@ export interface WorldTunables {
   viewRadius: number
   /** Rayon plein détail ; au-delà = chunks demi-résolution (LOD). */
   nearRadius: number
+  /** Rayon des colliders heightfield autour de l'avion (m). */
+  physicsRadius: number
+  /** Affiche les colliders Rapier (debug). */
+  showColliders: boolean
 }
 
 export function useWorldTunables(): WorldTunables {
@@ -63,6 +67,8 @@ export function useWorldTunables(): WorldTunables {
     'rendu terrain': folder({
       viewRadius: { value: 1500, min: 400, max: 2600, step: 50, label: 'rayon chargé (m)' },
       nearRadius: { value: 650, min: 200, max: 1500, step: 50, label: 'rayon plein détail (m)' },
+      physicsRadius: { value: 500, min: 260, max: 1200, step: 20, label: 'rayon physique (m)' },
+      showColliders: { value: false, label: 'colliders (debug)' },
     }),
   })
 
@@ -96,5 +102,7 @@ export function useWorldTunables(): WorldTunables {
     vegRadius: v.vegRadius,
     viewRadius: v.viewRadius,
     nearRadius: v.nearRadius,
+    physicsRadius: v.physicsRadius,
+    showColliders: v.showColliders,
   }
 }

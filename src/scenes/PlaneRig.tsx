@@ -233,6 +233,7 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
 
     // HUD : push à cadence réduite (~15 Hz) vers le store.
     if (++hudTick.current % 4 === 0) {
+      _dbg.copy(referenceForward).applyQuaternion(_Q)
       useHud.setState({
         speed,
         altitude: _P.y,
@@ -241,6 +242,9 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
         overspeed: speed > stats.warningSpeedMs,
         broken: brokenRef.current,
         outOfFuel: fuel.current <= 0,
+        x: _P.x,
+        z: _P.z,
+        heading: Math.atan2(_dbg.x, -_dbg.z), // 0 = nord (-Z), sens horaire vu de dessus
       })
     }
   })

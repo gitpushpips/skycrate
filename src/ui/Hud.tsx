@@ -14,6 +14,7 @@ export function Hud() {
   const overspeed = useHud((s) => s.overspeed)
   const broken = useHud((s) => s.broken)
   const outOfFuel = useHud((s) => s.outOfFuel)
+  const oobSeconds = useHud((s) => s.oobSeconds)
 
   const fuelPct = fuelMax > 0 ? Math.max(0, Math.min(1, fuel / fuelMax)) : 0
   const fuelColor = fuelPct > 0.3 ? '#5bd06a' : fuelPct > 0.12 ? '#e0a23a' : '#d8423a'
@@ -22,6 +23,11 @@ export function Hud() {
     <div style={styles.root}>
       {/* Alertes centrales */}
       <div style={styles.alerts}>
+        {oobSeconds !== null && (
+          <div style={{ ...styles.alert, ...styles.alertBad }}>
+            ZONE INTERDITE — DEMI-TOUR ({Math.ceil(oobSeconds)} s)
+          </div>
+        )}
         {broken && <div style={{ ...styles.alert, ...styles.alertBad }}>AILE CASSÉE — appuyez sur R</div>}
         {!broken && overspeed && <div style={{ ...styles.alert, ...styles.alertWarn }}>⚠ SURVITESSE STRUCTURELLE</div>}
         {!broken && outOfFuel && <div style={{ ...styles.alert, ...styles.alertWarn }}>PANNE SÈCHE</div>}

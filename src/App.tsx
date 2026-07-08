@@ -8,6 +8,8 @@ import { FlightScene } from './scenes/FlightScene'
 import { useFlightTunables } from './scenes/flightControls'
 import { useEconomyTunables } from './scenes/economyControls'
 import { Hud } from './ui/Hud'
+import { MapOverlay } from './ui/MapOverlay'
+import { OutOfBounds } from './ui/OutOfBounds'
 import { StatsPanel } from './ui/StatsPanel'
 import { PartsPalette } from './ui/PartsPalette'
 import { PartInspector } from './ui/PartInspector'
@@ -69,7 +71,11 @@ export default function App() {
           <EditorHint />
         </>
       ) : (
-        <Hud />
+        <>
+          <Hud />
+          <MapOverlay />
+          <OutOfBounds />
+        </>
       )}
     </>
   )

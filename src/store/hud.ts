@@ -20,6 +20,12 @@ export interface HudState {
   broken: boolean
   /** Plus de carburant. */
   outOfFuel: boolean
+  /** Position XZ (repère monde) + cap (rad, 0 = nord) — carte + hors-limites (3+E). */
+  x: number
+  z: number
+  heading: number
+  /** Compte à rebours hors-limites (s) ; null = dans les limites. */
+  oobSeconds: number | null
 }
 
 export const useHud = create<HudState>(() => ({
@@ -30,4 +36,8 @@ export const useHud = create<HudState>(() => ({
   overspeed: false,
   broken: false,
   outOfFuel: false,
+  x: 0,
+  z: 0,
+  heading: 0,
+  oobSeconds: null,
 }))

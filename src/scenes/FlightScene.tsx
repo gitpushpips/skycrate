@@ -1,21 +1,24 @@
+import { useEffect, useMemo } from 'react'
 import { Physics, RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier'
 import { GameScene } from './GameScene'
 import { PlaneRig } from './PlaneRig'
+import { TerrainColliders } from './TerrainColliders'
+import { DiscoveryTracker } from './DiscoveryTracker'
 import type { CompiledAircraft } from '../core/build/compile'
 import type { FlightTunables } from './flightControls'
-import { SEA_Y, START_AIRPORT, TOP_Y, WORLD_RADIUS } from '../core/world/world'
+import { AIRPORTS, SEA_Y, START_AIRPORT, TOP_Y, WORLD_RADIUS } from '../core/world/world'
 import { SPAWN_PAD_RADIUS } from '../core/world/terrain'
 import { buildWorld } from '../core/world/airports'
 import { useWorldTunables } from './worldControls'
+import { useWorldUi } from '../store/world'
 
 /**
  * Mode VOL : monde ouvert (océan + terrain à relief + aérodromes) + monde
  * physique Rapier + l'avion compilé, spawné sur la piste de départ.
  *
- * Colliders : pad du spawn + un pad par aérodrome généré (on peut se poser
- * partout où il y a une piste) + nappe océan. Le relief lui-même n'a PAS
- * encore de colliders (heightfields par chunk = 3+E) → hors des pads, on
- * traverse le terrain (assumé, transitoire).
+ * Colliders : HEIGHTFIELDS de terrain streamés autour de l'avion (3+E — on
+ * roule/atterrit/crashe partout) + pads d'aérodromes + pad du spawn + nappe
+ * océan. Découverte : aérodromes révélés à l'approche (brouillard de carte).
  */
 export function FlightScene({
   aircraft,
@@ -25,12 +28,30 @@ export function FlightScene({
   tunables: FlightTunables
 }) {
   const world = useWorldTunables()
-  const { airports } = buildWorld(world.terrain) // mémoïsé par valeur (partagé avec World)
+  const { terrain, airports } = buildWorld(world.terrain) // mémoïsé par valeur (partagé avec World)
   const [sx, , sz] = START_AIRPORT.position
+
+  // Découverte liée au seed courant (persistance localStorage).
+  useEffect(() => {
+    useWorldUi.getState().ensureSeed(world.terrain.seed)
+  }, [world.terrain.seed])
+
+  const trackedAirports = useMemo(
+    () => [...AIRPORTS, ...airports].map((a) => ({ id: a.id, position: a.position })),
+    [airports],
+  )
+
   return (
     <>
       <GameScene />
-      <Physics gravity={[0, -tunables.gravity, 0]}>
+      <Physics gravity={[0, -tunables.gravity, 0]} debug={world.showColliders}>
+        {/* Relief : heightfields streamés autour de l'avion. */}
+        <TerrainColliders
+          terrain={terrain}
+          radius={world.physicsRadius}
+          friction={tunables.groundFriction}
+        />
+
         <RigidBody type="fixed" colliders={false}>
           {/* Pad aplani du spawn (aligné sur le flatten du terrain). */}
           <CylinderCollider
@@ -58,6 +79,7 @@ export function FlightScene({
 
         <PlaneRig aircraft={aircraft} tunables={tunables} spawn={[sx, TOP_Y, sz]} />
       </Physics>
+      <DiscoveryTracker airports={trackedAirports} />
     </>
   )
 }
