@@ -253,9 +253,10 @@ npm run format     # prettier --write
       (`findCape`, déterministe par seed ; seed 20260707 → (2195, 289), promontoire 40 m plein EST) — les
       autres repères sont organiques (pic 118 m, grands lacs, côtes). 🟡 OOB non testé en vol (logique
       triviale relue) ; phare non vu en jeu (position vérifiée par data).
-- **Jalon perf/optimisation** *(en cours)* — mesures + sélecteur « Rendu › qualité » (performance/équilibré/qualité,
-  défaut performance) + marquages de piste fusionnés. Détails/coûts : voir §8 « Perf ». 🟡 Reste : mesure fps
-  EN VOL en mode performance (panneau preview visible requis), vérif visuelle des 3 modes, redéploiement Vercel.
+- **Jalon perf/optimisation ✅** — sélecteur « Rendu › qualité » (performance/équilibré/qualité, défaut
+  performance) + ombres VSM par qualité (1024²/8 vs 2048²/20, `key={quality}` pour réallouer la map) +
+  marquages de piste fusionnés. **Résultat : vol 13 → 58 fps, hangar 60 (cap vsync) sur HD 630.**
+  Détails/coûts : voir §8 « Perf ». 🟡 Reste : redéploiement Vercel (les joueurs sont encore sur l'ancien build).
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 
@@ -287,6 +288,9 @@ npm run format     # prettier --write
   mesurable. ⇒ sélecteur leva « Rendu › qualité » (`renderQuality.ts`) : **performance** (défaut, AUCUN
   post-process — ACES + ombres VSM restent) / **équilibré** (bloom+vignette, MSAA 0, ~45) / **qualité**
   (pipeline complet, ~20). Leva masqué en prod ⇒ les joueurs ont « performance ». Marquages de piste fusionnés
-  (2 draws/piste au lieu de ~13). ⚠️ Mesure fps par eval rAF : la page preview passe `visibilityState:hidden`
-  quand le panneau n'est pas affiché ⇒ rAF gelé, mesure impossible — afficher le panneau d'abord.
+  (2 draws/piste au lieu de ~13). **EN VOL** (2ᵉ goulot) : la **VSM 2048²/20 samples coûtait ~9 ms** → ombres
+  par qualité (1024²/8 en performance/équilibré ≈ 1 ms, quasi même rendu) ; végétation castShadow = gratuit
+  (gardé) ; le reliquat ~2 ms = scène de vol (draw calls + physique), assumé. **Vol : 13 → 58 fps.**
+  ⚠️ Mesure fps par eval rAF : la page preview passe `visibilityState:hidden` quand le panneau n'est pas
+  affiché ⇒ rAF gelé, mesure impossible — afficher le panneau d'abord.
 - **Déploiement Vercel** : prêt (`vercel.json` + `engines.node 22.x` + leva `hidden` en prod). Lockfile v3 contient les bindings rolldown Linux ; WASM Rapier inliné dans le bundle (pas de fichier à servir). Déploiement = compte Vercel de l'utilisateur (GitHub import ou `npx vercel`).
