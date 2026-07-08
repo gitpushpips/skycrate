@@ -16,7 +16,7 @@ export function useEconomyTunables(): EconomyTunables {
       coinsBudget: {
         value: DEFAULT_COINS_BUDGET,
         min: 0,
-        max: 5000,
+        max: 20000,
         step: 50,
         label: 'budget (coins)',
       },

@@ -9,7 +9,7 @@
  */
 
 /** Budget de coins de départ (🟡 hors dossier — calibrable dans leva). */
-export const DEFAULT_COINS_BUDGET = 500
+export const DEFAULT_COINS_BUDGET = 5000
 
 /** Coins encore disponibles = budget − coût immobilisé dans le build. */
 export function coinsAvailable(budget: number, spent: number): number {
