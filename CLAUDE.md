@@ -332,6 +332,19 @@ npm run format     # prettier --write
       poste vitrée (type Beluga/747) ; chasse = nez facetté furtif gris + **bulle teintée OR** + perche de nez
       (type F-35). Dispatcher `CockpitShape`. **Validé preview** : 6 pièces en palette (badges T0-T5), les 6
       silhouettes rendues et reconnaissables, FUEL 1.0 partout (gros porteur 1.5), 0 erreur, typecheck/lint/build OK.
+    - [x] **S4-B-bis — refonte graphique cockpits par LOFT (retour utilisateur « formes collées »).** Les 6 cockpits
+      étaient des primitives empilées (arêtes dures). Refaits par **loft** : `loftGeometry(stations)` empile des
+      **sections superellipse** (`{z,hw,hh,round,yc}`) reliées en **une surface continue à normales lisses** ⇒ lignes
+      fluides. Verrières = **volumes de verre PLEINS** posés sur le corps (plus d'intérieur creux qui apparaissait
+      noir), teintées sombres pour se lire comme des vitres. GA (Cessna) = corps crème + toit peint + pare-brise
+      redressé + custode omni-vision + narines de capot ; planeur = pod fin + longue verrière basse ; warbird =
+      capot inline elliptique haut + goutte + échappements ; ligne = tube blanc + radôme (loft séparé) + baies +
+      cheatline ; gros porteur = corps bulbeux + bosse de poste ; chasse = corps **facetté** (loft 12 seg +
+      `flatShading`) + **bulle OR** + pitot. ⚠️ **Bug corrigé** : l'enroulement des triangles du loft donnait des
+      **normales inversées** ⇒ fuselage « transparent » (culling des faces extérieures) ; sens d'indices remis pour
+      des normales vers l'extérieur (+ caps). `loftGeometry` resservira au **fuselage déformable S4-C** (sections
+      variables = déformation). Télémétrie DEV : `window.__hangar.camera` (cadrage des captures). **Validé preview** :
+      les 6 opaques et fluides (profils + belly), 0 erreur, typecheck/lint/build OK.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 

@@ -88,6 +88,7 @@ export function HangarEditor({
       store: useBuild,
       hud: useHud,
       compiled: aircraft,
+      camera, // DEV : cadrage des captures de vérif
       project: (p: [number, number, number]) => {
         const v = new THREE.Vector3(p[0], p[1], p[2]).project(camera)
         return [((v.x + 1) / 2) * size.width, ((1 - v.y) / 2) * size.height]
