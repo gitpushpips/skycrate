@@ -30,6 +30,9 @@ export interface FlightTunables {
   // Gouvernes
   maxDeflectionDeg: number
   servoRate: number
+  /** Trim : déflexion PERMANENTE de l'élévateur (°) — règle la vitesse/assiette
+   *  d'équilibre à commandes neutres (S3 : trim par position de gouverne). */
+  elevatorTrim: number
   /** Part de tangage mélangée aux gouvernes d'aile (élevons) : 0 = ailerons purs. */
   wingElevon: number
   // Caméra
@@ -82,6 +85,7 @@ export function useFlightTunables(): FlightTunables {
       maxDeflectionDeg: { value: 15, min: 5, max: 45, step: 1, label: 'déflexion max°' },
       servoRate: { value: 12, min: 2, max: 40, step: 1, label: 'vitesse servo' },
       wingElevon: { value: 0.6, min: 0, max: 1, step: 0.05, label: 'élevons (tangage aile)' },
+      elevatorTrim: { value: 0, min: -10, max: 10, step: 0.25, label: 'trim élévateur°' },
     }),
     caméra: folder({
       camDistance: { value: 11, min: 4, max: 30, step: 0.5, label: 'distance' },
@@ -94,7 +98,9 @@ export function useFlightTunables(): FlightTunables {
       yawDamp: { value: 40, min: 0, max: 120, step: 1, label: 'amorti lacet' },
       holdGain: { value: 150, min: 0, max: 400, step: 5, label: 'maintien attitude' },
       levelReturn: { value: 0, min: 0, max: 250, step: 1, label: 'ailes à plat (option)' },
-      altHold: { value: 0, min: 0, max: 60, step: 1, label: 'maintien alt. (option)' },
+      // S3 : ON par défaut — amortit la phugoïde (vy→0 à commandes neutres) ⇒
+      // accélérer ne fait plus « ballonner » l'avion.
+      altHold: { value: 12, min: 0, max: 60, step: 1, label: 'maintien palier' },
       limitGain: { value: 150, min: 0, max: 400, step: 5, label: 'fermeté bornes' },
       antiStall: { value: 8, min: 0, max: 40, step: 0.5, label: 'anti-décrochage' },
       stallGuardDeg: { value: 12, min: 5, max: 20, step: 0.5, label: 'seuil décroch.°' },

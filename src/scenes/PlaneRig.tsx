@@ -175,12 +175,15 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
     }
 
     // Gouvernes : cible depuis l'input → lissage « servo » (pas fixe).
+    // TRIM (S3) : déflexion permanente ajoutée à l'élévateur — la position de
+    // gouverne fixe l'incidence/la vitesse d'équilibre (pas d'incidence figée).
     const md = THREE.MathUtils.degToRad(tunables.maxDeflectionDeg)
+    const trim = THREE.MathUtils.degToRad(tunables.elevatorTrim)
     const k = Math.min(1, FIXED_DT * tunables.servoRate)
     const c = controls.current
     // Gouvernes d'aile = élevons : roulis (différentiel) + tangage (collectif).
     const elevon = -inp.pitch * md * tunables.wingElevon
-    c.elevator += (-inp.pitch * md - c.elevator) * k
+    c.elevator += (trim + -inp.pitch * md - c.elevator) * k
     c.aileronL += (inp.roll * md + elevon - c.aileronL) * k
     c.aileronR += (-inp.roll * md + elevon - c.aileronR) * k
     c.rudder += (-inp.yaw * md - c.rudder) * k

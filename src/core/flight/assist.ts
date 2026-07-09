@@ -23,7 +23,9 @@ export interface AssistGains {
   holdGain: number
   /** OPTION (défaut 0) : rappel ACTIF des ailes à plat (bank → 0) au lâché du roulis. */
   levelReturn: number
-  /** OPTION (défaut 0) : maintien d'altitude (vitesse verticale → 0) au lâché du tangage. */
+  /** Maintien de PALIER (S3, ON par défaut) : vitesse verticale → 0 au lâché du
+   *  tangage ⇒ amortit la phugoïde — accélérer ne fait plus « ballonner ».
+   *  (Le joueur qui tient W/S le débraye : gate (1 − |input.pitch|).) */
   altHold: number
   /** Fermeté du rappel quand on dépasse les bornes d'attitude. */
   limitGain: number

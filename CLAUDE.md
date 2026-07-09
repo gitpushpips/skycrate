@@ -288,6 +288,19 @@ npm run format     # prettier --write
     Jauge hangar (`ThrottleGauge`) inchangée (aperçu). **Validé preview** : rampe linéaire 0.55/s clamp 0..1 ✅,
     Ctrl −0.55/s ✅, C → `reverse` ✅, cran : 0.8 → M2 `dry 0.94` sans PC, 1.0 → **PC sur le seul moteur équipé** ✅,
     délié M2 0.35 / M1 1.0 ✅, panneau TOUS/M1/M2 + LIÉS rendu ✅, panne sèche par conso PC ×6 ✅. Build OK.
+  - [x] **S3 — portance qui « ballonne » en accélérant ✅.** Diagnostic (trace de vol plein gaz, commandes
+    neutres, assist ON) : la portance ∝ v² à incidence fixe ⇒ **phugoïde** non amortie (vy oscillait ±15 à ±30 m/s,
+    montée en yo-yo). Deux leviers, tous deux en leva :
+    - **`altHold` (assistance) passé de 0 → 12 par défaut** (renommé « maintien palier ») : couple d'amortissement
+      `-altHold·vy·(1−|input.pitch|)` (déjà dans `core/flight/assist.ts`, était une option à 0). Gaté par l'input
+      tangage ⇒ le joueur qui tient W/S le débraye. **Assist ON** : accélérer garde ~**+2 m/s** de montée douce au
+      lieu de ballonner (vérifié : vy stabilisé ~1.6–3.5, plus d'oscillation).
+    - **`elevatorTrim` (gouvernes, °, défaut 0)** : déflexion PERMANENTE ajoutée à l'élévateur dans `PlaneRig`
+      (`c.elevator += trim + …`) ⇒ **trim par position de gouverne** (pas d'incidence figée). **Assist OFF** : vraie
+      **stabilité en vitesse** (la position de gouverne fixe une vitesse d'équilibre ; hors trim l'avion grimpe encore
+      mais à vitesse bornée par la traînée, il ne « balloone » plus en yo-yo). La marge statique `cgShift` (déjà là)
+      reste le réglage de fermeté du trim. Validé preview : assist ON → montée résiduelle ~+2 m/s ✅ ; assist OFF →
+      vitesse plafonnée par la traînée (~42–60 m/s), pas de divergence ✅. typecheck/lint/build OK.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 
