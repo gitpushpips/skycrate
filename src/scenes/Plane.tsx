@@ -398,80 +398,85 @@ function CockpitWarbird() {
   )
 }
 
-// Avion de ligne (A320) : tube blanc + radôme BOMBÉ sombre + le « masque »
-// anti-éblouissement NOIR du poste (signature Airbus) avec 2 vitres frontales en V
-// + 2 latérales, sondes pitot, cheatline.
+// Avion de ligne (A320) — nez BLANC intégré (une seule coque continue, pointe
+// radôme légèrement tombante) ; poste à la vraie forme Airbus : 2 pare-brise
+// frontaux en V + 1 latéral/côté, verre clair bleuté, montants blancs, fine
+// visière anti-éblouissement, joint de radôme, essuie-glaces, sondes pitot.
 function CockpitAirliner() {
   const body = useMemo(
     () =>
       loftGeometry(
         [
-          { z: -0.6, hw: 0.5, hh: 0.5, round: 1, yc: 0 },
-          { z: 0.0, hw: 0.56, hh: 0.57, round: 1, yc: 0 },
-          { z: 0.6, hw: 0.56, hh: 0.57, round: 1, yc: 0 },
+          { z: -1.15, hw: 0.12, hh: 0.13, round: 1, yc: -0.08 }, // pointe radôme (tombante)
+          { z: -0.98, hw: 0.28, hh: 0.29, round: 1, yc: -0.05 },
+          { z: -0.75, hw: 0.46, hh: 0.47, round: 1, yc: -0.02 },
+          { z: -0.45, hw: 0.55, hh: 0.56, round: 1, yc: 0 },
+          { z: 0.2, hw: 0.56, hh: 0.57, round: 1, yc: 0 },
           { z: 1.1, hw: 0.56, hh: 0.57, round: 1, yc: 0 },
         ],
-        30,
+        32,
       ),
     [],
   )
-  // Radôme bombé (court, arrondi façon nez d'A320) — pas un cône pointu.
-  const radome = useMemo(
-    () =>
-      loftGeometry(
-        [
-          { z: -1.02, hw: 0.18, hh: 0.2, round: 1, yc: -0.04 }, // bout arrondi
-          { z: -0.86, hw: 0.4, hh: 0.41, round: 1, yc: -0.02 },
-          { z: -0.7, hw: 0.53, hh: 0.53, round: 1, yc: -0.005 },
-          { z: -0.6, hw: 0.55, hh: 0.56, round: 1, yc: 0 },
-        ],
-        30,
-      ),
-    [],
-  )
-  // Masque anti-éblouissement : fine visière sombre sur le haut-avant du tube.
+  // Fine visière anti-éblouissement (juste au pied du pare-brise, discrète).
   const mask = useMemo(
     () =>
       loftGeometry(
         [
-          { z: -0.55, hw: 0.3, hh: 0.06, round: 0.5, yc: 0.42 },
-          { z: -0.34, hw: 0.4, hh: 0.09, round: 0.45, yc: 0.46 },
-          { z: -0.12, hw: 0.38, hh: 0.08, round: 0.55, yc: 0.44 },
+          { z: -0.62, hw: 0.26, hh: 0.04, round: 0.5, yc: 0.36 },
+          { z: -0.46, hw: 0.33, hh: 0.05, round: 0.5, yc: 0.42 },
+          { z: -0.28, hw: 0.31, hh: 0.04, round: 0.6, yc: 0.4 },
         ],
         22,
       ),
     [],
   )
+  // Verre teinté SOMBRE : contraste avec le nez blanc ⇒ lit comme un poste.
+  const glass = { color: palette.cockGlassDark, metalness: 0.4, roughness: 0.04, transparent: true, opacity: 0.78 }
+  const frame = { color: palette.cockAirliner, roughness: 0.4 }
   return (
     <group>
       <mesh geometry={body} castShadow receiveShadow>
         <meshStandardMaterial color={palette.cockAirliner} roughness={0.42} metalness={0.1} />
       </mesh>
-      <mesh geometry={radome} castShadow>
-        <meshStandardMaterial color="#565c66" roughness={0.45} />
+      {/* Joint de radôme (fin liseré gris clair là où le radôme rejoint le nez). */}
+      <mesh position={[0, -0.02, -0.74]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.46, 0.008, 6, 32]} />
+        <meshStandardMaterial color="#c2c7cd" roughness={0.5} />
       </mesh>
-      {/* Visière noire du poste (anti-éblouissement). */}
+      {/* Visière anti-éblouissement (discrète). */}
       <mesh geometry={mask} castShadow>
-        <meshStandardMaterial color="#15171b" roughness={0.5} />
+        <meshStandardMaterial color="#1a1c20" roughness={0.5} />
       </mesh>
-      {/* 2 vitres frontales en V. */}
+      {/* 2 pare-brise frontaux en V (grands, face avant). */}
       {([-1, 1] as const).map((s) => (
-        <mesh key={`f${s}`} position={[s * 0.13, 0.47, -0.46]} rotation={[-0.5, s * 0.3, 0]}>
-          <boxGeometry args={[0.22, 0.15, 0.02]} />
-          <meshStandardMaterial color={palette.planeGlass} metalness={0.4} roughness={0.04} transparent opacity={0.72} />
+        <mesh key={`f${s}`} position={[s * 0.15, 0.42, -0.56]} rotation={[-0.5, s * 0.22, 0]}>
+          <boxGeometry args={[0.3, 0.27, 0.012]} />
+          <meshStandardMaterial {...glass} />
         </mesh>
       ))}
-      {/* 2 vitres latérales plus inclinées. */}
+      {/* 1 vitre latérale par côté (inclinée vers l'arrière). */}
       {([-1, 1] as const).map((s) => (
-        <mesh key={`s${s}`} position={[s * 0.36, 0.4, -0.24]} rotation={[-0.28, s * 0.75, 0]}>
-          <boxGeometry args={[0.19, 0.13, 0.02]} />
-          <meshStandardMaterial color={palette.planeGlass} metalness={0.4} roughness={0.04} transparent opacity={0.72} />
+        <mesh key={`s${s}`} position={[s * 0.44, 0.29, -0.3]} rotation={[-0.16, s * 0.7, 0]}>
+          <boxGeometry args={[0.26, 0.19, 0.012]} />
+          <meshStandardMaterial {...glass} />
+        </mesh>
+      ))}
+      {/* Montants blancs : post central en V + A-posts entre frontal et latéral. */}
+      <mesh position={[0, 0.45, -0.58]} rotation={[-0.5, 0, 0]}>
+        <boxGeometry args={[0.028, 0.28, 0.03]} />
+        <meshStandardMaterial {...frame} />
+      </mesh>
+      {([-1, 1] as const).map((s) => (
+        <mesh key={`a${s}`} position={[s * 0.3, 0.36, -0.44]} rotation={[-0.32, s * 0.46, 0]}>
+          <boxGeometry args={[0.028, 0.28, 0.03]} />
+          <meshStandardMaterial {...frame} />
         </mesh>
       ))}
       {/* Sondes pitot sur le nez. */}
       {([-1, 1] as const).map((s) => (
-        <mesh key={`p${s}`} position={[s * 0.42, 0.02, -0.72]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.012, 0.012, 0.16, 6]} />
+        <mesh key={`p${s}`} position={[s * 0.44, 0.0, -0.78]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.011, 0.011, 0.16, 6]} />
           <meshStandardMaterial color={palette.cockFighterDark} metalness={0.5} />
         </mesh>
       ))}

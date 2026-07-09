@@ -355,6 +355,12 @@ npm run format     # prettier --write
       éblouissement + 2 vitres frontales en V + 2 latérales + sondes pitot + cheatline ; **cargo** = nez bulbeux +
       **bosse d'upper-deck 747** proéminente, poste vitré au front de la bosse + cheatline. **Validé preview** : les 4
       revus, caps opaques, 0 erreur, typecheck/lint/build OK.
+    - [x] **S4-B (A320 v3) — nez blanc intégré + verrière refaite.** Retour utilisateur : nez/pare-brise noirs, mauvaise
+      forme. Refonte : **une seule coque BLANCHE continue** (plus de radôme gris séparé ; pointe légèrement tombante
+      intégrée), **joint de radôme** (fin liseré gris). Poste : **2 pare-brise frontaux en V** (grands) + **1 latéral
+      par côté**, verre **teinté sombre** (contraste avec le nez blanc ⇒ se lit), **montants blancs** (post central +
+      A-posts), **visière anti-éblouissement discrète**, sondes pitot, cheatline. Validé preview (front + 3/4) : nez
+      blanc, poste lisible, 0 erreur, typecheck/lint/build OK.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 
