@@ -147,18 +147,89 @@ export const BLUEPRINTS: Record<string, PartBlueprint> = {
   },
 
   // Cockpit vitré : petit module sur le dessus.
-  // Cockpit = racine (S4). Nez -Z + verrière ; sa face ARRIÈRE (+Z) accueille le
-  // fuselage (mount +Z). Nez plat en -Z pour un moteur. Silhouette : S4-B.
+  // Cockpits = racine (S4). Nez -Z + verrière ; face ARRIÈRE (+Z) = raccord fuselage
+  // (mount +Z) ; nez -Z pour un moteur ; ventre -Y pour le train. Un profil par
+  // famille d'avion (S4-B). Colliders alignés sur la silhouette rendue (Plane.tsx).
   'cockpit.ga': {
     mounts: [
-      { position: [0, 0, 1.0], normal: [0, 0, 1] }, // arrière (fuselage / empennage)
-      { position: [0, 0, -0.95], normal: [0, 0, -1] }, // nez (moteur)
-      { position: [0, -0.4, 0], normal: [0, -1, 0] }, // ventre (train)
+      { position: [0, 0, 0.95], normal: [0, 0, 1] },
+      { position: [0, 0, -0.95], normal: [0, 0, -1] },
+      { position: [0, -0.42, 0], normal: [0, -1, 0] },
     ],
-    colliders: [{ half: [0.42, 0.4, 0.95] }],
+    colliders: [{ half: [0.42, 0.42, 0.95] }],
     dragPanels: [
-      { position: [0, 0, -1.0], normal: [0, 0, -1], area: 0.5 }, // nez
-      { position: [0, 0.4, 0], normal: [0, 1, 0], area: 1.4 }, // verrière
+      { position: [0, 0, -0.95], normal: [0, 0, -1], area: 0.55 },
+      { position: [0, 0.42, 0], normal: [0, 1, 0], area: 1.3 },
+    ],
+  },
+
+  // Planeur : nez fin et fuselé, longue verrière basse. Section étroite.
+  'cockpit.glider': {
+    mounts: [
+      { position: [0, 0, 1.05], normal: [0, 0, 1] },
+      { position: [0, 0, -1.05], normal: [0, 0, -1] },
+      { position: [0, -0.33, 0], normal: [0, -1, 0] },
+    ],
+    colliders: [{ half: [0.32, 0.34, 1.05] }],
+    dragPanels: [
+      { position: [0, 0, -1.05], normal: [0, 0, -1], area: 0.3 },
+      { position: [0, 0.32, 0], normal: [0, 1, 0], area: 1.0 },
+    ],
+  },
+
+  // Warbird : long capot moteur en ligne, verrière en goutte. Section ovale.
+  'cockpit.warbird': {
+    mounts: [
+      { position: [0, 0, 1.15], normal: [0, 0, 1] },
+      { position: [0, 0, -1.15], normal: [0, 0, -1] },
+      { position: [0, -0.44, 0], normal: [0, -1, 0] },
+    ],
+    colliders: [{ half: [0.4, 0.44, 1.15] }],
+    dragPanels: [
+      { position: [0, 0, -1.15], normal: [0, 0, -1], area: 0.5 },
+      { position: [0, 0.44, 0], normal: [0, 1, 0], area: 1.5 },
+    ],
+  },
+
+  // Avion de ligne : radôme arrondi + poste à baies vitrées. Section circulaire large.
+  'cockpit.airliner': {
+    mounts: [
+      { position: [0, 0, 1.1], normal: [0, 0, 1] },
+      { position: [0, 0, -1.1], normal: [0, 0, -1] },
+      { position: [0, -0.57, 0], normal: [0, -1, 0] },
+    ],
+    colliders: [{ half: [0.56, 0.57, 1.1] }],
+    dragPanels: [
+      { position: [0, 0, -1.1], normal: [0, 0, -1], area: 1.0 },
+      { position: [0, 0.57, 0], normal: [0, 1, 0], area: 2.4 },
+    ],
+  },
+
+  // Gros porteur : nez bulbeux, poste surélevé « en bosse ». Grosse section.
+  'cockpit.wide': {
+    mounts: [
+      { position: [0, 0, 1.05], normal: [0, 0, 1] },
+      { position: [0, 0, -1.05], normal: [0, 0, -1] },
+      { position: [0, -0.64, 0], normal: [0, -1, 0] },
+    ],
+    colliders: [{ half: [0.74, 0.64, 1.05] }],
+    dragPanels: [
+      { position: [0, 0, -1.05], normal: [0, 0, -1], area: 1.6 },
+      { position: [0, 0.64, 0], normal: [0, 1, 0], area: 3.0 },
+    ],
+  },
+
+  // Chasseur : nez facetté furtif + bulle teintée. Section carrée-arrondie.
+  'cockpit.fighter': {
+    mounts: [
+      { position: [0, 0, 1.25], normal: [0, 0, 1] },
+      { position: [0, 0, -1.25], normal: [0, 0, -1] },
+      { position: [0, -0.42, 0], normal: [0, -1, 0] },
+    ],
+    colliders: [{ half: [0.42, 0.42, 1.25] }],
+    dragPanels: [
+      { position: [0, 0, -1.25], normal: [0, 0, -1], area: 0.5 },
+      { position: [0, 0.42, 0], normal: [0, 1, 0], area: 1.6 },
     ],
   },
 

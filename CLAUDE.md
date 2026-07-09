@@ -320,6 +320,18 @@ npm run format     # prettier --write
       (roule, FUEL 1.0, 0 crash) ✅, retrait racine → page blanche ✅, 0 erreur console, typecheck/lint/build OK.
       🟡 Le carburant se cumule si cockpit + fuselage (les 2 portent du fuel) — calibrage éco plus tard.
       🟡 Anciennes sauvegardes à base de `cabin.*` désormais rejetées (pièces retirées) — attendu.
+    - [x] **S4-B — 6 modèles de cockpit reconnaissables + profil de section ✅.** `CockpitModel` (ga/glider/
+      warbird/airliner/wide/fighter) + `SectionProfile` {halfWidth, halfHeight, round} (superellipse) sur
+      `CockpitPart` = **face de raccord arrière** que le fuselage épousera (S4-C). 6 pièces (`cockpit.ga` T0 →
+      `cockpit.fighter` T5), chacune porte le carburant de base (règle 6). **Blueprints** : colliders/mounts
+      (arrière +Z fuselage, nez -Z moteur, ventre -Y train)/dragPanels alignés sur la silhouette. **Rendus détaillés**
+      (`scenes/Plane.tsx`, couleurs dédiées dans `palette.ts`) : GA = cabine crème + pare-brise enveloppant + fenêtres
+      + capot rond + liserés bleu/rouge (type Cessna) ; planeur = coque fine brillante + longue verrière basse ;
+      warbird = long capot olive + échappements + verrière goutte + ventre duck-egg (type Spitfire) ; ligne =
+      tube blanc + radôme sombre + baies vitrées + cheatline (type A320) ; gros porteur = nez bulbeux + bosse de
+      poste vitrée (type Beluga/747) ; chasse = nez facetté furtif gris + **bulle teintée OR** + perche de nez
+      (type F-35). Dispatcher `CockpitShape`. **Validé preview** : 6 pièces en palette (badges T0-T5), les 6
+      silhouettes rendues et reconnaissables, FUEL 1.0 partout (gros porteur 1.5), 0 erreur, typecheck/lint/build OK.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 

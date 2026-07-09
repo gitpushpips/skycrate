@@ -21,21 +21,104 @@ import { BASE_ELECTRIC_CHARGE, BASE_FUEL } from './scales'
  *      l'étape 7 ; valeurs relatives en éditant ce fichier).
  */
 
-// Cockpit = racine obligatoire (S4). Modèle de départ (nez + verrière type GA) ;
-// les 5 autres modèles arrivent en S4-B. Porte le carburant/charge de base (règle 6).
+// Cockpits = racine obligatoire (S4). Nez + verrière, une allure par famille
+// d'avion (silhouettes MAISON, aucun nom de marque). Chacun porte le carburant/
+// charge de base (règle 6) et déclare le profil de sa face arrière (le fuselage
+// l'épouse — S4-C). Valeurs de stats 🟡 calibrables.
 const cockpitGa: CockpitPart = {
   id: 'cockpit.ga',
   name: 'Cockpit léger',
   category: 'cockpit',
   tier: 'T0',
   model: 'ga',
+  section: { halfWidth: 0.42, halfHeight: 0.42, round: 0.55 },
   weight: 0.6, // 🟡
   cost: 60, // 🟡
   researchCost: 0,
   fuel: BASE_FUEL, // ✅ avion de base = 1 (→ 100 u)
   electricCharge: BASE_ELECTRIC_CHARGE, // ✅ 0,05
   cargo: 0, // cargo au Jalon 5
-  description: 'Nez + verrière. Point de départ de tout avion (porte le carburant de base).',
+  description: 'Aviation générale : cabine vitrée, pare-brise enveloppant. Le départ idéal.',
+}
+
+const cockpitGlider: CockpitPart = {
+  id: 'cockpit.glider',
+  name: 'Nez de planeur',
+  category: 'cockpit',
+  tier: 'T2',
+  model: 'glider',
+  section: { halfWidth: 0.3, halfHeight: 0.33, round: 1 },
+  weight: 0.45, // 🟡 très léger
+  cost: 90, // 🟡
+  researchCost: 14, // 🟡
+  fuel: BASE_FUEL,
+  electricCharge: BASE_ELECTRIC_CHARGE,
+  cargo: 0,
+  description: 'Nez fin et fuselé, longue verrière basse d’un vol à voile. Traînée minimale.',
+}
+
+const cockpitWarbird: CockpitPart = {
+  id: 'cockpit.warbird',
+  name: 'Bulle de chasse à hélice',
+  category: 'cockpit',
+  tier: 'T3',
+  model: 'warbird',
+  section: { halfWidth: 0.36, halfHeight: 0.42, round: 0.85 },
+  weight: 0.9, // 🟡
+  cost: 150, // 🟡
+  researchCost: 34, // 🟡
+  fuel: BASE_FUEL,
+  electricCharge: BASE_ELECTRIC_CHARGE,
+  cargo: 0,
+  description: 'Long capot moteur en ligne + verrière en goutte d’un chasseur d’époque.',
+}
+
+const cockpitAirliner: CockpitPart = {
+  id: 'cockpit.airliner',
+  name: 'Nez d’avion de ligne',
+  category: 'cockpit',
+  tier: 'T4',
+  model: 'airliner',
+  section: { halfWidth: 0.55, halfHeight: 0.56, round: 1 },
+  weight: 1.6, // 🟡
+  cost: 300, // 🟡
+  researchCost: 70, // 🟡
+  fuel: BASE_FUEL,
+  electricCharge: BASE_ELECTRIC_CHARGE,
+  cargo: 2, // 🟡 poste + soute avant
+  description: 'Radôme arrondi + poste de pilotage à baies vitrées d’un jet de ligne.',
+}
+
+const cockpitWide: CockpitPart = {
+  id: 'cockpit.wide',
+  name: 'Nez de gros porteur',
+  category: 'cockpit',
+  tier: 'T2',
+  model: 'wide',
+  section: { halfWidth: 0.72, halfHeight: 0.6, round: 0.85 },
+  weight: 1.9, // 🟡 gros
+  cost: 200, // 🟡
+  researchCost: 30, // 🟡
+  fuel: 1.5, // 🟡 gros volume
+  electricCharge: BASE_ELECTRIC_CHARGE,
+  cargo: 4, // 🟡
+  description: 'Nez bulbeux surdimensionné, poste surélevé « en bosse ». Énorme volume.',
+}
+
+const cockpitFighter: CockpitPart = {
+  id: 'cockpit.fighter',
+  name: 'Verrière de chasseur',
+  category: 'cockpit',
+  tier: 'T5',
+  model: 'fighter',
+  section: { halfWidth: 0.4, halfHeight: 0.4, round: 0.6 },
+  weight: 1.0, // 🟡
+  cost: 380, // 🟡
+  researchCost: 120, // 🟡
+  fuel: BASE_FUEL,
+  electricCharge: BASE_ELECTRIC_CHARGE,
+  cargo: 0,
+  description: 'Nez facetté furtif + bulle teintée or d’un chasseur moderne.',
 }
 
 const fuselageMk1: FuselagePart = {
@@ -321,6 +404,11 @@ const landingGearRetract: LandingGearPart = {
 /** Toutes les pièces définies, dans l'ordre d'introduction. */
 export const PARTS_LIST: readonly Part[] = [
   cockpitGa,
+  cockpitGlider,
+  cockpitWarbird,
+  cockpitAirliner,
+  cockpitWide,
+  cockpitFighter,
   fuselageMk1,
   fuselageMedium,
   fuselageLarge,

@@ -102,39 +102,272 @@ function FuselageModel({ size }: { size: FuselageSize }) {
   )
 }
 
-// Cockpit GA (nez + verrière) : nez effilé -Z + coaming + verrière bombée + arceaux.
-// (S4-A : modèle unique ; S4-B ajoute warbird / planeur / ligne / gros / chasse.)
+// ── Cockpits (S4-B) : nez + verrière, une allure RECONNAISSABLE par famille.
+// Repère : nez = -Z, haut = +Y, face de raccord = +Z. Verres = matériau translucide.
+
+const GLASS = { metalness: 0.3, roughness: 0.1, transparent: true, opacity: 0.6 } as const
+
+// GA (type Cessna) : cabine crème carrée + pare-brise enveloppant + fenêtres
+// latérales + capot moteur rond + liserés bleu/rouge.
 function CockpitGa() {
   return (
     <group>
-      {/* Corps du nez (le collider fait 1.9 de long sur Z). */}
-      <mesh position={[0, -0.05, 0.15]} castShadow receiveShadow>
-        <boxGeometry args={[0.78, 0.6, 1.5]} />
-        <meshStandardMaterial color={palette.planeBody} flatShading />
+      {/* Cabine (caisson clair). */}
+      <mesh position={[0, 0.02, 0.3]} castShadow receiveShadow>
+        <boxGeometry args={[0.82, 0.72, 1.2]} />
+        <meshStandardMaterial color={palette.cockGaBody} flatShading roughness={0.6} />
       </mesh>
-      {/* Nez effilé (vers -Z). */}
-      <mesh position={[0, -0.05, -0.85]} rotation={[-Math.PI / 2, 0, 0]} castShadow>
-        <coneGeometry args={[0.4, 0.5, 12]} />
-        <meshStandardMaterial color={palette.planeBody} flatShading />
+      {/* Capot moteur rond effilé vers le nez. */}
+      <mesh position={[0, -0.04, -0.6]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.34, 0.42, 0.85, 14]} />
+        <meshStandardMaterial color={palette.cockGaBody} flatShading roughness={0.5} />
       </mesh>
-      {/* Verrière bombée. */}
-      <mesh position={[0, 0.28, 0.05]} scale={[0.42, 0.4, 0.7]} castShadow>
-        <sphereGeometry args={[0.72, 16, 12]} />
-        <meshStandardMaterial color={palette.planeGlass} metalness={0.25} roughness={0.12} transparent opacity={0.74} />
+      {/* Pare-brise enveloppant (incliné). */}
+      <mesh position={[0, 0.34, -0.18]} rotation={[-0.62, 0, 0]} castShadow>
+        <boxGeometry args={[0.74, 0.44, 0.05]} />
+        <meshStandardMaterial color={palette.planeGlass} {...GLASS} />
       </mesh>
-      {[-0.12, 0.34].map((z) => (
-        <mesh key={z} position={[0, 0.26, z]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.3 - Math.abs(z - 0.1) * 0.12, 0.02, 6, 18]} />
-          <meshStandardMaterial color={palette.planeBody} flatShading />
+      {/* Toit de cabine vitré. */}
+      <mesh position={[0, 0.4, 0.28]}>
+        <boxGeometry args={[0.6, 0.06, 0.7]} />
+        <meshStandardMaterial color={palette.planeGlass} {...GLASS} />
+      </mesh>
+      {/* Fenêtres latérales. */}
+      {([-1, 1] as const).map((s) => (
+        <mesh key={s} position={[s * 0.42, 0.14, 0.34]}>
+          <boxGeometry args={[0.04, 0.32, 0.66]} />
+          <meshStandardMaterial color={palette.cockGlassDark} {...GLASS} opacity={0.72} />
+        </mesh>
+      ))}
+      {/* Liseré bleu + filet rouge le long du flanc. */}
+      {([-1, 1] as const).map((s) => (
+        <group key={s}>
+          <mesh position={[s * 0.42, -0.12, 0.3]}>
+            <boxGeometry args={[0.03, 0.1, 1.16]} />
+            <meshStandardMaterial color={palette.cockGaStripe} />
+          </mesh>
+          <mesh position={[s * 0.42, -0.21, 0.3]}>
+            <boxGeometry args={[0.03, 0.03, 1.16]} />
+            <meshStandardMaterial color={palette.cockGaTrim} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  )
+}
+
+// Planeur : nez fin fuselé + longue verrière basse monobloc, coque blanche brillante.
+function CockpitGlider() {
+  return (
+    <group>
+      {/* Coque fuselée (fine, brillante). */}
+      <mesh position={[0, 0, 0.1]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.3, 0.24, 1.7, 18]} />
+        <meshStandardMaterial color={palette.cockGlider} flatShading={false} roughness={0.25} metalness={0.1} />
+      </mesh>
+      {/* Pointe de nez arrondie. */}
+      <mesh position={[0, 0, -1.0]} castShadow>
+        <sphereGeometry args={[0.24, 16, 12]} />
+        <meshStandardMaterial color={palette.cockGlider} roughness={0.25} />
+      </mesh>
+      {/* Longue verrière basse (monobloc) sur l'avant. */}
+      <mesh position={[0, 0.19, -0.45]} scale={[0.26, 0.24, 0.62]} castShadow>
+        <sphereGeometry args={[1, 18, 12]} />
+        <meshStandardMaterial color={palette.cockGlassDark} {...GLASS} opacity={0.5} />
+      </mesh>
+      {/* Fin ombrage de coque (ligne de séparation). */}
+      <mesh position={[0, -0.12, 0.2]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.305, 0.245, 1.4, 18, 1, true, 0, Math.PI]} />
+        <meshStandardMaterial color={palette.cockGliderTrim} roughness={0.4} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  )
+}
+
+// Warbird (type Spitfire) : long capot moteur en ligne olive + échappements +
+// verrière en goutte + ventre bleu « duck-egg ».
+function CockpitWarbird() {
+  return (
+    <group>
+      {/* Long capot moteur effilé (vert olive). */}
+      <mesh position={[0, 0.02, -0.35]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.26, 0.44, 1.6, 16]} />
+        <meshStandardMaterial color={palette.cockWarbird} flatShading roughness={0.55} />
+      </mesh>
+      {/* Arête dorsale du capot. */}
+      <mesh position={[0, 0.32, -0.45]} castShadow>
+        <boxGeometry args={[0.12, 0.16, 1.2]} />
+        <meshStandardMaterial color={palette.cockWarbird} flatShading />
+      </mesh>
+      {/* Rangées d'échappements (3 par côté). */}
+      {([-1, 1] as const).map((s) =>
+        [0, 1, 2].map((i) => (
+          <mesh key={`${s}.${i}`} position={[s * 0.3, 0.12, -0.7 + i * 0.22]} rotation={[0, 0, s * 0.3]} castShadow>
+            <boxGeometry args={[0.1, 0.09, 0.13]} />
+            <meshStandardMaterial color={palette.cockWarbirdMetal} metalness={0.6} roughness={0.4} />
+          </mesh>
+        )),
+      )}
+      {/* Arrière de fuselage (raccord). */}
+      <mesh position={[0, 0.02, 0.75]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.42, 0.4, 0.9, 16]} />
+        <meshStandardMaterial color={palette.cockWarbird} flatShading roughness={0.55} />
+      </mesh>
+      {/* Ventre bleu duck-egg. */}
+      <mesh position={[0, -0.3, 0.2]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.43, 0.41, 1.5, 16, 1, true, Math.PI * 0.75, Math.PI * 0.5]} />
+        <meshStandardMaterial color={palette.cockWarbirdUnder} flatShading side={THREE.DoubleSide} roughness={0.6} />
+      </mesh>
+      {/* Verrière en goutte (teardrop). */}
+      <mesh position={[0, 0.42, 0.42]} scale={[0.3, 0.3, 0.5]} castShadow>
+        <sphereGeometry args={[1, 18, 14]} />
+        <meshStandardMaterial color={palette.planeGlass} {...GLASS} opacity={0.62} />
+      </mesh>
+      {/* Cadre de pare-brise. */}
+      <mesh position={[0, 0.4, 0.14]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.22, 0.025, 6, 14, Math.PI]} />
+        <meshStandardMaterial color={palette.cockFrame} />
+      </mesh>
+    </group>
+  )
+}
+
+// Avion de ligne (type A320) : radôme arrondi sombre + tube blanc + baies
+// vitrées du poste + cheatline.
+function CockpitAirliner() {
+  return (
+    <group>
+      {/* Tube de fuselage blanc. */}
+      <mesh position={[0, 0, 0.25]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.56, 0.56, 1.7, 22]} />
+        <meshStandardMaterial color={palette.cockAirliner} roughness={0.45} metalness={0.1} />
+      </mesh>
+      {/* Radôme (nez arrondi sombre). */}
+      <mesh position={[0, -0.02, -0.85]} scale={[0.56, 0.54, 0.66]} castShadow>
+        <sphereGeometry args={[1, 20, 16]} />
+        <meshStandardMaterial color={palette.cockAirlinerNose} roughness={0.4} />
+      </mesh>
+      {/* Baies vitrées du poste de pilotage (frontales + latérales inclinées). */}
+      <mesh position={[0, 0.24, -0.5]} rotation={[-0.5, 0, 0]}>
+        <boxGeometry args={[0.5, 0.18, 0.04]} />
+        <meshStandardMaterial color={palette.cockGlassDark} {...GLASS} opacity={0.8} />
+      </mesh>
+      {([-1, 1] as const).map((s) => (
+        <mesh key={s} position={[s * 0.34, 0.16, -0.42]} rotation={[-0.4, s * 0.5, 0]}>
+          <boxGeometry args={[0.24, 0.16, 0.04]} />
+          <meshStandardMaterial color={palette.cockGlassDark} {...GLASS} opacity={0.8} />
+        </mesh>
+      ))}
+      {/* Cheatline (liseré bleu). */}
+      {([-1, 1] as const).map((s) => (
+        <mesh key={s} position={[s * 0.55, 0.04, 0.2]}>
+          <boxGeometry args={[0.03, 0.12, 1.5]} />
+          <meshStandardMaterial color={palette.cockAirlinerCheat} />
         </mesh>
       ))}
     </group>
   )
 }
 
-// Silhouette du cockpit par modèle (S4-B : une par modèle). S4-A : GA seul.
+// Gros porteur (type Beluga/747) : nez bulbeux surdimensionné + poste surélevé
+// « en bosse » vitré.
+function CockpitWide() {
+  return (
+    <group>
+      {/* Corps large. */}
+      <mesh position={[0, -0.02, 0.2]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.7, 0.72, 1.6, 22]} />
+        <meshStandardMaterial color={palette.cockWide} roughness={0.5} />
+      </mesh>
+      {/* Nez bulbeux (grosse sphère à l'avant). */}
+      <mesh position={[0, -0.05, -0.7]} scale={[0.72, 0.66, 0.7]} castShadow>
+        <sphereGeometry args={[1, 22, 16]} />
+        <meshStandardMaterial color={palette.cockWide} roughness={0.5} />
+      </mesh>
+      {/* Bosse du poste de pilotage (surélevée à l'avant). */}
+      <mesh position={[0, 0.5, -0.35]} scale={[0.44, 0.34, 0.5]} castShadow>
+        <sphereGeometry args={[1, 18, 14]} />
+        <meshStandardMaterial color={palette.cockWide} roughness={0.5} />
+      </mesh>
+      {/* Vitres de la bosse. */}
+      <mesh position={[0, 0.62, -0.62]} rotation={[-0.4, 0, 0]}>
+        <boxGeometry args={[0.5, 0.16, 0.04]} />
+        <meshStandardMaterial color={palette.cockGlassDark} {...GLASS} opacity={0.8} />
+      </mesh>
+      {/* Bandeau. */}
+      {([-1, 1] as const).map((s) => (
+        <mesh key={s} position={[s * 0.7, 0.06, 0.2]}>
+          <boxGeometry args={[0.03, 0.14, 1.4]} />
+          <meshStandardMaterial color={palette.cockWideTrim} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+// Chasseur (type F-35/F-18) : nez facetté furtif gris + bulle teintée OR (iconique)
+// + cadre d'arceau + perche de nez.
+function CockpitFighter() {
+  return (
+    <group>
+      {/* Corps anguleux. */}
+      <mesh position={[0, 0, 0.35]} castShadow receiveShadow>
+        <boxGeometry args={[0.8, 0.76, 1.3]} />
+        <meshStandardMaterial color={palette.cockFighter} flatShading roughness={0.5} metalness={0.2} />
+      </mesh>
+      {/* Nez facetté (cône basse résolution = pyramide furtive), pointe -Z. */}
+      <mesh position={[0, -0.02, -0.85]} rotation={[-Math.PI / 2, 0, Math.PI / 4]} castShadow>
+        <coneGeometry args={[0.46, 1.1, 5]} />
+        <meshStandardMaterial color={palette.cockFighter} flatShading roughness={0.5} metalness={0.2} />
+      </mesh>
+      {/* Chanfreins sombres (arêtes furtives). */}
+      {([-1, 1] as const).map((s) => (
+        <mesh key={s} position={[s * 0.32, -0.16, -0.5]} rotation={[0, s * 0.3, s * 0.5]}>
+          <boxGeometry args={[0.06, 0.28, 0.9]} />
+          <meshStandardMaterial color={palette.cockFighterDark} flatShading />
+        </mesh>
+      ))}
+      {/* Perche de nez (pitot). */}
+      <mesh position={[0, -0.02, -1.5]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.02, 0.02, 0.3, 6]} />
+        <meshStandardMaterial color={palette.cockFighterDark} />
+      </mesh>
+      {/* Bulle teintée OR (goutte). */}
+      <mesh position={[0, 0.42, 0.18]} scale={[0.34, 0.34, 0.62]} castShadow>
+        <sphereGeometry args={[1, 20, 14]} />
+        <meshStandardMaterial
+          color={palette.cockFighterGold}
+          metalness={0.85}
+          roughness={0.12}
+          emissive={palette.cockFighterGold}
+          emissiveIntensity={0.18}
+          transparent
+          opacity={0.72}
+        />
+      </mesh>
+      {/* Arceau de verrière (cadre transversal). */}
+      <mesh position={[0, 0.42, 0.08]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.26, 0.03, 6, 16, Math.PI]} />
+        <meshStandardMaterial color={palette.cockFighterDark} metalness={0.4} />
+      </mesh>
+    </group>
+  )
+}
+
+// Silhouette du cockpit par modèle (S4-B).
 function CockpitShape({ model }: { model: CockpitModel }) {
   switch (model) {
+    case 'glider':
+      return <CockpitGlider />
+    case 'warbird':
+      return <CockpitWarbird />
+    case 'airliner':
+      return <CockpitAirliner />
+    case 'wide':
+      return <CockpitWide />
+    case 'fighter':
+      return <CockpitFighter />
+    case 'ga':
     default:
       return <CockpitGa />
   }

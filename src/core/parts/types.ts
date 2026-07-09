@@ -45,6 +45,17 @@ export type FuselageSize = 'small' | 'medium' | 'large'
  */
 export type CockpitModel = 'ga' | 'warbird' | 'glider' | 'airliner' | 'wide' | 'fighter'
 
+/**
+ * Profil de section (superellipse) — forme de la face de raccord entre cockpit et
+ * fuselage. Le fuselage héritera de ce profil (S4-C : loft qui épouse la section).
+ * `round` : 0 = rectangle, 1 = ellipse pure ; intermédiaire = coins arrondis.
+ */
+export interface SectionProfile {
+  readonly halfWidth: number
+  readonly halfHeight: number
+  readonly round: number
+}
+
 /** États de poussée d'un moteur à l'exécution (dossier §5, règle 2). */
 export type ThrustState = 'full' | 'off' | 'reverse'
 
@@ -86,6 +97,8 @@ export interface FuselagePart extends BasePart {
 export interface CockpitPart extends BasePart {
   readonly category: 'cockpit'
   readonly model: CockpitModel
+  /** Profil de la face de raccord arrière (le fuselage l'épouse — S4-C). */
+  readonly section: SectionProfile
   /** ×100. Le cockpit racine porte le carburant de base (règle 6). */
   readonly fuel: number
   /** Charge électrique de base (règle 6). */

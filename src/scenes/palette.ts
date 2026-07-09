@@ -61,4 +61,24 @@ export const palette = {
   planeRocket: '#d8d2c4', // corps fusée clair
   planeRocketTip: '#b23b2b', // ogive
   planeExhaust: '#1c1d20', // tuyère sombre
+
+  // Cockpits (S4-B) — nez + verrière reconnaissables par famille d'avion.
+  cockGaBody: '#e9e7df', // GA : fuselage crème
+  cockGaStripe: '#2f6db0', // GA : liseré bleu
+  cockGaTrim: '#c23b2f', // GA : filet rouge
+  cockWarbird: '#5c6142', // warbird : vert olive (dessus)
+  cockWarbirdUnder: '#a9c4c4', // warbird : bleu « duck-egg » (dessous)
+  cockWarbirdMetal: '#8b8f93', // warbird : capot alu / échappements
+  cockGlider: '#eef1f4', // planeur : coque blanche brillante
+  cockGliderTrim: '#c9d0d6', // planeur : ombrage de coque
+  cockAirliner: '#eef1f4', // ligne : fuselage blanc
+  cockAirlinerNose: '#3b4048', // ligne : radome sombre
+  cockAirlinerCheat: '#1f4e9b', // ligne : cheatline
+  cockWide: '#e7eaee', // gros porteur : blanc cassé
+  cockWideTrim: '#9fb7cf', // gros porteur : bandeau
+  cockFighter: '#5b636d', // chasse : gris furtif
+  cockFighterDark: '#2b2f35', // chasse : facettes sombres / cadre
+  cockFighterGold: '#c7a545', // chasse : verrière teintée or (iconique)
+  cockGlassDark: '#12202e', // vitres sombres (hublots poste, verrières)
+  cockFrame: '#30343a', // montants de verrière
 } as const
