@@ -448,27 +448,27 @@ function CockpitAirliner() {
       <mesh geometry={mask} castShadow>
         <meshStandardMaterial color="#1a1c20" roughness={0.5} />
       </mesh>
-      {/* 2 pare-brise frontaux en V (grands, face avant). */}
+      {/* 2 pare-brise frontaux en V (raked vers l'ARRIÈRE : haut vers la queue). */}
       {([-1, 1] as const).map((s) => (
-        <mesh key={`f${s}`} position={[s * 0.15, 0.42, -0.56]} rotation={[-0.5, s * 0.22, 0]}>
+        <mesh key={`f${s}`} position={[s * 0.15, 0.42, -0.56]} rotation={[0.5, s * 0.22, 0]}>
           <boxGeometry args={[0.3, 0.27, 0.012]} />
           <meshStandardMaterial {...glass} />
         </mesh>
       ))}
       {/* 1 vitre latérale par côté (inclinée vers l'arrière). */}
       {([-1, 1] as const).map((s) => (
-        <mesh key={`s${s}`} position={[s * 0.44, 0.29, -0.3]} rotation={[-0.16, s * 0.7, 0]}>
+        <mesh key={`s${s}`} position={[s * 0.44, 0.29, -0.3]} rotation={[0.2, s * 0.7, 0]}>
           <boxGeometry args={[0.26, 0.19, 0.012]} />
           <meshStandardMaterial {...glass} />
         </mesh>
       ))}
       {/* Montants blancs : post central en V + A-posts entre frontal et latéral. */}
-      <mesh position={[0, 0.45, -0.58]} rotation={[-0.5, 0, 0]}>
+      <mesh position={[0, 0.45, -0.58]} rotation={[0.5, 0, 0]}>
         <boxGeometry args={[0.028, 0.28, 0.03]} />
         <meshStandardMaterial {...frame} />
       </mesh>
       {([-1, 1] as const).map((s) => (
-        <mesh key={`a${s}`} position={[s * 0.3, 0.36, -0.44]} rotation={[-0.32, s * 0.46, 0]}>
+        <mesh key={`a${s}`} position={[s * 0.3, 0.36, -0.44]} rotation={[0.32, s * 0.46, 0]}>
           <boxGeometry args={[0.028, 0.28, 0.03]} />
           <meshStandardMaterial {...frame} />
         </mesh>
@@ -527,13 +527,13 @@ function CockpitWide() {
       <mesh geometry={hump} castShadow>
         <meshStandardMaterial color={palette.cockWide} roughness={0.5} />
       </mesh>
-      {/* Poste vitré au front de la bosse (frontales + latérales, verre sombre). */}
-      <mesh position={[0, 0.6, -0.86]} rotation={[-0.55, 0, 0]}>
+      {/* Poste vitré au front de la bosse (raked vers l'ARRIÈRE : haut vers la queue). */}
+      <mesh position={[0, 0.6, -0.86]} rotation={[0.55, 0, 0]}>
         <boxGeometry args={[0.34, 0.14, 0.03]} />
         <meshStandardMaterial color={palette.cockGlassDark} metalness={0.35} roughness={0.05} transparent opacity={0.8} />
       </mesh>
       {([-1, 1] as const).map((s) => (
-        <mesh key={s} position={[s * 0.24, 0.56, -0.74]} rotation={[-0.35, s * 0.6, 0]}>
+        <mesh key={s} position={[s * 0.24, 0.56, -0.74]} rotation={[0.35, s * 0.6, 0]}>
           <boxGeometry args={[0.18, 0.13, 0.03]} />
           <meshStandardMaterial color={palette.cockGlassDark} metalness={0.35} roughness={0.05} transparent opacity={0.8} />
         </mesh>
