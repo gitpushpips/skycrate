@@ -345,6 +345,16 @@ npm run format     # prettier --write
       des normales vers l'extérieur (+ caps). `loftGeometry` resservira au **fuselage déformable S4-C** (sections
       variables = déformation). Télémétrie DEV : `window.__hangar.camera` (cadrage des captures). **Validé preview** :
       les 6 opaques et fluides (profils + belly), 0 erreur, typecheck/lint/build OK.
+    - [x] **S4-B-ter — caps opaques + design poussé (planeur/warbird/A320/cargo).** ⚠️ **Bug caps** : après le fix
+      normales S4-B-bis, j'avais aussi retourné les **capes** avant/arrière ⇒ elles devenaient transparentes ;
+      enroulement des caps remis OPPOSÉ aux côtés (avant face −Z, arrière face +Z). Design **beaucoup plus détaillé**
+      (retour utilisateur), F-35 gardé tel quel (validé) : **planeur** = fuselage teardrop très élancé qui s'affine
+      en poutre + longue verrière frameless + coaming d'instruments + crochet de largage ; **warbird** = capot Merlin
+      elliptique + prise carbu sous le nez + ventre duck-egg + 6 échappements/côté + verrière à cadre (pare-brise
+      plat + bulle) + arête dorsale ; **A320** = radôme BOMBÉ (fini le cône pointu) + **visière noire** anti-
+      éblouissement + 2 vitres frontales en V + 2 latérales + sondes pitot + cheatline ; **cargo** = nez bulbeux +
+      **bosse d'upper-deck 747** proéminente, poste vitré au front de la bosse + cheatline. **Validé preview** : les 4
+      revus, caps opaques, 0 erreur, typecheck/lint/build OK.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 

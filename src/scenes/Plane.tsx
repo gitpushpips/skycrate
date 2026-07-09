@@ -147,16 +147,17 @@ function loftGeometry(stations: LoftStation[], seg = 32): THREE.BufferGeometry {
       const d = (r + 1) * seg + ((i + 1) % seg)
       indices.push(a, b, c, b, d, c)
     }
-  // Cape avant (première section) et arrière (dernière) par un éventail au centre.
+  // Capes avant/arrière par éventail au centre. Enroulement OPPOSÉ aux côtés :
+  // avant (−Z) face vers −Z, arrière (+Z) face vers +Z (sinon caps « transparents »).
   const front = stations[0]
   const fc = positions.length / 3
   positions.push(0, front.yc ?? 0, front.z)
-  for (let i = 0; i < seg; i++) indices.push(fc, i, (i + 1) % seg)
+  for (let i = 0; i < seg; i++) indices.push(fc, (i + 1) % seg, i)
   const back = stations[stations.length - 1]
   const bc = positions.length / 3
   positions.push(0, back.yc ?? 0, back.z)
   const base = (stations.length - 1) * seg
-  for (let i = 0; i < seg; i++) indices.push(bc, base + ((i + 1) % seg), base + i)
+  for (let i = 0; i < seg; i++) indices.push(bc, base + i, base + ((i + 1) % seg))
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   geo.setIndex(indices)
@@ -246,71 +247,106 @@ function CockpitGa() {
   )
 }
 
-// Planeur : coque très fine et fuselée, nez pointu, longue verrière basse.
+// Planeur (sailplane moderne, type DG/ASG) : fuselage teardrop TRÈS élancé qui
+// s'affine vers la poutre de queue, longue verrière fuselée sans montant, gel-coat
+// blanc brillant, crochet de largage au nez + coaming d'instruments visible.
 function CockpitGlider() {
   const body = useMemo(
     () =>
       loftGeometry(
         [
-          { z: -1.05, hw: 0.05, hh: 0.05, round: 1, yc: 0 }, // pointe de nez
-          { z: -0.78, hw: 0.19, hh: 0.2, round: 1, yc: 0 },
-          { z: -0.35, hw: 0.29, hh: 0.31, round: 1, yc: 0 },
-          { z: 0.2, hw: 0.31, hh: 0.33, round: 1, yc: 0 },
-          { z: 0.7, hw: 0.3, hh: 0.32, round: 1, yc: 0 },
-          { z: 1.05, hw: 0.28, hh: 0.3, round: 1, yc: 0 },
+          { z: -1.05, hw: 0.035, hh: 0.04, round: 1, yc: 0.0 }, // pointe fine
+          { z: -0.78, hw: 0.15, hh: 0.17, round: 1, yc: -0.01 },
+          { z: -0.42, hw: 0.24, hh: 0.27, round: 1, yc: -0.02 }, // bulle du cockpit (max)
+          { z: 0.05, hw: 0.25, hh: 0.27, round: 1, yc: -0.02 },
+          { z: 0.5, hw: 0.19, hh: 0.2, round: 1, yc: -0.01 }, // affinement
+          { z: 0.9, hw: 0.13, hh: 0.135, round: 1, yc: 0.0 },
+          { z: 1.05, hw: 0.11, hh: 0.115, round: 1, yc: 0.0 }, // → poutre de queue
         ],
-        28,
+        30,
       ),
     [],
   )
+  // Longue verrière fuselée (frameless), basse et effilée.
   const canopy = useMemo(
     () =>
       loftGeometry(
         [
-          { z: -0.66, hw: 0.14, hh: 0.05, round: 0.7, yc: 0.14 },
-          { z: -0.3, hw: 0.24, hh: 0.13, round: 0.7, yc: 0.22 },
-          { z: 0.06, hw: 0.25, hh: 0.14, round: 0.7, yc: 0.22 },
-          { z: 0.36, hw: 0.18, hh: 0.09, round: 0.78, yc: 0.16 },
+          { z: -0.74, hw: 0.07, hh: 0.03, round: 0.8, yc: 0.11 }, // bec avant
+          { z: -0.5, hw: 0.16, hh: 0.11, round: 0.82, yc: 0.18 },
+          { z: -0.15, hw: 0.2, hh: 0.15, round: 0.85, yc: 0.2 }, // bulle
+          { z: 0.18, hw: 0.18, hh: 0.13, round: 0.85, yc: 0.18 },
+          { z: 0.42, hw: 0.1, hh: 0.06, round: 0.85, yc: 0.12 }, // fuyante
         ],
-        24,
+        26,
       ),
     [],
   )
   return (
     <group>
       <mesh geometry={body} castShadow receiveShadow>
-        <meshStandardMaterial color={palette.cockGlider} roughness={0.2} metalness={0.12} />
+        <meshStandardMaterial color={palette.cockGlider} roughness={0.12} metalness={0.05} />
       </mesh>
+      {/* Coaming d'instruments (sombre) sous l'avant de la verrière. */}
+      <mesh position={[0, 0.02, -0.42]}>
+        <boxGeometry args={[0.24, 0.12, 0.34]} />
+        <meshStandardMaterial color={palette.cockFrame} roughness={0.7} />
+      </mesh>
+      {/* Verrière teintée (frameless). */}
       <mesh geometry={canopy} castShadow>
-        <meshStandardMaterial color={palette.cockGlassDark} metalness={0.3} roughness={0.05} transparent opacity={0.55} />
+        <meshStandardMaterial color={palette.cockGlassDark} metalness={0.35} roughness={0.04} transparent opacity={0.5} />
+      </mesh>
+      {/* Cadre-bec de verrière (fin liseré sombre au tour du bord avant). */}
+      <mesh position={[0, 0.13, -0.72]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.07, 0.012, 6, 16, Math.PI]} />
+        <meshStandardMaterial color={palette.cockFrame} metalness={0.3} />
+      </mesh>
+      {/* Crochet de largage / patin de nez. */}
+      <mesh position={[0, -0.05, -1.02]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.02, 0.02, 0.1, 8]} />
+        <meshStandardMaterial color={palette.cockFighterDark} metalness={0.5} />
       </mesh>
     </group>
   )
 }
 
-// Warbird (Spitfire) : long capot moteur en ligne (section HAUTE elliptique),
-// verrière en goutte, rangées d'échappements, arête dorsale.
+// Warbird (Spitfire) : capot Merlin en ligne (section HAUTE elliptique) effilé
+// vers le cône d'hélice, prise carburateur sous le nez + radiateur de menton,
+// 6 échappements « fishtail » par côté, verrière à cadre (pare-brise plat +
+// bulle coulissante), arête dorsale, ventre bleu duck-egg.
 function CockpitWarbird() {
   const body = useMemo(
     () =>
       loftGeometry([
-        { z: -1.15, hw: 0.13, hh: 0.16, round: 0.9, yc: 0.02 }, // avant capot (haut, étroit)
-        { z: -0.7, hw: 0.26, hh: 0.34, round: 0.82, yc: 0.0 }, // capot moteur inline
-        { z: -0.2, hw: 0.35, hh: 0.42, round: 0.78, yc: 0.0 },
-        { z: 0.3, hw: 0.37, hh: 0.43, round: 0.78, yc: 0.0 }, // poste
-        { z: 0.8, hw: 0.35, hh: 0.41, round: 0.78, yc: 0.0 },
-        { z: 1.15, hw: 0.35, hh: 0.4, round: 0.8, yc: 0.0 },
+        { z: -1.15, hw: 0.09, hh: 0.13, round: 0.85, yc: 0.04 }, // plaque d'hélice (haut, étroit)
+        { z: -0.78, hw: 0.23, hh: 0.33, round: 0.78, yc: 0.01 }, // capot Merlin
+        { z: -0.3, hw: 0.33, hh: 0.42, round: 0.76, yc: 0.0 },
+        { z: 0.28, hw: 0.37, hh: 0.44, round: 0.76, yc: 0.0 }, // poste
+        { z: 0.8, hw: 0.34, hh: 0.41, round: 0.78, yc: 0.0 },
+        { z: 1.15, hw: 0.33, hh: 0.39, round: 0.8, yc: 0.0 },
       ]),
     [],
   )
-  const bubble = useMemo(
+  const belly = useMemo(
     () =>
       loftGeometry(
         [
-          { z: 0.06, hw: 0.09, hh: 0.05, round: 0.85, yc: 0.42 }, // pare-brise
-          { z: 0.34, hw: 0.22, hh: 0.16, round: 0.9, yc: 0.47 }, // goutte
-          { z: 0.62, hw: 0.22, hh: 0.16, round: 0.9, yc: 0.47 },
-          { z: 0.92, hw: 0.11, hh: 0.08, round: 0.92, yc: 0.42 }, // fuyante arrière
+          { z: -0.5, hw: 0.28, hh: 0.12, round: 0.7, yc: -0.34 },
+          { z: 0.2, hw: 0.34, hh: 0.14, round: 0.7, yc: -0.36 },
+          { z: 0.9, hw: 0.3, hh: 0.12, round: 0.72, yc: -0.34 },
+        ],
+        18,
+      ),
+    [],
+  )
+  const hood = useMemo(
+    () =>
+      loftGeometry(
+        [
+          { z: 0.12, hw: 0.14, hh: 0.11, round: 0.85, yc: 0.44 }, // avant du hood
+          { z: 0.4, hw: 0.2, hh: 0.16, round: 0.9, yc: 0.47 }, // bulle
+          { z: 0.66, hw: 0.19, hh: 0.15, round: 0.9, yc: 0.46 },
+          { z: 0.9, hw: 0.1, hh: 0.08, round: 0.92, yc: 0.42 }, // fuyante
         ],
         22,
       ),
@@ -319,23 +355,42 @@ function CockpitWarbird() {
   return (
     <group>
       <mesh geometry={body} castShadow receiveShadow>
-        <meshStandardMaterial color={palette.cockWarbird} roughness={0.55} metalness={0.08} />
+        <meshStandardMaterial color={palette.cockWarbird} roughness={0.5} metalness={0.1} />
       </mesh>
-      {/* Arête dorsale du capot (spine). */}
-      <mesh position={[0, 0.4, -0.5]} castShadow>
-        <boxGeometry args={[0.08, 0.12, 1.1]} />
-        <meshStandardMaterial color={palette.cockWarbird} roughness={0.55} />
+      {/* Ventre bleu duck-egg (dessous). */}
+      <mesh geometry={belly} castShadow>
+        <meshStandardMaterial color={palette.cockWarbirdUnder} roughness={0.55} />
       </mesh>
-      {/* Verrière en goutte (teardrop). */}
-      <mesh geometry={bubble} castShadow>
-        <meshStandardMaterial color={palette.cockGlassDark} metalness={0.35} roughness={0.05} transparent opacity={0.6} />
+      {/* Prise d'air carburateur sous le nez. */}
+      <mesh position={[0, -0.34, -0.55]} rotation={[0.25, 0, 0]} castShadow>
+        <boxGeometry args={[0.18, 0.12, 0.5]} />
+        <meshStandardMaterial color={palette.cockWarbird} roughness={0.5} />
       </mesh>
-      {/* Rangées d'échappements (3 par côté). */}
+      {/* Arête dorsale du capot (spine, effilée vers le nez). */}
+      <mesh position={[0, 0.42, -0.42]} rotation={[0.05, 0, 0]} castShadow>
+        <boxGeometry args={[0.07, 0.11, 1.0]} />
+        <meshStandardMaterial color={palette.cockWarbird} roughness={0.5} />
+      </mesh>
+      {/* Pare-brise plat encadré (pane pare-balles). */}
+      <mesh position={[0, 0.46, 0.06]} rotation={[-0.5, 0, 0]} castShadow>
+        <boxGeometry args={[0.24, 0.16, 0.03]} />
+        <meshStandardMaterial color={palette.cockGlassDark} metalness={0.35} roughness={0.05} transparent opacity={0.7} />
+      </mesh>
+      {/* Bulle coulissante (hood). */}
+      <mesh geometry={hood} castShadow>
+        <meshStandardMaterial color={palette.cockGlassDark} metalness={0.35} roughness={0.05} transparent opacity={0.58} />
+      </mesh>
+      {/* Cadre de pare-brise. */}
+      <mesh position={[0, 0.44, -0.04]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.14, 0.016, 6, 14, Math.PI]} />
+        <meshStandardMaterial color={palette.cockFrame} metalness={0.3} />
+      </mesh>
+      {/* 6 échappements « fishtail » par côté, le long du capot. */}
       {([-1, 1] as const).map((s) =>
-        [0, 1, 2].map((i) => (
-          <mesh key={`${s}.${i}`} position={[s * 0.32, 0.16, -0.62 + i * 0.2]} rotation={[0, 0, s * 0.35]} castShadow>
-            <boxGeometry args={[0.09, 0.08, 0.12]} />
-            <meshStandardMaterial color={palette.cockWarbirdMetal} metalness={0.6} roughness={0.4} />
+        [0, 1, 2, 3, 4, 5].map((i) => (
+          <mesh key={`${s}.${i}`} position={[s * 0.3, 0.14, -0.72 + i * 0.13]} rotation={[0, 0, s * 0.5]} castShadow>
+            <boxGeometry args={[0.08, 0.06, 0.08]} />
+            <meshStandardMaterial color={palette.cockWarbirdMetal} metalness={0.65} roughness={0.35} />
           </mesh>
         )),
       )}
@@ -343,14 +398,15 @@ function CockpitWarbird() {
   )
 }
 
-// Avion de ligne (A320) : tube blanc + radôme sombre arrondi (loft séparé) +
-// bandeau de baies vitrées du poste + cheatline.
+// Avion de ligne (A320) : tube blanc + radôme BOMBÉ sombre + le « masque »
+// anti-éblouissement NOIR du poste (signature Airbus) avec 2 vitres frontales en V
+// + 2 latérales, sondes pitot, cheatline.
 function CockpitAirliner() {
   const body = useMemo(
     () =>
       loftGeometry(
         [
-          { z: -0.55, hw: 0.5, hh: 0.5, round: 1, yc: 0 },
+          { z: -0.6, hw: 0.5, hh: 0.5, round: 1, yc: 0 },
           { z: 0.0, hw: 0.56, hh: 0.57, round: 1, yc: 0 },
           { z: 0.6, hw: 0.56, hh: 0.57, round: 1, yc: 0 },
           { z: 1.1, hw: 0.56, hh: 0.57, round: 1, yc: 0 },
@@ -359,16 +415,30 @@ function CockpitAirliner() {
       ),
     [],
   )
+  // Radôme bombé (court, arrondi façon nez d'A320) — pas un cône pointu.
   const radome = useMemo(
     () =>
       loftGeometry(
         [
-          { z: -1.12, hw: 0.08, hh: 0.08, round: 1, yc: -0.02 },
-          { z: -0.88, hw: 0.34, hh: 0.34, round: 1, yc: -0.01 },
-          { z: -0.62, hw: 0.51, hh: 0.51, round: 1, yc: 0 },
-          { z: -0.5, hw: 0.54, hh: 0.55, round: 1, yc: 0 },
+          { z: -1.02, hw: 0.18, hh: 0.2, round: 1, yc: -0.04 }, // bout arrondi
+          { z: -0.86, hw: 0.4, hh: 0.41, round: 1, yc: -0.02 },
+          { z: -0.7, hw: 0.53, hh: 0.53, round: 1, yc: -0.005 },
+          { z: -0.6, hw: 0.55, hh: 0.56, round: 1, yc: 0 },
         ],
         30,
+      ),
+    [],
+  )
+  // Masque anti-éblouissement : fine visière sombre sur le haut-avant du tube.
+  const mask = useMemo(
+    () =>
+      loftGeometry(
+        [
+          { z: -0.55, hw: 0.3, hh: 0.06, round: 0.5, yc: 0.42 },
+          { z: -0.34, hw: 0.4, hh: 0.09, round: 0.45, yc: 0.46 },
+          { z: -0.12, hw: 0.38, hh: 0.08, round: 0.55, yc: 0.44 },
+        ],
+        22,
       ),
     [],
   )
@@ -378,22 +448,36 @@ function CockpitAirliner() {
         <meshStandardMaterial color={palette.cockAirliner} roughness={0.42} metalness={0.1} />
       </mesh>
       <mesh geometry={radome} castShadow>
-        <meshStandardMaterial color={palette.cockAirlinerNose} roughness={0.4} />
+        <meshStandardMaterial color="#565c66" roughness={0.45} />
       </mesh>
-      {/* Baies vitrées du poste (frontale + latérales inclinées, verre sombre). */}
-      <mesh position={[0, 0.26, -0.52]} rotation={[-0.5, 0, 0]}>
-        <boxGeometry args={[0.44, 0.17, 0.03]} />
-        <meshStandardMaterial color={palette.cockGlassDark} metalness={0.35} roughness={0.05} transparent opacity={0.82} />
+      {/* Visière noire du poste (anti-éblouissement). */}
+      <mesh geometry={mask} castShadow>
+        <meshStandardMaterial color="#15171b" roughness={0.5} />
       </mesh>
+      {/* 2 vitres frontales en V. */}
       {([-1, 1] as const).map((s) => (
-        <mesh key={s} position={[s * 0.36, 0.18, -0.4]} rotation={[-0.4, s * 0.55, 0]}>
-          <boxGeometry args={[0.28, 0.15, 0.03]} />
-          <meshStandardMaterial color={palette.cockGlassDark} metalness={0.35} roughness={0.05} transparent opacity={0.82} />
+        <mesh key={`f${s}`} position={[s * 0.13, 0.47, -0.46]} rotation={[-0.5, s * 0.3, 0]}>
+          <boxGeometry args={[0.22, 0.15, 0.02]} />
+          <meshStandardMaterial color={palette.planeGlass} metalness={0.4} roughness={0.04} transparent opacity={0.72} />
+        </mesh>
+      ))}
+      {/* 2 vitres latérales plus inclinées. */}
+      {([-1, 1] as const).map((s) => (
+        <mesh key={`s${s}`} position={[s * 0.36, 0.4, -0.24]} rotation={[-0.28, s * 0.75, 0]}>
+          <boxGeometry args={[0.19, 0.13, 0.02]} />
+          <meshStandardMaterial color={palette.planeGlass} metalness={0.4} roughness={0.04} transparent opacity={0.72} />
+        </mesh>
+      ))}
+      {/* Sondes pitot sur le nez. */}
+      {([-1, 1] as const).map((s) => (
+        <mesh key={`p${s}`} position={[s * 0.42, 0.02, -0.72]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.012, 0.012, 0.16, 6]} />
+          <meshStandardMaterial color={palette.cockFighterDark} metalness={0.5} />
         </mesh>
       ))}
       {/* Cheatline (liseré bleu). */}
       {([-1, 1] as const).map((s) => (
-        <mesh key={s} position={[s * 0.555, 0.06, 0.3]}>
+        <mesh key={`c${s}`} position={[s * 0.555, 0.06, 0.3]}>
           <boxGeometry args={[0.02, 0.11, 1.45]} />
           <meshStandardMaterial color={palette.cockAirlinerCheat} roughness={0.5} />
         </mesh>
@@ -402,30 +486,31 @@ function CockpitAirliner() {
   )
 }
 
-// Gros porteur (Beluga/747) : corps large + nez bulbeux + poste surélevé « en
-// bosse » (loft) vitré.
+// Gros porteur (jumbo type 747) : nez BULBEUX rond + upper-deck en BOSSE
+// proéminente à l'avant, poste vitré au front de la bosse, cheatline.
 function CockpitWide() {
   const body = useMemo(
     () =>
       loftGeometry([
-        { z: -1.05, hw: 0.34, hh: 0.32, round: 0.9, yc: -0.05 }, // bulbe avant
-        { z: -0.6, hw: 0.62, hh: 0.56, round: 0.85, yc: -0.02 },
-        { z: -0.1, hw: 0.72, hh: 0.62, round: 0.85, yc: 0 },
-        { z: 0.5, hw: 0.72, hh: 0.63, round: 0.85, yc: 0 },
-        { z: 1.05, hw: 0.72, hh: 0.62, round: 0.85, yc: 0 },
+        { z: -1.15, hw: 0.24, hh: 0.24, round: 0.92, yc: -0.02 }, // nez bulbeux rond
+        { z: -0.9, hw: 0.5, hh: 0.5, round: 0.88, yc: 0 },
+        { z: -0.5, hw: 0.68, hh: 0.66, round: 0.88, yc: 0 },
+        { z: 0.3, hw: 0.72, hh: 0.68, round: 0.88, yc: 0 },
+        { z: 1.05, hw: 0.72, hh: 0.68, round: 0.88, yc: 0 },
       ]),
     [],
   )
+  // Bosse d'upper-deck : monte à l'avant, s'écoule vers l'arrière dans le dos.
   const hump = useMemo(
     () =>
       loftGeometry(
         [
-          { z: -0.78, hw: 0.18, hh: 0.07, round: 0.6, yc: 0.5 },
-          { z: -0.5, hw: 0.28, hh: 0.16, round: 0.5, yc: 0.57 },
-          { z: -0.18, hw: 0.28, hh: 0.16, round: 0.5, yc: 0.55 },
-          { z: 0.08, hw: 0.2, hh: 0.1, round: 0.62, yc: 0.48 },
+          { z: -0.82, hw: 0.26, hh: 0.08, round: 0.5, yc: 0.55 }, // front (poste)
+          { z: -0.55, hw: 0.36, hh: 0.2, round: 0.45, yc: 0.7 }, // sommet
+          { z: -0.05, hw: 0.36, hh: 0.2, round: 0.5, yc: 0.68 },
+          { z: 0.5, hw: 0.28, hh: 0.13, round: 0.62, yc: 0.56 }, // fondu dans le dos
         ],
-        24,
+        26,
       ),
     [],
   )
@@ -434,18 +519,24 @@ function CockpitWide() {
       <mesh geometry={body} castShadow receiveShadow>
         <meshStandardMaterial color={palette.cockWide} roughness={0.5} />
       </mesh>
-      {/* Bosse du poste (crème) + vitres frontales sombres. */}
       <mesh geometry={hump} castShadow>
         <meshStandardMaterial color={palette.cockWide} roughness={0.5} />
       </mesh>
-      <mesh position={[0, 0.6, -0.66]} rotation={[-0.45, 0, 0]}>
-        <boxGeometry args={[0.42, 0.15, 0.03]} />
-        <meshStandardMaterial color={palette.cockGlassDark} metalness={0.35} roughness={0.05} transparent opacity={0.82} />
+      {/* Poste vitré au front de la bosse (frontales + latérales, verre sombre). */}
+      <mesh position={[0, 0.6, -0.86]} rotation={[-0.55, 0, 0]}>
+        <boxGeometry args={[0.34, 0.14, 0.03]} />
+        <meshStandardMaterial color={palette.cockGlassDark} metalness={0.35} roughness={0.05} transparent opacity={0.8} />
       </mesh>
-      {/* Bandeau de flanc. */}
       {([-1, 1] as const).map((s) => (
-        <mesh key={s} position={[s * 0.71, 0.08, 0.2]}>
-          <boxGeometry args={[0.02, 0.13, 1.5]} />
+        <mesh key={s} position={[s * 0.24, 0.56, -0.74]} rotation={[-0.35, s * 0.6, 0]}>
+          <boxGeometry args={[0.18, 0.13, 0.03]} />
+          <meshStandardMaterial color={palette.cockGlassDark} metalness={0.35} roughness={0.05} transparent opacity={0.8} />
+        </mesh>
+      ))}
+      {/* Cheatline (bandeau de flanc). */}
+      {([-1, 1] as const).map((s) => (
+        <mesh key={`c${s}`} position={[s * 0.715, 0.14, 0.2]}>
+          <boxGeometry args={[0.02, 0.12, 1.6]} />
           <meshStandardMaterial color={palette.cockWideTrim} roughness={0.5} />
         </mesh>
       ))}
