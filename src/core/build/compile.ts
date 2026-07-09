@@ -22,6 +22,8 @@ export interface CompiledCollider {
   position: [number, number, number]
   rotation: [number, number, number]
   mass: number
+  /** Sphère (rayon = half[0]) — roues du train (S1). */
+  ball?: boolean
 }
 
 /** Point d'accroche d'une pièce posée, exprimé pour l'éditeur (Jalon 2-C). */
@@ -184,6 +186,8 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
       mirrored: node.mirrored,
     })
 
+    // Masse de la pièce répartie entre ses colliders (train = roues + structure).
+    const colMass = part.weight / bp.colliders.length
     for (const col of bp.colliders) {
       const off = col.offset ?? [0, 0, 0]
       const w = toWorld(off)
@@ -192,7 +196,8 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
         half: col.half,
         position: [w.x, w.y, w.z],
         rotation: rotEuler,
-        mass: part.weight,
+        mass: colMass,
+        ball: col.ball,
       })
     }
 

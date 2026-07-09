@@ -13,6 +13,10 @@ type Vec3 = [number, number, number]
 export interface BpCollider {
   half: Vec3
   offset?: Vec3
+  /** Collider SPHÉRIQUE (rayon = half[0], half = [r,r,r] pour l'éditeur) —
+   *  roues : une sphère roule sur les arêtes des triangles du terrain là où
+   *  un coin de boîte accroche (S1). */
+  ball?: boolean
 }
 
 /** Surface portante, subdivisée en bandes d'envergure par le compilateur. */
@@ -399,8 +403,16 @@ export const BLUEPRINTS: Record<string, PartBlueprint> = {
     dragPanels: [{ position: [0, 0, -0.95], normal: [0, 0, -1], area: 0.5 }],
   },
 
+  // Train : colliders = les ROUES (sphères alignées sur le visuel : 2 principales
+  // + roulette arrière) + une boîte de structure (jambes, sélection éditeur).
+  // S1 : la boîte plate d'origine « cognait » les arêtes du terrain de ses coins.
   'landingGear.mk1': {
-    colliders: [{ half: [1.0, 0.12, 1.4], offset: [0, -1.15, 0] }],
+    colliders: [
+      { half: [0.34, 0.34, 0.34], offset: [1.05, -0.95, -0.3], ball: true },
+      { half: [0.34, 0.34, 0.34], offset: [-1.05, -0.95, -0.3], ball: true },
+      { half: [0.2, 0.2, 0.2], offset: [0, -1.09, 2.0], ball: true },
+      { half: [1.1, 0.22, 1.25], offset: [0, -0.68, 0.55] },
+    ],
     // Roues/jambes exposées : un peu de traînée (face au vent + dessous).
     dragPanels: [{ position: [0, -1.0, -0.3], normal: [0, 0, -1], area: 0.5 }],
   },
@@ -408,7 +420,12 @@ export const BLUEPRINTS: Record<string, PartBlueprint> = {
   // Train rétractable : même empreinte au sol, mais escamotable ⇒ pas de panneau
   // de traînée permanent (rentré en vol par le visuel + faible traînée).
   'landingGear.retract': {
-    colliders: [{ half: [1.0, 0.12, 1.4], offset: [0, -1.15, 0] }],
+    colliders: [
+      { half: [0.34, 0.34, 0.34], offset: [1.05, -0.95, -0.3], ball: true },
+      { half: [0.34, 0.34, 0.34], offset: [-1.05, -0.95, -0.3], ball: true },
+      { half: [0.2, 0.2, 0.2], offset: [0, -1.09, 2.0], ball: true },
+      { half: [1.1, 0.22, 1.25], offset: [0, -0.68, 0.55] },
+    ],
   },
 }
 

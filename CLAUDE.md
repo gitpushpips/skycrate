@@ -257,6 +257,21 @@ npm run format     # prettier --write
   performance) + ombres VSM par qualité (1024²/8 vs 2048²/20, `key={quality}` pour réallouer la map) +
   marquages de piste fusionnés. **Résultat : vol 13 → 58 fps, hangar 60 (cap vsync) sur HD 630.**
   Détails/coûts : voir §8 « Perf ». 🟡 Reste : redéploiement Vercel (les joueurs sont encore sur l'ancien build).
+- **Lot S1-S6 (fonctionnalités & correctifs)** *(en cours — cadence : un chantier à la fois, feu vert utilisateur entre chaque)* :
+  ordre validé S1 collisions sol → S2 throttle progressif/par moteur → S3 portance-trim → S4 refonte éditeur
+  (page blanche/cockpits/fuselage adaptatif) → S5 aérodromes (ravitaillement + décor biome) → S6 menu paramètres.
+  - [x] **S1 — collisions sol (« coups » fantômes) ✅.** Diagnostic par **sonde de contacts** (`scenes/contactProbe.ts`,
+    DEV only, branchée `onContactForce` dans `PlaneRig` → `window.__contacts.summary()`) : roulage régulé 18 m/s
+    scripté ⇒ 523 pics/3891 échantillons (13 %), bords de chunks surreprésentés ×9, pire coup **245× la médiane à
+    direction horizontale pure** (mur invisible) = **arêtes internes** des triangles du heightfield + coutures entre
+    chunks + coins de la boîte plate du train. Correctifs : (1) `TerrainColliders` recréé en **impératif**
+    (`world.createCollider`, le composant r3/rapier ne transmet pas les flags) avec **`HeightFieldFlags.FIX_INTERNAL_EDGES`** ;
+    (2) **roues = sphères** (`BpCollider.ball`, 3 balls alignées sur le visuel + boîte de structure ; masse de la pièce
+    **répartie** entre colliders dans `compile` — sinon poids ×4) ; (3) **`contactSkin`** leva (« Vol › sol », 0.02) sur
+    les colliders de l'avion. **Re-mesure (même protocole)** : pics 13 %→5,5 %, bords ×9→×1 (8/220), **classe « mur
+    horizontal » disparue** (pire = 29× médiane, direction verticale = vraie bosse), 1,3 km de roulage continu sans
+    accroc ; crash-test −20 m/s ⇒ rebond physique, avion intact, repos stable. Auto-collision : impossible par
+    construction (un seul RigidBody). typecheck/lint/build OK.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 
@@ -282,6 +297,12 @@ npm run format     # prettier --write
 - **Calibrage 5d (leva « Vol », hors dossier)** : airDensity 0.055, inducedDrag 0.05, flatPlateDrag 1, bodyDrag 0.12, thrustCoef 2.5, CD0 ailes 0.012 / empennages 0.01, calage aile 2°. Assistance : pitch/roll/yawDamp 30/70/40, limitGain 150, maxPitch 35° / maxBank 55°, déflexion gouvernes 15°. **Limite connue** : virages inclinés perdent de l'altitude (pas de maintien d'alt par défaut) → tirer pour compenser, ou monter `altHold`.
 - **Terrain 3+A/B/C (leva « Monde », hors dossier)** : **seed 20260707**, worldRadius 2200, baseElevation 6, λ collines 420 / ampl. 14, octaves 5 / gain 0.5 / lacunarité 2, montagnes λ 1500 / hauteur 110 / contraste 2.2, fondu côtier 0.3 / irrégularité 0.35, lacs λ 700 / creusement 12, climat λ temp 1600 / λ humid 1100 / lapse 0.0045 / neige 0.08, végétation densité 1 / rayon 900, aérodromes 10 / 700 m / alt 55 / tolérance 7, viewRadius 1500 / nearRadius 650 / physicsRadius 500. ⚠️ Le masque de montagnosité doit être **remappé par smoothstep** (`0.58 ± 0.5/sharpness`) : un fBm normalisé ne sature jamais ±1, un simple `pow` plafonnait les sommets à ~40 % de `mountainHeight`. Vérif data par eval : `import('/src/core/world/terrain.ts?v='+Date.now())` (cache-buster obligatoire après HMR) + échantillonnage grille.
 - **Échelle monde (3+A)** : fog par défaut passé à 220/1500 (voir les massifs de loin), caméra `far` 2000→4000, **dôme de ciel suit la caméra** (rayon 3400 ; un dôme fixe à l'origine finirait derrière l'avion sur un monde de plusieurs km). Garder `viewRadius ≥ fogFar` sinon trous visibles au loin.
+- **Collisions terrain (S1)** : tout heightfield Rapier DOIT être créé avec `HeightFieldFlags.FIX_INTERNAL_EDGES`
+  (sinon arêtes internes = murs invisibles) → création **impérative** (`world.createCollider`), le composant
+  `<HeightfieldCollider>` ne transmet pas les flags. Les colliders qui touchent le sol (roues) = **sphères**, jamais
+  de boîtes (coins qui accrochent). `contactSkin` leva (0.02) en amortisseur. Diagnostic reproductible :
+  `window.__contacts.summary()` (sonde DEV `scenes/contactProbe.ts`) — médiane vs pics, direction du pire contact
+  (horizontal = arête, vertical = vraie bosse). Multi-colliders par pièce : masse répartie (`part.weight / n`).
 - **Perf (jalon optimisation)** : coûts MESURÉS sur HD 630 (hangar 903×778, contexte frais, baseline 19 fps) :
   **N8AO ≈ 22 ms (!)** même halfRes, MSAA 4× ≈ 6 ms, bloom ≈ 3,5 ms, composer ≈ 3 ms ; scène brute = 60 fps
   (cap vsync) ; **DPR 1 vs 1.25 = neutre** (pas fill-rate bound) ; terrain/végétation/heightfields = coût nul

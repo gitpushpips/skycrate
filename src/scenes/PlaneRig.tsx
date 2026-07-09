@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { RigidBody, CuboidCollider, useBeforePhysicsStep } from '@react-three/rapier'
+import { RigidBody, CuboidCollider, BallCollider, useBeforePhysicsStep } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
 import { Plane } from './Plane'
@@ -13,6 +13,7 @@ import { computeSurfaceForce, computePanelDrag, makeSurfaceResult } from '../cor
 import type { Deflections } from '../core/physics/aerodynamics'
 import { useFlightInput } from '../core/flight/input'
 import { computeAssistTorque } from '../core/flight/assist'
+import { recordContact, installContactsApi } from './contactProbe'
 import type { CompiledAircraft } from '../core/build/compile'
 import { AirflowPanels } from './AirflowPanels'
 import type { VizPanel } from './AirflowPanels'
@@ -307,6 +308,11 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
   // Retour au hangar : remet l'altitude HUD à 0 ⇒ le train rétractable se ressort.
   useEffect(() => () => useHud.setState({ altitude: 0 }), [])
 
+  // Sonde de contacts S1 (diagnostic « coups » au sol) — DEV only.
+  useEffect(() => {
+    if (import.meta.env.DEV) installContactsApi()
+  }, [])
+
   return (
     <>
       <RigidBody
@@ -317,17 +323,33 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
       angularDamping={tunables.angularDamping}
       canSleep={false}
       ccd
+      onContactForce={
+        import.meta.env.DEV ? (e) => body.current && recordContact(e, body.current) : undefined
+      }
     >
-        {colliders.map((col, i) => (
-          <CuboidCollider
-            key={i}
-            args={col.half}
-            position={col.position}
-            rotation={col.rotation}
-            mass={col.mass}
-            friction={tunables.groundFriction}
-          />
-        ))}
+        {colliders.map((col, i) =>
+          col.ball ? (
+            // Roues : sphères (roulent sur les arêtes du terrain — S1).
+            <BallCollider
+              key={i}
+              args={[col.half[0]]}
+              position={col.position}
+              mass={col.mass}
+              friction={tunables.groundFriction}
+              contactSkin={tunables.contactSkin}
+            />
+          ) : (
+            <CuboidCollider
+              key={i}
+              args={col.half}
+              position={col.position}
+              rotation={col.rotation}
+              mass={col.mass}
+              friction={tunables.groundFriction}
+              contactSkin={tunables.contactSkin}
+            />
+          ),
+        )}
 
         <ControlsContext.Provider value={controls}>
           <Plane assembly={visualAssembly} hideWings={!!breakInfo} />

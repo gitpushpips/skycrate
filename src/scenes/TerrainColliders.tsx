@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { RigidBody, HeightfieldCollider } from '@react-three/rapier'
+import { useRapier } from '@react-three/rapier'
+import { ColliderDesc, HeightFieldFlags } from '@dimforge/rapier3d-compat'
+import type { Collider } from '@dimforge/rapier3d-compat'
 import type { Terrain } from '../core/world/terrain'
 
 /**
@@ -9,26 +11,25 @@ import type { Terrain } from '../core/world/terrain'
  * qu'un trimesh, déchargé au-delà du rayon. L'avion roule, atterrit et crashe
  * vraiment sur le relief. Même découpe (256 m) et même résolution que le
  * maillage visuel proche (64 quads ⇒ surfaces identiques par construction).
+ *
+ * S1 : créés en IMPÉRATIF (world.createCollider) — le composant
+ * <HeightfieldCollider> ne transmet pas les flags, or il faut
+ * `FIX_INTERNAL_EDGES` : sans lui, les normales de contact aux arêtes
+ * internes des triangles éjectent l'avion (« coups » fantômes mesurés à
+ * 245× la force médiane, direction horizontale).
  */
 const CHUNK_SIZE = 256
 const RES = 64 // quads par côté (= LOD proche du rendu)
 const GEN_BUDGET = 1 // heightfields construits max par frame (création BVH coûteuse)
 
-interface ChunkHeights {
-  key: string
-  cx: number
-  cz: number
-  heights: number[]
-}
-
 /**
  * Échantillonne le chunk pour Rapier : matrice (RES+1)² en COLUMN-MAJOR,
  * colonnes le long de X, lignes le long de Z, centrée sur le chunk.
  */
-function buildHeights(terrain: Terrain, cx: number, cz: number): number[] {
+function buildHeights(terrain: Terrain, cx: number, cz: number): Float32Array {
   const n = RES + 1
   const step = CHUNK_SIZE / RES
-  const arr = new Array<number>(n * n)
+  const arr = new Float32Array(n * n)
   for (let j = 0; j < n; j++) {
     const x = cx * CHUNK_SIZE + j * step
     for (let i = 0; i < n; i++) {
@@ -47,18 +48,28 @@ export function TerrainColliders({
   radius: number
   friction: number
 }) {
-  const [chunks, setChunks] = useState<ChunkHeights[]>([])
+  const { world } = useRapier()
   const st = useRef({
     cell: '',
     desired: [] as { key: string; cx: number; cz: number; dist: number }[],
     desiredKeys: new Set<string>(),
-    have: new Map<string, ChunkHeights>(),
+    have: new Map<string, Collider>(),
   })
 
+  // Terrain/rayon changé ou démontage ⇒ retire tous les colliders du monde.
   useEffect(() => {
-    st.current = { cell: '', desired: [], desiredKeys: new Set(), have: new Map() }
-    setChunks([])
-  }, [terrain, radius])
+    const s = st.current
+    return () => {
+      for (const col of s.have.values()) world.removeCollider(col, false)
+      s.have.clear()
+      s.cell = ''
+    }
+  }, [terrain, radius, world])
+
+  // Friction leva appliquée à chaud aux heightfields déjà créés.
+  useEffect(() => {
+    for (const col of st.current.have.values()) col.setFriction(friction)
+  }, [friction])
 
   useFrame(({ camera }) => {
     const s = st.current
@@ -86,35 +97,32 @@ export function TerrainColliders({
       s.desiredKeys = new Set(desired.map((d) => d.key))
     }
 
-    let dirty = false
-    for (const key of s.have.keys()) {
+    // Décharge immédiate de ce qui est sorti du rayon.
+    for (const [key, col] of s.have) {
       if (!s.desiredKeys.has(key)) {
+        world.removeCollider(col, false)
         s.have.delete(key)
-        dirty = true
       }
     }
+    // Génération au budget, du plus proche au plus loin (collider fixe autonome).
     let budget = GEN_BUDGET
     for (const d of s.desired) {
       if (budget <= 0) break
       if (!s.have.has(d.key)) {
-        s.have.set(d.key, { key: d.key, cx: d.cx, cz: d.cz, heights: buildHeights(terrain, d.cx, d.cz) })
-        dirty = true
+        const desc = ColliderDesc.heightfield(
+          RES,
+          RES,
+          buildHeights(terrain, d.cx, d.cz),
+          { x: CHUNK_SIZE, y: 1, z: CHUNK_SIZE },
+          HeightFieldFlags.FIX_INTERNAL_EDGES,
+        )
+          .setTranslation((d.cx + 0.5) * CHUNK_SIZE, 0, (d.cz + 0.5) * CHUNK_SIZE)
+          .setFriction(friction)
+        s.have.set(d.key, world.createCollider(desc))
         budget--
       }
     }
-    if (dirty) setChunks([...s.have.values()])
   })
 
-  return (
-    <RigidBody type="fixed" colliders={false}>
-      {chunks.map((c) => (
-        <HeightfieldCollider
-          key={c.key}
-          args={[RES, RES, c.heights, { x: CHUNK_SIZE, y: 1, z: CHUNK_SIZE }]}
-          position={[(c.cx + 0.5) * CHUNK_SIZE, 0, (c.cz + 0.5) * CHUNK_SIZE]}
-          friction={friction}
-        />
-      ))}
-    </RigidBody>
-  )
+  return null
 }

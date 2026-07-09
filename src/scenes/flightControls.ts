@@ -18,6 +18,9 @@ export interface FlightTunables {
   maxThrustLimit: number
   // Sol / amortissement
   groundFriction: number
+  /** « Peau » de contact des colliders de l'avion (m) — amortit l'accrochage
+   *  des arêtes du terrain (S1). */
+  contactSkin: number
   linearDamping: number
   angularDamping: number
   // Gouvernes
@@ -63,6 +66,7 @@ export function useFlightTunables(): FlightTunables {
     }),
     sol: folder({
       groundFriction: { value: 0.08, min: 0, max: 1, step: 0.01, label: 'friction sol' },
+      contactSkin: { value: 0.02, min: 0, max: 0.15, step: 0.005, label: 'peau de contact' },
     }),
     amortissement: folder({
       linearDamping: { value: 0, min: 0, max: 2, step: 0.01, label: 'amorti. linéaire' },
