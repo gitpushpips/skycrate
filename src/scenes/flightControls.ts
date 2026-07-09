@@ -16,6 +16,10 @@ export interface FlightTunables {
   // Poussée
   thrustCoef: number
   maxThrustLimit: number
+  /** Vitesse de rampe des gaz au clavier (fraction de régime / seconde). */
+  throttleRamp: number
+  /** Cran de postcombustion : au-delà de cette fraction de jauge, la PC s'engage. */
+  pcDetent: number
   // Sol / amortissement
   groundFriction: number
   /** « Peau » de contact des colliders de l'avion (m) — amortit l'accrochage
@@ -63,6 +67,8 @@ export function useFlightTunables(): FlightTunables {
     poussée: folder({
       thrustCoef: { value: 2.5, min: 0, max: 20, step: 0.1, label: 'coef poussée' },
       maxThrustLimit: { value: 1, min: 0, max: 1, step: 0.01, label: 'limite max' },
+      throttleRamp: { value: 0.55, min: 0.1, max: 3, step: 0.05, label: 'rampe gaz (/s)' },
+      pcDetent: { value: 0.85, min: 0.5, max: 0.95, step: 0.01, label: 'cran PC' },
     }),
     sol: folder({
       groundFriction: { value: 0.08, min: 0, max: 1, step: 0.01, label: 'friction sol' },

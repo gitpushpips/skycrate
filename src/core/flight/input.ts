@@ -1,24 +1,33 @@
 import { useEffect, useRef } from 'react'
 
 /**
- * Entrées de vol au clavier (étape 5). Axes référencés sur le MOTEUR (règle 1) ;
- * une config propulsive inverse la caméra ⇒ commandes ressenties inversées.
+ * Entrées de vol au clavier (étape 5, throttle progressif S2). Axes référencés
+ * sur le MOTEUR (règle 1) ; une config propulsive inverse la caméra ⇒ commandes
+ * ressenties inversées.
  *
  *   Tangage : W piqué (nez bas)   · S cabré (nez haut)
  *   Roulis  : A gauche            · D droite
  *   Lacet   : Q gauche            · E droite
- *   Moteur  : Shift plein gaz     · C inverse        · (rien) arrêt
- *   PC      : Espace postcombustion (moteurs équipés)
+ *   Gaz     : Maj augmente le régime · Ctrl le diminue (rampe tant que maintenu)
+ *   Inverse : C maintenu = inverse de poussée (au régime courant)
+ *
+ * La postcombustion n'a plus de touche : elle s'engage au-delà du CRAN de la
+ * jauge des gaz (S2). La rampe elle-même est intégrée dans PlaneRig (pas fixe).
  */
 export interface FlightInputState {
   pitch: number // -1 piqué .. +1 cabré
   roll: number // -1 gauche .. +1 droite
   yaw: number // -1 gauche .. +1 droite
-  throttle: number // 1 plein, -1 inverse, 0 arrêt
-  boost: number // 1 postcombustion, 0 sinon
+  throttleUp: number // 1 = Maj maintenu (augmenter le régime)
+  throttleDown: number // 1 = Ctrl maintenu (réduire le régime)
+  reverse: number // 1 = C maintenu (inverse de poussée)
 }
 
-const ZERO: FlightInputState = { pitch: 0, roll: 0, yaw: 0, throttle: 0, boost: 0 }
+const ZERO: FlightInputState = { pitch: 0, roll: 0, yaw: 0, throttleUp: 0, throttleDown: 0, reverse: 0 }
+
+/** Touches de jeu : on bloque les raccourcis navigateur qui les combinent
+ *  (Ctrl+S…) quand c'est possible — Ctrl+W reste réservé par le navigateur. */
+const GAME_CODES = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'KeyC'])
 
 function compute(keys: Set<string>): FlightInputState {
   const k = (code: string) => (keys.has(code) ? 1 : 0)
@@ -26,8 +35,9 @@ function compute(keys: Set<string>): FlightInputState {
     pitch: k('KeyS') - k('KeyW'),
     roll: k('KeyD') - k('KeyA'),
     yaw: k('KeyE') - k('KeyQ'),
-    throttle: k('ShiftLeft') || k('ShiftRight') ? 1 : k('KeyC') ? -1 : 0,
-    boost: k('Space'),
+    throttleUp: k('ShiftLeft') || k('ShiftRight') ? 1 : 0,
+    throttleDown: k('ControlLeft') || k('ControlRight') ? 1 : 0,
+    reverse: k('KeyC'),
   }
 }
 
@@ -40,6 +50,7 @@ export function useFlightInput() {
       stateRef.current = compute(keys)
     }
     const onDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && GAME_CODES.has(e.code)) e.preventDefault()
       keys.add(e.code)
       refresh()
     }

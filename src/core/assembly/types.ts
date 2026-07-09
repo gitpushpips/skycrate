@@ -15,6 +15,8 @@
 export interface PlacedPart {
   /** id d'une pièce du catalogue (core/parts). */
   partId: string
+  /** Nœud source du graphe (avion compilé) — animation moteur par moteur (S2). */
+  nodeId?: string
   /** Position dans le repère local de l'avion. */
   position: [number, number, number]
   /** Rotation (Euler, radians). */

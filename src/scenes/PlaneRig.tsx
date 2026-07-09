@@ -82,6 +82,8 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
   )
 
   const results = useMemo(() => surfaces.map(makeSurfaceResult), [surfaces])
+  // Régime effectif par moteur (S2), recalculé au pas fixe (scratch, pas d'alloc).
+  const engineLevels = useMemo(() => engines.map(() => ({ dry: 0, pc: false })), [engines])
   const dragResults = useMemo(() => dragPanels.map(makeSurfaceResult), [dragPanels])
   const vizPanels = useMemo<VizPanel[]>(
     () => [
@@ -122,16 +124,43 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
     const inp = input.current
     const speed = _vel.length()
 
-    // Carburant : conso = Σ fuelUsage × |throttle| × dt (× fuelMult en PC) ; coupé à sec.
-    const boosting = inp.boost > 0 && inp.throttle > 0
-    if (inp.throttle !== 0 && fuel.current > 0) {
-      let burn = 0
-      for (const eng of engines) {
-        burn += eng.fuelUsage * (boosting && eng.afterburner ? eng.afterburner.fuelMult : 1)
+    // GAZ (S2) : la consigne est un régime continu 0..1 rampé au clavier
+    // (Maj +, Ctrl −) dans le pas fixe ; les jauges du HUD écrivent directement.
+    const th = useThrottle.getState()
+    const dThr = (inp.throttleUp - inp.throttleDown) * tunables.throttleRamp * FIXED_DT
+    if (dThr !== 0) {
+      if (th.linked) {
+        useThrottle.setState({ master: THREE.MathUtils.clamp(th.master + dThr, 0, 1) })
+      } else {
+        // Délié : le clavier rampe TOUS les moteurs du même pas (les écarts restent).
+        const pe: Record<string, number> = { ...th.perEngine }
+        for (const eng of engines) {
+          pe[eng.nodeId] = THREE.MathUtils.clamp((pe[eng.nodeId] ?? th.master) + dThr, 0, 1)
+        }
+        useThrottle.setState({ perEngine: pe })
       }
-      fuel.current = Math.max(0, fuel.current - burn * Math.abs(inp.throttle) * FIXED_DT)
     }
-    const effThrottle = fuel.current > 0 ? inp.throttle : 0
+    const cmd = useThrottle.getState()
+    const reverse = inp.reverse > 0
+    if (reverse !== cmd.reverse) useThrottle.setState({ reverse })
+
+    // Régime par moteur : sous le CRAN = plage « sèche » (0..100 % de poussée) ;
+    // au-delà (moteurs équipés, gaz avant) = POSTCOMBUSTION (règle 2 + S2).
+    // Conso = Σ fuelUsage × régime × dt (× fuelMult en PC) ; coupé à sec.
+    let burn = 0
+    for (let i = 0; i < engines.length; i++) {
+      const eng = engines[i]
+      const lvl = cmd.linked ? cmd.master : (cmd.perEngine[eng.nodeId] ?? cmd.master)
+      const dry = eng.afterburner ? Math.min(1, lvl / tunables.pcDetent) : lvl
+      const pc = !!eng.afterburner && !reverse && lvl > tunables.pcDetent
+      engineLevels[i].dry = dry
+      engineLevels[i].pc = pc
+      burn += eng.fuelUsage * dry * (pc && eng.afterburner ? eng.afterburner.fuelMult : 1)
+    }
+    if (burn > 0 && fuel.current > 0) {
+      fuel.current = Math.max(0, fuel.current - burn * FIXED_DT)
+    }
+    const fuelOk = fuel.current > 0
 
     // Rupture structurelle : l'aile casse si vitesse > strength×100 (règle 5).
     if (!brokenRef.current && speed > stats.snapSpeedMs) {
@@ -183,19 +212,36 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
       facings.current[surfaces.length + j] = res.facing
     }
 
-    // Poussée : chaque moteur applique sa force à SON point, le long de SON axe.
-    // Postcombustion (Espace, gaz vers l'avant) : ×thrustMult sur les moteurs équipés.
-    const boostThrust = inp.boost > 0 && effThrottle > 0
-    for (const eng of engines) {
+    // Poussée : chaque moteur applique SA force à SON point, le long de SON axe,
+    // à SON régime (S2). C maintenu = inverse de poussée au régime courant.
+    let vizLevel = 0
+    let vizBoost = false
+    for (let i = 0; i < engines.length; i++) {
+      const eng = engines[i]
+      const st = engineLevels[i]
+      const dry = fuelOk ? st.dry : 0
+      const pc = fuelOk && st.pc
+      if (dry === 0) continue
       _thrust.copy(eng.dir).applyQuaternion(_Q)
-      const ab = boostThrust && eng.afterburner ? eng.afterburner.thrustMult : 1
-      const mag = tunables.thrustCoef * eng.thrust * eng.limit * tunables.maxThrustLimit * effThrottle * ab
+      const ab = pc && eng.afterburner ? eng.afterburner.thrustMult : 1
+      const sign = reverse ? -1 : 1
+      const mag =
+        tunables.thrustCoef * eng.thrust * eng.limit * tunables.maxThrustLimit * dry * ab * sign
       _thrust.multiplyScalar(mag)
       _ePoint.copy(eng.point).applyQuaternion(_Q).add(_P)
       rb.addForceAtPoint(_thrust, _ePoint, true)
+      vizLevel = Math.max(vizLevel, dry)
+      vizBoost = vizBoost || pc
     }
-    // Régime moteur courant → animation hélices/flammes (store partagé).
-    useThrottle.setState({ level: Math.abs(effThrottle), boost: boostThrust })
+    // Régimes réels → animation hélices/flammes (par moteur + global de repli).
+    const actual: Record<string, { level: number; boost: boolean }> = {}
+    for (let i = 0; i < engines.length; i++) {
+      actual[engines[i].nodeId] = {
+        level: fuelOk ? engineLevels[i].dry : 0,
+        boost: fuelOk && engineLevels[i].pc,
+      }
+    }
+    useThrottle.setState({ level: vizLevel, boost: vizBoost, actual })
 
     // Capture l'inclinaison tant qu'on roule ; figée au lâché ⇒ cible du maintien
     // (clampée dans la borne pour éviter tout conflit hold ↔ borne).
@@ -279,7 +325,7 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
         aoa: +results[0].aoaDeg.toFixed(1),
         pitch,
         bank,
-        thr: input.current.throttle,
+        thr: +useThrottle.getState().level.toFixed(2),
         snap: stats.snapSpeedMs,
         broken: brokenRef.current,
       }
@@ -299,14 +345,21 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
       fuel.current = fuelMax
       brokenRef.current = false
       held.current.bank = 0
+      useThrottle.getState().resetCommand()
       setBreakInfo(null)
     }
     window.addEventListener('keydown', onReset)
     return () => window.removeEventListener('keydown', onReset)
   }, [fuelMax, spawn])
 
-  // Retour au hangar : remet l'altitude HUD à 0 ⇒ le train rétractable se ressort.
-  useEffect(() => () => useHud.setState({ altitude: 0 }), [])
+  // Retour au hangar : altitude HUD à 0 (train rétractable ressorti) + gaz à zéro.
+  useEffect(
+    () => () => {
+      useHud.setState({ altitude: 0 })
+      useThrottle.getState().resetCommand()
+    },
+    [],
+  )
 
   // Sonde de contacts S1 (diagnostic « coups » au sol) — DEV only.
   useEffect(() => {

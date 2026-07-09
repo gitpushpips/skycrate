@@ -16,6 +16,7 @@ import { PartInspector } from './ui/PartInspector'
 import { EditorTools } from './ui/EditorTools'
 import { EditorHint } from './ui/EditorHint'
 import { ThrottleGauge } from './ui/ThrottleGauge'
+import { ThrottlePanel } from './ui/ThrottlePanel'
 import { SaveLoadPanel } from './ui/SaveLoadPanel'
 import { ModeToggle } from './ui/ModeToggle'
 import { compileAircraft } from './core/build/compile'
@@ -26,7 +27,8 @@ import { useBuild } from './store/build'
  * Boucle construire → voler → ajuster (Jalon 2). Le graphe d'avion (store `build`)
  * est compilé à la volée ; selon le mode on rend le HANGAR (éditeur) ou le VOL.
  *
- * Commandes vol : W/S tangage, A/D roulis, Q/E lacet, Shift gaz, C inverse, R reset.
+ * Commandes vol : W/S tangage, A/D roulis, Q/E lacet, Maj gaz + / Ctrl gaz −
+ * (rampe progressive S2, PC au-delà du cran de la jauge), C inverse, R reset.
  */
 export default function App() {
   const flight = useFlightTunables()
@@ -73,6 +75,7 @@ export default function App() {
       ) : (
         <>
           <Hud />
+          <ThrottlePanel engines={aircraft.engines} pcDetent={flight.pcDetent} />
           <MapOverlay />
           <OutOfBounds />
         </>

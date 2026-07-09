@@ -43,6 +43,9 @@ export interface CompiledMount {
 }
 
 export interface EngineInstance {
+  /** Nœud source — clé des jauges par moteur (S2) et des visuels hélice/flamme. */
+  nodeId: string
+  partId: string
   dir: THREE.Vector3 // repère avion, normalisée, sens d'inversion appliqué
   point: THREE.Vector3
   thrust: number // poussée max (catalogue)
@@ -181,6 +184,7 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
 
     placed.push({
       partId: node.partId,
+      nodeId: node.nodeId,
       position: [pos.x, pos.y, pos.z],
       rotation: rotEuler,
       mirrored: node.mirrored,
@@ -254,6 +258,8 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
       dir.normalize()
       const point = toWorld(bp.engine.point)
       engines.push({
+        nodeId: node.nodeId,
+        partId: node.partId,
         dir,
         point: point.clone(),
         thrust: part.thrust,

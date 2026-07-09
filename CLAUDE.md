@@ -272,6 +272,22 @@ npm run format     # prettier --write
     horizontal » disparue** (pire = 29× médiane, direction verticale = vraie bosse), 1,3 km de roulage continu sans
     accroc ; crash-test −20 m/s ⇒ rebond physique, avion intact, repos stable. Auto-collision : impossible par
     construction (un seul RigidBody). typecheck/lint/build OK.
+  - [x] **S2 — throttle progressif, par moteur, PC crantée ✅.** Fini le on/off : la consigne est un **régime
+    continu 0..1**. **Store** `store/throttle.ts` refondu : consigne (`master`/`linked`/`perEngine[nodeId]`/`reverse`)
+    + réels d'animation (`actual[nodeId]` publié par `PlaneRig`, repli global `level`/`boost` pour le hangar).
+    **Clavier** (`core/flight/input.ts`) : **Maj monte / Ctrl descend** (rampe au pas fixe dans `PlaneRig`,
+    leva `rampe gaz` 0.55/s), **C maintenu = inverse de poussée** au régime courant ; Espace/boost supprimé.
+    ⚠️ Ctrl+W = fermer l'onglet (irrécupérable côté web) ; les autres combos (Ctrl+S…) sont `preventDefault`.
+    **PC crantée** : moteurs équipés → plage sèche normalisée sous le **cran** (leva `cran PC` 0.85, `dry=lvl/detent`),
+    au-delà = PC (poussée ×2.2, conso ×6, gaz avant seulement). **Par moteur** : `EngineInstance.nodeId/partId`
+    (compile), poussée/conso calculées par moteur ; `PlacedPart.nodeId` ⇒ hélices/flammes suivent CHAQUE moteur
+    (`engineActual` dans `Plane.tsx`). **UI** `ui/ThrottlePanel.tsx` (vol, bas-gauche) : jauges verticales glissables —
+    1 moteur = une jauge ; sinon maître « TOUS » + M1..Mn ; **cran/zone PC** dessinés, jauge orange quand PC ;
+    glisser une individuelle **délie**, glisser la maître **re-lie** (+ bouton LIÉS/DÉLIÉS) ; badge INV. POUSSÉE ;
+    clavier = rampe TOUS les moteurs (écarts conservés si délié). Reset R / retour hangar ⇒ `resetCommand()`.
+    Jauge hangar (`ThrottleGauge`) inchangée (aperçu). **Validé preview** : rampe linéaire 0.55/s clamp 0..1 ✅,
+    Ctrl −0.55/s ✅, C → `reverse` ✅, cran : 0.8 → M2 `dry 0.94` sans PC, 1.0 → **PC sur le seul moteur équipé** ✅,
+    délié M2 0.35 / M1 1.0 ✅, panneau TOUS/M1/M2 + LIÉS rendu ✅, panne sèche par conso PC ×6 ✅. Build OK.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 

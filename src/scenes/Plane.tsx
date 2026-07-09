@@ -390,21 +390,29 @@ function VerticalFinModel() {
 
 // Hélice qui tourne autour de l'axe de poussée (Z) selon le régime moteur courant
 // (jauge hangar ou throttle en vol). `bladeLen`/`blades`/`width` = identité visuelle.
+/** Régime réel du moteur `nodeId` (S2) — repli sur le régime global (hangar). */
+function engineActual(nodeId?: string): { level: number; boost: boolean } {
+  const s = useThrottle.getState()
+  return (nodeId && s.actual[nodeId]) || { level: s.level, boost: s.boost }
+}
+
 function SpinningProp({
   z,
   blades,
   bladeLen,
   width = 0.13,
+  nodeId,
 }: {
   z: number
   blades: number
   bladeLen: number
   width?: number
+  nodeId?: string
 }) {
   const ref = useRef<THREE.Group>(null)
   useFrame((_, dt) => {
     if (!ref.current) return
-    const level = useThrottle.getState().level
+    const { level } = engineActual(nodeId)
     ref.current.rotation.z += dt * level * 72 // immobile au repos → flou rapide à fond
   })
   const bars = Math.max(1, Math.round(blades / 2))
@@ -427,12 +435,22 @@ function SpinningProp({
 // Échappement réacteur : lueur qui s'intensifie avec le régime + flamme animée.
 // `flame='pc'` → flamme uniquement en postcombustion ; `flame='always'` → flamme
 // à haut régime (fusée) ; absent → lueur seule (turbofan).
-function JetExhaust({ z, r, flame: mode }: { z: number; r: number; flame?: 'pc' | 'always' }) {
+function JetExhaust({
+  z,
+  r,
+  flame: mode,
+  nodeId,
+}: {
+  z: number
+  r: number
+  flame?: 'pc' | 'always'
+  nodeId?: string
+}) {
   const glow = useRef<THREE.Mesh>(null)
   const flame = useRef<THREE.Mesh>(null)
   const flameMat = useRef<THREE.MeshBasicMaterial>(null)
   useFrame((state) => {
-    const { level, boost } = useThrottle.getState()
+    const { level, boost } = engineActual(nodeId)
     const t = state.clock.elapsedTime
     const flick = 0.85 + Math.sin(t * 45) * 0.1 + Math.sin(t * 17) * 0.05
     if (glow.current) {
@@ -509,8 +527,9 @@ function RadialCylinders({ r }: { r: number }) {
   )
 }
 
-// Identité visuelle par TYPE de moteur (nez -Z, échappement +Z).
-function EngineModel({ kind }: { kind: EngineKind }) {
+// Identité visuelle par TYPE de moteur (nez -Z, échappement +Z). `nodeId` lie
+// l'animation (hélice/flamme) au régime RÉEL de CE moteur (S2).
+function EngineModel({ kind, nodeId }: { kind: EngineKind; nodeId?: string }) {
   switch (kind) {
     case 'wood':
     case 'electric': {
@@ -523,7 +542,7 @@ function EngineModel({ kind }: { kind: EngineKind }) {
           </mesh>
           <RadialCylinders r={0.5} />
           <Spinner z={-0.34} r={0.13} len={0.26} color={palette.planeBrass} />
-          <SpinningProp z={-0.4} blades={2} bladeLen={2.1} width={0.14} />
+          <SpinningProp z={-0.4} blades={2} bladeLen={2.1} width={0.14} nodeId={nodeId} />
         </group>
       )
     }
@@ -536,7 +555,7 @@ function EngineModel({ kind }: { kind: EngineKind }) {
             <meshStandardMaterial color={palette.planeMetal} flatShading metalness={0.5} roughness={0.45} />
           </mesh>
           <Spinner z={-0.45} r={0.18} len={0.4} color={palette.planeCowl} />
-          <SpinningProp z={-0.55} blades={2} bladeLen={2.0} width={0.11} />
+          <SpinningProp z={-0.55} blades={2} bladeLen={2.0} width={0.11} nodeId={nodeId} />
         </group>
       )
     }
@@ -549,7 +568,7 @@ function EngineModel({ kind }: { kind: EngineKind }) {
             <meshStandardMaterial color={palette.planeMetal} flatShading metalness={0.55} roughness={0.4} />
           </mesh>
           <Spinner z={-0.55} r={0.14} len={0.5} color={palette.planeExhaust} />
-          <SpinningProp z={-0.68} blades={4} bladeLen={1.7} width={0.1} />
+          <SpinningProp z={-0.68} blades={4} bladeLen={1.7} width={0.1} nodeId={nodeId} />
         </group>
       )
     }
@@ -580,7 +599,7 @@ function EngineModel({ kind }: { kind: EngineKind }) {
             <meshStandardMaterial color="#15171c" flatShading roughness={0.75} />
           </mesh>
           {/* Soufflante visible dans l'entrée (tourne avec le régime) + spinner. */}
-          <SpinningProp z={-0.58} blades={20} bladeLen={r * 1.66} width={0.05} />
+          <SpinningProp z={-0.58} blades={20} bladeLen={r * 1.66} width={0.05} nodeId={nodeId} />
           <Spinner z={-0.68} r={0.15} len={0.34} color={palette.planeMetal} />
           {/* Tuyère froide + cône central (plug). */}
           <mesh position={[0, 0, 0.82]} rotation={[Math.PI / 2, 0, 0]} castShadow>
@@ -632,7 +651,7 @@ function EngineModel({ kind }: { kind: EngineKind }) {
               side={THREE.DoubleSide}
             />
           </mesh>
-          <JetExhaust z={1.2} r={r * 0.62} flame="pc" />
+          <JetExhaust z={1.2} r={r * 0.62} flame="pc" nodeId={nodeId} />
         </group>
       )
     }
@@ -673,7 +692,7 @@ function EngineModel({ kind }: { kind: EngineKind }) {
               side={THREE.DoubleSide}
             />
           </mesh>
-          <JetExhaust z={1.05} r={r} flame="always" />
+          <JetExhaust z={1.05} r={r} flame="always" nodeId={nodeId} />
         </group>
       )
     }
@@ -732,7 +751,15 @@ function LandingGearModel({ retractable }: { retractable?: boolean }) {
   )
 }
 
-function PartModel({ part, mirrored }: { part: Part; mirrored?: boolean }) {
+function PartModel({
+  part,
+  mirrored,
+  nodeId,
+}: {
+  part: Part
+  mirrored?: boolean
+  nodeId?: string
+}) {
   switch (part.category) {
     case 'fuselage':
       return <FuselageModel size={part.size} />
@@ -743,7 +770,7 @@ function PartModel({ part, mirrored }: { part: Part; mirrored?: boolean }) {
     case 'stabilizer':
       return part.id === 'fin.mk1' ? <VerticalFinModel /> : <HorizontalStabModel />
     case 'engine':
-      return <EngineModel kind={part.kind} />
+      return <EngineModel kind={part.kind} nodeId={nodeId} />
     case 'landingGear':
       return <LandingGearModel retractable={part.retractable} />
   }
@@ -755,7 +782,7 @@ function PlacedPartModel({ placed }: { placed: PlacedPart }) {
   const scale: [number, number, number] = placed.mirrored ? [-1, 1, 1] : [1, 1, 1]
   return (
     <group position={placed.position} rotation={placed.rotation} scale={scale}>
-      <PartModel part={part} mirrored={placed.mirrored} />
+      <PartModel part={part} mirrored={placed.mirrored} nodeId={placed.nodeId} />
     </group>
   )
 }
