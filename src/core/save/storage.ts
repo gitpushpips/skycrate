@@ -35,6 +35,8 @@ export function parseAircraft(json: string): Aircraft {
 
 function validateAircraft(a: Aircraft): Aircraft {
   if (!a || typeof a.rootId !== 'string' || !Array.isArray(a.nodes)) throw new Error('Graphe invalide')
+  // Avion vide (page blanche S4-A) : rootId vide + aucun nœud ⇒ valide tel quel.
+  if (a.nodes.length === 0 && a.rootId === '') return a
   const ids = new Set(a.nodes.map((n) => n.nodeId))
   if (!ids.has(a.rootId)) throw new Error('Pièce racine introuvable')
   for (const n of a.nodes) {

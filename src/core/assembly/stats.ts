@@ -51,12 +51,14 @@ export function aggregateStats(assembly: PlaneAssembly): AssemblyStats {
     totalCost += part.cost
 
     switch (part.category) {
-      case 'fuselage':
+      case 'cockpit':
         totalFuel += part.fuel
         electricCharge += part.electricCharge
         totalCargo += part.cargo
         break
-      case 'cabin':
+      case 'fuselage':
+        totalFuel += part.fuel
+        electricCharge += part.electricCharge
         totalCargo += part.cargo
         break
       case 'wing':

@@ -15,7 +15,7 @@
  *   - les valeurs RELATIVES par pièce se calibrent en éditant le catalogue.
  */
 
-export type PartCategory = 'fuselage' | 'cabin' | 'wing' | 'stabilizer' | 'engine' | 'landingGear'
+export type PartCategory = 'cockpit' | 'fuselage' | 'wing' | 'stabilizer' | 'engine' | 'landingGear'
 
 /**
  * Palier de progression (réf. `docs/catalogue-pieces.md`) : T0 pionnier bois/toile
@@ -38,8 +38,12 @@ export type EngineKind =
 /** Tailles de fuselage (silhouette + volume) du petit au gros porteur. */
 export type FuselageSize = 'small' | 'medium' | 'large'
 
-/** Types de cabine (cockpit vitré, soute cargo, cabine passagers). */
-export type CabinKind = 'cockpit' | 'cargo' | 'passenger'
+/**
+ * Modèles de cockpit (S4) — nez + verrière, inspirés de vrais avions (silhouettes
+ * MAISON, aucun nom de marque). Chaque modèle définit une allure et un profil de
+ * section arrière (S4-B/C : le fuselage épouse ce profil au raccord).
+ */
+export type CockpitModel = 'ga' | 'warbird' | 'glider' | 'airliner' | 'wide' | 'fighter'
 
 /** États de poussée d'un moteur à l'exécution (dossier §5, règle 2). */
 export type ThrustState = 'full' | 'off' | 'reverse'
@@ -70,15 +74,23 @@ export interface FuselagePart extends BasePart {
   readonly fuel: number
   /** Charge électrique de base = 0,05 (dossier §6, §14). */
   readonly electricCharge: number
-  /** Volume de cargo (les cabines en sont la source principale — dossier §3). */
+  /** Volume de cargo (soute ; les gros fuselages en portent le plus — dossier §3). */
   readonly cargo: number
 }
 
-/** Cabine / cockpit : module qui apporte du **cargo** (volume), plusieurs autorisés. */
-export interface CabinPart extends BasePart {
-  readonly category: 'cabin'
-  readonly kind: CabinKind
-  /** Volume de cargo apporté. */
+/**
+ * Cockpit : nez + verrière. **Racine obligatoire** de tout avion (S4 : la première
+ * pièce posée est un cockpit). Porte donc le carburant/charge de base (règle 6 :
+ * avion de base = fuel 1 + 0,05 electric). Plusieurs modèles d'allure.
+ */
+export interface CockpitPart extends BasePart {
+  readonly category: 'cockpit'
+  readonly model: CockpitModel
+  /** ×100. Le cockpit racine porte le carburant de base (règle 6). */
+  readonly fuel: number
+  /** Charge électrique de base (règle 6). */
+  readonly electricCharge: number
+  /** Volume de cargo apporté (0 pour l'instant — cargo au Jalon 5). */
   readonly cargo: number
 }
 
@@ -138,8 +150,8 @@ export interface LandingGearPart extends BasePart {
 }
 
 export type Part =
+  | CockpitPart
   | FuselagePart
-  | CabinPart
   | WingPart
   | StabilizerPart
   | EnginePart

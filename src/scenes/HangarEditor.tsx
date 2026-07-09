@@ -152,6 +152,28 @@ export function HangarEditor({
     [aircraft],
   )
 
+  // Page blanche (S4-A) : aucune pièce ⇒ la 1re pose (un cockpit) est la RACINE,
+  // posée à l'origine (pas de surface à survoler). Fantôme + sol cliquable.
+  const isEmpty = graph.nodes.length === 0
+  const rootGhost = useMemo(() => {
+    if (!isEmpty || !selectedPartId) return null
+    const tempNode: PartNode = {
+      nodeId: '__ghost__',
+      partId: selectedPartId,
+      parentId: null,
+      position: [0, 0, 0],
+      rotation: [0, ghostAngle, 0],
+    }
+    const temp: Aircraft = { ...graph, rootId: '__ghost__', nodes: [tempNode] }
+    return compileAircraft(temp).placed[0] ?? null
+  }, [isEmpty, selectedPartId, ghostAngle, graph])
+
+  const placeRoot = () => {
+    if (!isEmpty || !selectedPartId) return
+    if (!canAfford(getPart(selectedPartId).cost, coinsAvailable)) return
+    addPart('', selectedPartId, [0, 0, 0], [0, ghostAngle, 0])
+  }
+
   // Pose courante (host + transform local) déduite de la surface survolée.
   const placement = useMemo(() => {
     if (!selectedPartId || !hoveredSurface) return null
@@ -223,6 +245,24 @@ export function HangarEditor({
 
       {/* Fantôme de pose (snap sur la surface survolée). */}
       {ghostPlaced && <GhostPlane placed={ghostPlaced} />}
+
+      {/* Page blanche : sol invisible cliquable + fantôme du cockpit racine. */}
+      {isEmpty && selectedPartId && (
+        <>
+          <mesh
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[0, -1.4, 0]}
+            onClick={(e) => {
+              e.stopPropagation()
+              placeRoot()
+            }}
+          >
+            <planeGeometry args={[60, 60]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          </mesh>
+          {rootGhost && <GhostPlane placed={rootGhost} />}
+        </>
+      )}
 
       {/* Boîtes de pièces = cibles de raycast : snap de pose OU sélection. */}
       {aircraft.colliders.map((c, i) => {

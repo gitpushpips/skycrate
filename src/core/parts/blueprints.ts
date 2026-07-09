@@ -147,31 +147,18 @@ export const BLUEPRINTS: Record<string, PartBlueprint> = {
   },
 
   // Cockpit vitré : petit module sur le dessus.
-  'cabin.cockpit': {
-    mounts: [{ position: [0, -0.35, 0], normal: [0, -1, 0] }],
-    colliders: [{ half: [0.4, 0.34, 0.72], offset: [0, 0, 0] }],
-    dragPanels: [{ position: [0, 0.36, 0], normal: [0, 1, 0], area: 1.1 }],
-  },
-
-  // Soute cargo : boîte trapue (gros volume).
-  'cabin.cargo': {
-    mounts: [{ position: [0, -0.5, 0], normal: [0, -1, 0] }],
-    colliders: [{ half: [0.55, 0.5, 1.0] }],
-    dragPanels: [
-      { position: [0, 0.5, 0], normal: [0, 1, 0], area: 2.0 },
-      { position: [0.55, 0, 0], normal: [1, 0, 0], area: 1.9 },
-      { position: [-0.55, 0, 0], normal: [-1, 0, 0], area: 1.9 },
+  // Cockpit = racine (S4). Nez -Z + verrière ; sa face ARRIÈRE (+Z) accueille le
+  // fuselage (mount +Z). Nez plat en -Z pour un moteur. Silhouette : S4-B.
+  'cockpit.ga': {
+    mounts: [
+      { position: [0, 0, 1.0], normal: [0, 0, 1] }, // arrière (fuselage / empennage)
+      { position: [0, 0, -0.95], normal: [0, 0, -1] }, // nez (moteur)
+      { position: [0, -0.4, 0], normal: [0, -1, 0] }, // ventre (train)
     ],
-  },
-
-  // Cabine passagers : tube long à hublots.
-  'cabin.passenger': {
-    mounts: [{ position: [0, -0.55, 0], normal: [0, -1, 0] }],
-    colliders: [{ half: [0.56, 0.56, 1.5] }],
+    colliders: [{ half: [0.42, 0.4, 0.95] }],
     dragPanels: [
-      { position: [0, 0.56, 0], normal: [0, 1, 0], area: 3.2 },
-      { position: [0.56, 0, 0], normal: [1, 0, 0], area: 3.3 },
-      { position: [-0.56, 0, 0], normal: [-1, 0, 0], area: 3.3 },
+      { position: [0, 0, -1.0], normal: [0, 0, -1], area: 0.5 }, // nez
+      { position: [0, 0.4, 0], normal: [0, 1, 0], area: 1.4 }, // verrière
     ],
   },
 

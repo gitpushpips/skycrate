@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { getPart } from '../core/parts'
 import type {
-  CabinPart,
+  CockpitModel,
   EngineKind,
   FuselageSize,
   Part,
@@ -102,21 +102,29 @@ function FuselageModel({ size }: { size: FuselageSize }) {
   )
 }
 
-// Cockpit vitré : coaming + verrière bombée + arceaux.
-function CockpitCabin() {
+// Cockpit GA (nez + verrière) : nez effilé -Z + coaming + verrière bombée + arceaux.
+// (S4-A : modèle unique ; S4-B ajoute warbird / planeur / ligne / gros / chasse.)
+function CockpitGa() {
   return (
     <group>
-      <mesh position={[0, -0.2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.74, 0.3, 1.42]} />
+      {/* Corps du nez (le collider fait 1.9 de long sur Z). */}
+      <mesh position={[0, -0.05, 0.15]} castShadow receiveShadow>
+        <boxGeometry args={[0.78, 0.6, 1.5]} />
         <meshStandardMaterial color={palette.planeBody} flatShading />
       </mesh>
-      <mesh position={[0, 0.08, -0.05]} scale={[0.49, 0.46, 0.82]} castShadow>
+      {/* Nez effilé (vers -Z). */}
+      <mesh position={[0, -0.05, -0.85]} rotation={[-Math.PI / 2, 0, 0]} castShadow>
+        <coneGeometry args={[0.4, 0.5, 12]} />
+        <meshStandardMaterial color={palette.planeBody} flatShading />
+      </mesh>
+      {/* Verrière bombée. */}
+      <mesh position={[0, 0.28, 0.05]} scale={[0.42, 0.4, 0.7]} castShadow>
         <sphereGeometry args={[0.72, 16, 12]} />
         <meshStandardMaterial color={palette.planeGlass} metalness={0.25} roughness={0.12} transparent opacity={0.74} />
       </mesh>
-      {[-0.18, 0.28].map((z) => (
-        <mesh key={z} position={[0, 0.06, z]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.35 - Math.abs(z) * 0.12, 0.022, 6, 18]} />
+      {[-0.12, 0.34].map((z) => (
+        <mesh key={z} position={[0, 0.26, z]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.3 - Math.abs(z - 0.1) * 0.12, 0.02, 6, 18]} />
           <meshStandardMaterial color={palette.planeBody} flatShading />
         </mesh>
       ))}
@@ -124,65 +132,11 @@ function CockpitCabin() {
   )
 }
 
-// Soute cargo : caisson trapu + porte latérale + nervures de toit.
-function CargoCabin() {
-  return (
-    <group>
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[1.06, 0.96, 1.96]} />
-        <meshStandardMaterial color="#7c7f73" flatShading />
-      </mesh>
-      {/* Porte cargo latérale (renfoncée). */}
-      <mesh position={[0.54, -0.06, 0.25]} castShadow>
-        <boxGeometry args={[0.05, 0.62, 0.92]} />
-        <meshStandardMaterial color="#4b4e46" flatShading />
-      </mesh>
-      {/* Nervures de toit. */}
-      {[-0.55, 0, 0.55].map((z) => (
-        <mesh key={z} position={[0, 0.49, z]} castShadow>
-          <boxGeometry args={[1.0, 0.05, 0.07]} />
-          <meshStandardMaterial color="#5d6056" flatShading />
-        </mesh>
-      ))}
-    </group>
-  )
-}
-
-// Cabine passagers : tube clair + rangées de hublots + porte + bande de livrée.
-function PassengerCabin() {
-  const windows = [-1.05, -0.65, -0.25, 0.15, 0.55, 0.95]
-  return (
-    <group>
-      <mesh rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.55, 0.55, 2.95, 20]} />
-        <meshStandardMaterial color="#e2e6ea" flatShading metalness={0.1} roughness={0.5} />
-      </mesh>
-      {/* Hublots sur les deux flancs. */}
-      {windows.map((z) =>
-        ([-1, 1] as const).map((s) => (
-          <mesh key={`${z}.${s}`} position={[s * 0.53, 0.06, z]} castShadow>
-            <boxGeometry args={[0.04, 0.1, 0.1]} />
-            <meshStandardMaterial color="#1d2733" flatShading />
-          </mesh>
-        )),
-      )}
-      {/* Porte. */}
-      <mesh position={[0.53, -0.04, -1.25]} castShadow>
-        <boxGeometry args={[0.04, 0.5, 0.32]} />
-        <meshStandardMaterial color="#c2c7cd" flatShading />
-      </mesh>
-    </group>
-  )
-}
-
-function CabinModel({ part }: { part: CabinPart }) {
-  switch (part.kind) {
-    case 'cockpit':
-      return <CockpitCabin />
-    case 'cargo':
-      return <CargoCabin />
-    case 'passenger':
-      return <PassengerCabin />
+// Silhouette du cockpit par modèle (S4-B : une par modèle). S4-A : GA seul.
+function CockpitShape({ model }: { model: CockpitModel }) {
+  switch (model) {
+    default:
+      return <CockpitGa />
   }
 }
 
@@ -761,10 +715,10 @@ function PartModel({
   nodeId?: string
 }) {
   switch (part.category) {
+    case 'cockpit':
+      return <CockpitShape model={part.model} />
     case 'fuselage':
       return <FuselageModel size={part.size} />
-    case 'cabin':
-      return <CabinModel part={part} />
     case 'wing':
       return <WingModel part={part} mirrored={mirrored} />
     case 'stabilizer':

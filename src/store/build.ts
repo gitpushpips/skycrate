@@ -1,7 +1,8 @@
 import { create } from 'zustand'
-import { J1_AIRCRAFT } from '../core/build/j1'
+import { EMPTY_AIRCRAFT } from '../core/build/j1'
 import { descendantsOf } from '../core/build/graph'
 import { computeTwin } from '../core/build/mirror'
+import { getPart } from '../core/parts'
 import type { Aircraft, PartNode, PartSettings } from '../core/build/graph'
 
 /**
@@ -60,7 +61,7 @@ function newId(): string {
 }
 
 export const useBuild = create<BuildState>((set) => ({
-  aircraft: J1_AIRCRAFT,
+  aircraft: EMPTY_AIRCRAFT,
   mode: 'hangar',
   selectedPartId: null,
   selectedNodeId: null,
@@ -80,6 +81,18 @@ export const useBuild = create<BuildState>((set) => ({
   addPart: (parentId, partId, position, rotation = [0, 0, 0]) =>
     set((s) => {
       const past = structuredClone(s.aircraft)
+      // Page blanche (S4-A) : la 1re pièce (un cockpit) devient la RACINE. Elle
+      // n'a pas de parent et ne se mirrore pas (posée sur l'axe).
+      if (s.aircraft.nodes.length === 0) {
+        if (getPart(partId).category !== 'cockpit') return {}
+        const root: PartNode = { nodeId: newId(), partId, parentId: null, position, rotation }
+        return {
+          past,
+          aircraft: { ...s.aircraft, rootId: root.nodeId, nodes: [root] },
+          selectedNodeId: root.nodeId,
+          selectedPartId: null,
+        }
+      }
       const node: PartNode = { nodeId: newId(), partId, parentId, position, rotation }
       let nodes = [...s.aircraft.nodes, node]
       // Miroir : pose aussi le jumeau symétrique (sauf pièce symétrique sur l'axe).
@@ -109,7 +122,14 @@ export const useBuild = create<BuildState>((set) => ({
 
   removeNode: (nodeId) =>
     set((s) => {
-      if (nodeId === s.aircraft.rootId) return {}
+      // Retirer la RACINE (S4-A) ⇒ retour page blanche (tout le sous-arbre part).
+      if (nodeId === s.aircraft.rootId) {
+        return {
+          past: structuredClone(s.aircraft),
+          aircraft: { ...s.aircraft, rootId: '', nodes: [] },
+          selectedNodeId: null,
+        }
+      }
       const node = s.aircraft.nodes.find((n) => n.nodeId === nodeId)
       const dead = new Set([nodeId, ...descendantsOf(s.aircraft, nodeId).map((n) => n.nodeId)])
       // Retirer aussi le jumeau miroir (+ son sous-arbre).

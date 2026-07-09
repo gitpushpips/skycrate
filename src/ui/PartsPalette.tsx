@@ -1,43 +1,60 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { getPartsByCategory } from '../core/parts'
 import type { PartCategory } from '../core/parts'
 import { useBuild } from '../store/build'
 
 /**
- * Palette de pièces (Jalon 2-B/2-C/2-D) : onglets de catégorie + grille de pièces
- * avec coût. La sélection alimente la pose (2-C). Une pièce trop chère pour le
- * budget restant (`available`, 2-D) est grisée et non sélectionnable.
+ * Palette de pièces (Jalon 2 + S4) : onglets de catégorie + grille de pièces avec
+ * coût. La sélection alimente la pose (2-C). Une pièce trop chère pour le budget
+ * restant (`available`, 2-D) est grisée. **Page blanche (S4-A)** : tant que l'avion
+ * est vide, seul l'onglet **Cockpit** est actif (la 1re pièce = un cockpit racine).
+ * Les 6 catégories sont dans l'ordre imposé.
  */
 const CATEGORIES: { key: PartCategory; label: string }[] = [
+  { key: 'cockpit', label: 'Cockpit' },
   { key: 'fuselage', label: 'Fuselage' },
-  { key: 'cabin', label: 'Cabine' },
-  { key: 'wing', label: 'Aile' },
-  { key: 'stabilizer', label: 'Empennage' },
-  { key: 'engine', label: 'Moteur' },
-  { key: 'landingGear', label: 'Train' },
+  { key: 'engine', label: 'Moteurs' },
+  { key: 'landingGear', label: 'Trains' },
+  { key: 'wing', label: 'Ailes' },
+  { key: 'stabilizer', label: 'Empennages' },
 ]
 
 export function PartsPalette({ available }: { available: number }) {
-  const [cat, setCat] = useState<PartCategory>('wing')
+  const [cat, setCat] = useState<PartCategory>('cockpit')
   const selected = useBuild((s) => s.selectedPartId)
   const selectPart = useBuild((s) => s.selectPart)
+  const isEmpty = useBuild((s) => s.aircraft.nodes.length === 0)
+  // Page blanche : on force l'onglet Cockpit (seule pose possible = la racine).
+  useEffect(() => {
+    if (isEmpty) setCat('cockpit')
+  }, [isEmpty])
+  const activeCat = isEmpty ? 'cockpit' : cat
   // Triées par palier (T0 → T7) pour lire la progression dans l'onglet.
-  const parts = [...getPartsByCategory(cat)].sort((a, b) => a.tier.localeCompare(b.tier))
+  const parts = [...getPartsByCategory(activeCat)].sort((a, b) => a.tier.localeCompare(b.tier))
 
   return (
     <div style={styles.root}>
+      {isEmpty && <div style={styles.hint}>Page blanche — pose un cockpit pour commencer.</div>}
       <div style={styles.tabs}>
-        {CATEGORIES.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            onClick={() => setCat(c.key)}
-            style={{ ...styles.tab, ...(cat === c.key ? styles.tabActive : null) }}
-          >
-            {c.label}
-          </button>
-        ))}
+        {CATEGORIES.map((c) => {
+          const locked = isEmpty && c.key !== 'cockpit'
+          return (
+            <button
+              key={c.key}
+              type="button"
+              disabled={locked}
+              onClick={() => setCat(c.key)}
+              style={{
+                ...styles.tab,
+                ...(activeCat === c.key ? styles.tabActive : null),
+                ...(locked ? styles.tabLocked : null),
+              }}
+            >
+              {c.label}
+            </button>
+          )
+        })}
       </div>
 
       <div style={styles.grid}>
@@ -86,6 +103,13 @@ const styles: Record<string, CSSProperties> = {
     backdropFilter: 'blur(6px)',
     fontFamily: 'system-ui, sans-serif',
   },
+  hint: {
+    fontSize: 11,
+    color: '#ffce7a',
+    marginBottom: 8,
+    lineHeight: 1.35,
+    fontWeight: 600,
+  },
   tabs: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 },
   tab: {
     flex: '1 0 auto',
@@ -99,6 +123,7 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 600,
   },
   tabActive: { background: '#e0a23a', color: '#1a1208' },
+  tabLocked: { opacity: 0.32, cursor: 'not-allowed' },
   grid: { display: 'flex', flexDirection: 'column', gap: 6 },
   cell: {
     display: 'flex',

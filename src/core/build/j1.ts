@@ -1,10 +1,22 @@
 import type { Aircraft } from './graph'
 
 /**
- * L'avion de départ exprimé comme GRAPHE de pièces. Pièces à UN côté : l'aile et
- * le stabilisateur horizontal viennent en **paires miroir** (droite + gauche
- * `mirrored`), la dérive est unique sur l'axe. Sert d'avion de départ de l'éditeur
- * et de validation du pont compile (vol ≈ identique au J1 d'origine).
+ * Page blanche (S4-A) : l'éditeur démarre VIDE (`rootId` vide, aucun nœud). La
+ * première pièce posée (un cockpit) devient la racine (cf. store `addPart`).
+ */
+export const EMPTY_AIRCRAFT: Aircraft = {
+  id: 'plane.new',
+  name: 'Nouvel avion',
+  rootId: '',
+  nodes: [],
+}
+
+/**
+ * L'avion de démonstration exprimé comme GRAPHE de pièces (préréglage « avion de
+ * départ », branché sur un slot en S4-E). Pièces à UN côté : l'aile et le
+ * stabilisateur horizontal viennent en **paires miroir** (droite + gauche
+ * `mirrored`), la dérive est unique sur l'axe. Sert aussi de validation du pont
+ * compile (vol ≈ identique au J1 d'origine).
  *
  * Fuselage = racine à l'origine ⇒ positions relatives = positions avion.
  */

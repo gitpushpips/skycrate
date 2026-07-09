@@ -8,10 +8,17 @@ import { useBuild } from '../store/build'
 export function ModeToggle() {
   const mode = useBuild((s) => s.mode)
   const setMode = useBuild((s) => s.setMode)
+  const isEmpty = useBuild((s) => s.aircraft.nodes.length === 0)
 
   if (mode === 'hangar') {
     return (
-      <button type="button" onClick={() => setMode('flight')} style={{ ...styles.btn, ...styles.fly }}>
+      <button
+        type="button"
+        disabled={isEmpty}
+        onClick={() => !isEmpty && setMode('flight')}
+        style={{ ...styles.btn, ...styles.fly, ...(isEmpty ? styles.disabled : null) }}
+        title={isEmpty ? 'Construis un avion pour l’essayer' : undefined}
+      >
         ▶ Vol d'essai
       </button>
     )
@@ -39,4 +46,5 @@ const styles: Record<string, CSSProperties> = {
   },
   fly: { right: 16, background: '#5bd06a', color: '#0c2410' },
   back: { left: 16, background: 'rgba(18,24,32,0.8)', color: '#eef3f6' },
+  disabled: { opacity: 0.4, cursor: 'not-allowed' },
 }

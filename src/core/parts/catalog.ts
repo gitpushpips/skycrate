@@ -1,5 +1,5 @@
 import type {
-  CabinPart,
+  CockpitPart,
   EnginePart,
   FuselagePart,
   LandingGearPart,
@@ -21,6 +21,23 @@ import { BASE_ELECTRIC_CHARGE, BASE_FUEL } from './scales'
  *      l'étape 7 ; valeurs relatives en éditant ce fichier).
  */
 
+// Cockpit = racine obligatoire (S4). Modèle de départ (nez + verrière type GA) ;
+// les 5 autres modèles arrivent en S4-B. Porte le carburant/charge de base (règle 6).
+const cockpitGa: CockpitPart = {
+  id: 'cockpit.ga',
+  name: 'Cockpit léger',
+  category: 'cockpit',
+  tier: 'T0',
+  model: 'ga',
+  weight: 0.6, // 🟡
+  cost: 60, // 🟡
+  researchCost: 0,
+  fuel: BASE_FUEL, // ✅ avion de base = 1 (→ 100 u)
+  electricCharge: BASE_ELECTRIC_CHARGE, // ✅ 0,05
+  cargo: 0, // cargo au Jalon 5
+  description: 'Nez + verrière. Point de départ de tout avion (porte le carburant de base).',
+}
+
 const fuselageMk1: FuselagePart = {
   id: 'fuselage.mk1',
   name: 'Caisson — Léger',
@@ -33,7 +50,7 @@ const fuselageMk1: FuselagePart = {
   researchCost: 0,
   fuel: BASE_FUEL, // ✅ avion de base = 1 (→ 100 u)
   electricCharge: BASE_ELECTRIC_CHARGE, // ✅ 0,05
-  cargo: 0, // le cargo vient des cabines
+  cargo: 0, // volume de soute (fuselages plus gros en apportent)
   description: 'Fuselage de base, léger. Porte le carburant initial de l’avion.',
 }
 
@@ -68,46 +85,6 @@ const fuselageLarge: FuselagePart = {
   electricCharge: BASE_ELECTRIC_CHARGE,
   cargo: 10, // 🟡 grosse soute
   description: 'Gros fuselage utilitaire : énorme volume et carburant, mais lourd.',
-}
-
-// Cabines = source de cargo (plusieurs autorisées). Volume croissant par palier.
-const cabinCockpit: CabinPart = {
-  id: 'cabin.cockpit',
-  name: 'Cockpit vitré',
-  category: 'cabin',
-  tier: 'T1',
-  kind: 'cockpit',
-  weight: 0.4, // 🟡
-  cost: 50, // 🟡
-  researchCost: 6, // 🟡
-  cargo: 2, // 🟡
-  description: 'Verrière de pilotage. Un peu de volume utile.',
-}
-
-const cabinCargo: CabinPart = {
-  id: 'cabin.cargo',
-  name: 'Soute cargo',
-  category: 'cabin',
-  tier: 'T2',
-  kind: 'cargo',
-  weight: 1.2, // 🟡
-  cost: 120, // 🟡
-  researchCost: 22, // 🟡
-  cargo: 10, // 🟡 cœur du transport
-  description: 'Soute à fret : gros volume de cargo, porte latérale.',
-}
-
-const cabinPassenger: CabinPart = {
-  id: 'cabin.passenger',
-  name: 'Cabine passagers',
-  category: 'cabin',
-  tier: 'T4',
-  kind: 'passenger',
-  weight: 2.5, // 🟡
-  cost: 260, // 🟡
-  researchCost: 60, // 🟡
-  cargo: 16, // 🟡 le plus gros volume
-  description: 'Cabine pressurisée à hublots : volume maximal.',
 }
 
 // Ailes à UN seul côté (le mode Miroir crée la paire). Une planforme par palier :
@@ -343,12 +320,10 @@ const landingGearRetract: LandingGearPart = {
 
 /** Toutes les pièces définies, dans l'ordre d'introduction. */
 export const PARTS_LIST: readonly Part[] = [
+  cockpitGa,
   fuselageMk1,
   fuselageMedium,
   fuselageLarge,
-  cabinCockpit,
-  cabinCargo,
-  cabinPassenger,
   wingMk1,
   wingTapered,
   wingLaminar,

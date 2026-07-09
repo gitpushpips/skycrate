@@ -301,6 +301,25 @@ npm run format     # prettier --write
       mais à vitesse bornée par la traînée, il ne « balloone » plus en yo-yo). La marge statique `cgShift` (déjà là)
       reste le réglage de fermeté du trim. Validé preview : assist ON → montée résiduelle ~+2 m/s ✅ ; assist OFF →
       vitesse plafonnée par la traînée (~42–60 m/s), pas de divergence ✅. typecheck/lint/build OK.
+  - **S4 — refonte éditeur** *(en cours ; sous-découpage validé : A page blanche/racine → B cockpits → C fuselage
+    déformable → D trains → E branchement)*. Décisions utilisateur : **cabines supprimées** (sans intérêt) ;
+    **rupture de train = light** ; **anim. de rétraction à retravailler** (roues cachées une fois rentrées, en S4-D).
+    - [x] **S4-A — page blanche + racine amovible + 6 catégories ✅.** L'éditeur démarre **VIDE**
+      (`EMPTY_AIRCRAFT` : `rootId:''`, 0 nœud ; remplace `J1_AIRCRAFT` comme défaut du store — J1 gardé comme
+      préréglage pour S4-E). **1re pièce = un cockpit ⇒ racine** (`store.addPart` : si graphe vide, pose sans parent
+      + `rootId` = son id ; refuse tout non-cockpit). **Racine retirable** (`removeNode` sur la racine ⇒ retour page
+      blanche). Aucune pièce verrouillée ; `undo` couvre pose racine et retrait. **Cockpit** = nouvelle catégorie
+      (`CockpitPart` {model, fuel, electricCharge, cargo}) ; il porte le **carburant de base** (règle 6 : fuel 1 +
+      0,05 elec — vérifié FUEL 1.0). 1 modèle de départ `cockpit.ga` (nez + verrière) ; les 6 modèles = S4-B.
+      **Cabines supprimées** (`cabin.*` : catalogue + blueprints + `CabinModel`/Cargo/Passenger + `case 'cabin'`
+      stats/rendu). **Palette** = 6 onglets dans l'ordre imposé **Cockpit · Fuselage · Moteurs · Trains · Ailes ·
+      Empennages** ; page blanche ⇒ seul Cockpit actif + bandeau d'aide. **Pose racine** : sol invisible cliquable +
+      fantôme à l'origine (pas de surface à survoler). **« Vol d'essai » grisé** si l'avion est vide. Save/load
+      accepte l'avion vide. **Validé preview** : démarrage vide (0 collider) ✅, tabs 6 + fly désactivé ✅, pose
+      cockpit → racine ✅, non-cockpit refusé / cockpit accepté / undo → vide ✅, avion cockpit-racine **vole**
+      (roule, FUEL 1.0, 0 crash) ✅, retrait racine → page blanche ✅, 0 erreur console, typecheck/lint/build OK.
+      🟡 Le carburant se cumule si cockpit + fuselage (les 2 portent du fuel) — calibrage éco plus tard.
+      🟡 Anciennes sauvegardes à base de `cabin.*` désormais rejetées (pièces retirées) — attendu.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 
