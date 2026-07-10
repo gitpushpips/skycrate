@@ -32,7 +32,7 @@ const cockpitGa: CockpitPart = {
   tier: 'T0',
   model: 'ga',
   section: { halfWidth: 0.42, halfHeight: 0.4, round: 0.55 }, // = station arrière du loft GA
-  weight: 0.6, // 🟡
+  weight: 1.0, // 🟡 masse réaliste (structure avant) — cf. rééquilibrage inertie
   cost: 60, // 🟡
   researchCost: 0,
   fuel: BASE_FUEL, // ✅ avion de base = 1 (→ 100 u)
@@ -48,7 +48,7 @@ const cockpitGlider: CockpitPart = {
   tier: 'T2',
   model: 'glider',
   section: { halfWidth: 0.11, halfHeight: 0.115, round: 1 }, // fine poutre de queue
-  weight: 0.45, // 🟡 très léger
+  weight: 0.6, // 🟡 très léger
   cost: 90, // 🟡
   researchCost: 14, // 🟡
   fuel: BASE_FUEL,
@@ -64,7 +64,7 @@ const cockpitWarbird: CockpitPart = {
   tier: 'T3',
   model: 'warbird',
   section: { halfWidth: 0.33, halfHeight: 0.39, round: 0.8 },
-  weight: 0.9, // 🟡
+  weight: 1.5, // 🟡 (blindage + capot moteur en ligne)
   cost: 150, // 🟡
   researchCost: 34, // 🟡
   fuel: BASE_FUEL,
@@ -80,7 +80,7 @@ const cockpitAirliner: CockpitPart = {
   tier: 'T4',
   model: 'airliner',
   section: { halfWidth: 0.56, halfHeight: 0.57, round: 1 },
-  weight: 1.6, // 🟡
+  weight: 2.6, // 🟡
   cost: 300, // 🟡
   researchCost: 70, // 🟡
   fuel: BASE_FUEL,
@@ -96,7 +96,7 @@ const cockpitWide: CockpitPart = {
   tier: 'T2',
   model: 'wide',
   section: { halfWidth: 0.72, halfHeight: 0.68, round: 0.88 },
-  weight: 1.9, // 🟡 gros
+  weight: 3.2, // 🟡 gros
   cost: 200, // 🟡
   researchCost: 30, // 🟡
   fuel: 1.5, // 🟡 gros volume
@@ -112,7 +112,7 @@ const cockpitFighter: CockpitPart = {
   tier: 'T5',
   model: 'fighter',
   section: { halfWidth: 0.42, halfHeight: 0.42, round: 0.4 },
-  weight: 1.0, // 🟡
+  weight: 1.8, // 🟡 (nez dense, avionique)
   cost: 380, // 🟡
   researchCost: 120, // 🟡
   fuel: BASE_FUEL,
@@ -132,7 +132,7 @@ const fuselageSegment: FuselagePart = {
   deformable: true,
   section: { halfWidth: 0.42, halfHeight: 0.44, round: 0.6 }, // défaut si rien à hériter
   baseLength: 1.6,
-  weight: 2, // 🟡 (pour le volume par défaut ; ∝ volume ensuite)
+  weight: 3, // 🟡 (structure du fût, pour le volume par défaut ; ∝ volume ensuite)
   cost: 80, // 🟡
   researchCost: 0,
   fuel: 0.5, // 🟡 tankage du segment (∝ volume) — le carburant de BASE est au cockpit
@@ -150,7 +150,7 @@ const wingMk1: WingPart = {
   category: 'wing',
   tier: 'T0',
   planform: 'straight',
-  weight: 0.8, // 🟡 (demi-aile)
+  weight: 1.1, // 🟡 (demi-aile)
   cost: 40, // 🟡
   researchCost: 0,
   lift: 0.5, // 🟡 demi-portance (la paire ≈ 1.0)
@@ -165,7 +165,7 @@ const wingTapered: WingPart = {
   category: 'wing',
   tier: 'T1',
   planform: 'tapered',
-  weight: 0.9, // 🟡
+  weight: 1.3, // 🟡
   cost: 70, // 🟡
   researchCost: 8, // 🟡
   lift: 0.55, // 🟡
@@ -180,7 +180,7 @@ const wingLaminar: WingPart = {
   category: 'wing',
   tier: 'T3',
   planform: 'laminar',
-  weight: 1.1, // 🟡
+  weight: 1.6, // 🟡
   cost: 160, // 🟡
   researchCost: 30, // 🟡
   lift: 0.6, // 🟡
@@ -195,7 +195,7 @@ const wingSwept: WingPart = {
   category: 'wing',
   tier: 'T4',
   planform: 'swept',
-  weight: 1.6, // 🟡
+  weight: 2.3, // 🟡
   cost: 300, // 🟡
   researchCost: 60, // 🟡
   lift: 0.45, // 🟡 portance basse vitesse réduite (décollage rapide)
@@ -210,7 +210,7 @@ const wingDelta: WingPart = {
   category: 'wing',
   tier: 'T5',
   planform: 'delta',
-  weight: 1.8, // 🟡
+  weight: 2.7, // 🟡
   cost: 420, // 🟡
   researchCost: 110, // 🟡
   lift: 0.4, // 🟡 faible portance basse vitesse
@@ -225,7 +225,7 @@ const stabilizerMk1: StabilizerPart = {
   name: 'Stab. horizontal Mk1',
   category: 'stabilizer',
   tier: 'T0',
-  weight: 0.3, // 🟡
+  weight: 0.45, // 🟡
   cost: 20, // 🟡
   researchCost: 0,
   lift: 0.12, // 🟡 (la paire ≈ 0.25)
@@ -239,7 +239,7 @@ const finMk1: StabilizerPart = {
   name: 'Dérive Mk1',
   category: 'stabilizer',
   tier: 'T0',
-  weight: 0.3, // 🟡
+  weight: 0.45, // 🟡
   cost: 20, // 🟡
   researchCost: 0,
   lift: 0.0, // surface verticale : pas de portance verticale
@@ -254,7 +254,7 @@ const woodEngine: EnginePart = {
   category: 'engine',
   tier: 'T0',
   kind: 'wood',
-  weight: 1.2, // 🟡
+  weight: 2.4, // 🟡 (bloc moteur en tête = masse avant, réaliste)
   cost: 60, // 🟡
   researchCost: 0,
   thrust: 22, // 🟡 poussée max provisoire
@@ -271,7 +271,7 @@ const pistonEngine: EnginePart = {
   category: 'engine',
   tier: 'T1',
   kind: 'propeller',
-  weight: 1.4, // 🟡
+  weight: 2.6, // 🟡
   cost: 90, // 🟡
   researchCost: 10, // 🟡
   thrust: 35, // 🟡
@@ -287,7 +287,7 @@ const turbopropEngine: EnginePart = {
   category: 'engine',
   tier: 'T2',
   kind: 'turboprop',
-  weight: 2.2, // 🟡
+  weight: 3.8, // 🟡
   cost: 180, // 🟡
   researchCost: 28, // 🟡
   thrust: 60, // 🟡 bonne poussée basse vitesse
@@ -303,10 +303,10 @@ const turbofanEngine: EnginePart = {
   category: 'engine',
   tier: 'T4',
   kind: 'turbofan',
-  weight: 4.0, // 🟡
+  weight: 6.0, // 🟡
   cost: 380, // 🟡
   researchCost: 70, // 🟡
-  thrust: 110, // 🟡 forte poussée, efficace à haute vitesse
+  thrust: 85, // 🟡 forte poussée mais T/W pilotable (~1.5 g sur cellule légère)
   fuelUsage: 5, // 🟡
   reversible: false,
   stackable: false,
@@ -319,14 +319,14 @@ const afterburnerEngine: EnginePart = {
   category: 'engine',
   tier: 'T5',
   kind: 'afterburner',
-  weight: 3.6, // 🟡
+  weight: 5.4, // 🟡
   cost: 520, // 🟡
   researchCost: 130, // 🟡
-  thrust: 130, // 🟡 à sec
+  thrust: 90, // 🟡 à sec (~1.7 g sur cellule légère)
   fuelUsage: 6, // 🟡 à sec
   reversible: false,
   stackable: false,
-  afterburner: { thrustMult: 2.2, fuelMult: 6 }, // 🟡 PC : poussée énorme, conso catastrophique
+  afterburner: { thrustMult: 1.6, fuelMult: 6 }, // 🟡 PC : pointe brève (~2.7 g), conso catastrophique
   description: 'Turboréacteur avec postcombustion (Espace) : poussée énorme, conso catastrophique.',
 }
 
@@ -336,10 +336,10 @@ const rocketEngine: EnginePart = {
   category: 'engine',
   tier: 'T7',
   kind: 'rocket',
-  weight: 2.0, // 🟡
+  weight: 3.2, // 🟡
   cost: 700, // 🟡
   researchCost: 220, // 🟡
-  thrust: 300, // 🟡 poussée extrême
+  thrust: 150, // 🟡 poussée extrême (~3.3 g = le seul « délire » assumé)
   fuelUsage: 40, // 🟡 brûle très vite (durée courte)
   reversible: false,
   stackable: true,
@@ -351,7 +351,7 @@ const landingGearMk1: LandingGearPart = {
   name: 'Train fixe — Léger',
   category: 'landingGear',
   tier: 'T0',
-  weight: 0.5, // 🟡
+  weight: 0.7, // 🟡
   cost: 30, // 🟡
   researchCost: 0,
   strength: 1.0, // 🟡 seuil de collapse provisoire
@@ -364,7 +364,7 @@ const landingGearRetract: LandingGearPart = {
   name: 'Train rétractable',
   category: 'landingGear',
   tier: 'T3',
-  weight: 0.9, // 🟡 plus lourd (mécanisme)
+  weight: 1.3, // 🟡 plus lourd (mécanisme)
   cost: 110, // 🟡
   researchCost: 32, // 🟡
   strength: 1.2, // 🟡

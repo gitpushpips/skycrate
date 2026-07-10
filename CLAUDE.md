@@ -399,6 +399,27 @@ npm run format     # prettier --write
       - **Validé preview** : fuselage `start` = section exacte du cockpit (GA 0.42/0.40/0.55) ✅ ; pos centrée + tuck
         [0,−0.02,0.91] ✅ ; auto-snap ghost aligné sans viser ✅ ; F-35 blanc + verrière dorée ✅ ; blanc/crème
         raccord fluide ✅ ; typecheck/lint/build OK.
+  - [x] **S-phys — physique prédictible & réaliste (régression maniabilité post-S4) ✅.** Symptômes : maniabilité
+    excessive + « trim auto » trop fort. Diagnostic par diff S3→S4 : AUCUN changement des forces/leva — la refonte
+    S4-C avait réaffecté `fuselage.mk1` (caisson 4 m poids 3 → segment 1.6 m poids 2) ⇒ CG reculé ~+0.24 m (marge
+    statique ÷7 ⇒ tangage nerveux + trim surpuissant) + inertie −14 %. Trois corrections SANS artifice (demande
+    utilisateur : physique prédictible et réaliste) :
+    - **Masses réalistes** (catalogue ×~1.5, moteurs/structures AVANT relativement plus lourds) ⇒ CG J1 mesuré
+      z −0.019 (redevant l'aile), masse 9.65 (+34 % d'inertie) — lourd = placide / léger = vif, émergent.
+    - **T/W bornés** : turbofan 110→85, PC 130→90 (mult ×2.2→×1.6), fusée 300→150 ⇒ échelle d'accélération
+      0.53 / 0.82 / 1.27 / 1.52 / 1.68→2.69(PC) / 3.34 g (fusée = seul extrême assumé) — un gros moteur
+      n'« écrase » plus une petite cellule vers des vitesses ingérables.
+    - **Portance tempérée** (`aerodynamics.ts`) : la vraie loi EST ½ρv²SCL ; un vrai avion ne ballonne pas grâce
+      au trim continu du pilote + enveloppe de vitesse étroite — deux choses que le jeu n'a pas (trim auto refusé).
+      Donc : sous `liftRefSpeed` (30 m/s) loi réelle exacte (décollage inchangé), au-delà **L ∝ v^n**
+      (`liftSpeedExponent` 1.5, leva, 2 = loi réelle) ; la TRAÎNÉE reste en v² (vitesse terminale conservée).
+      Les gouvernes étant des surfaces, leur autorité suit v^n ⇒ la maniabilité ne diverge plus à haute vitesse.
+    - **Validé preview (data)** : J1 bois décollage ~37 m/s, montée bornée, AoA auto-trim ~2°, v max 56+ sans
+      ballonnement ; turbofan v max 99 bornée par la traînée, pas de rupture, trim rapide prévisible ; **assist
+      OFF : phugoïde amortie toute seule** (pics vy +7→−7.3→+5.3→+1.9→−0.9), v bornée 64 — la physique tient sans
+      l'assistance (qui redevient un simple confort, à retirer à terme). Astuce vérif : le store leva de l'app
+      s'atteint par l'URL exacte du dep (`performance.getEntriesByType('resource')` → `.vite/deps/leva.js?v=…`),
+      un `import('/@id/leva')` crée une 2ᵉ instance vide.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 
@@ -422,6 +443,7 @@ npm run format     # prettier --write
 - **Pas fixe (étape 5d-B)** : aéro + poussée + assistance dans `useBeforePhysicsStep` (pas la frame de rendu). Une boucle d'asservissement (assistance) à gain élevé sur un dt variable **oscille/diverge** ; le pas fixe (`FIXED_DT = 1/60`) la stabilise. Caméra + télémétrie restent au rendu (`useFrame`).
 - **Assistance (étape 5d-E)** : couple correctif **par-dessus** la physique (`core/flight/assist.ts`). Défaut = amortissement des taux + **bornes d'attitude** + **maintien actif de l'inclinaison** (`holdGain`) vers le bank **capturé au lâché du roulis** (clampé à la borne). Nécessaire car la **stabilité aéro naturelle (dièdre) remet les ailes à plat** toute seule ; le maintien la contre ⇒ l'avion **garde son virage** au lâché (demande utilisateur : NE PAS se remettre à plat). Le tangage tient le climb par simple amortissement. `levelReturn` (ailes à plat) / `altHold` (anti-perte d'alt en virage) = options à 0. ⚠️ télémétrie `window.__plane` désormais **gardée mais `import.meta.env.DEV` only** (sera remplacée par le HUD étape 6).
 - **Calibrage 5d (leva « Vol », hors dossier)** : airDensity 0.055, inducedDrag 0.05, flatPlateDrag 1, bodyDrag 0.12, thrustCoef 2.5, CD0 ailes 0.012 / empennages 0.01, calage aile 2°. Assistance : pitch/roll/yawDamp 30/70/40, limitGain 150, maxPitch 35° / maxBank 55°, déflexion gouvernes 15°. **Limite connue** : virages inclinés perdent de l'altitude (pas de maintien d'alt par défaut) → tirer pour compenser, ou monter `altHold`.
+- **Portance tempérée (S-phys)** : `computeSurfaceForce` sépare `qLift` de `q` — sous `liftRefSpeed` (30, leva) loi réelle ½ρv², au-delà **L ∝ v^liftSpeedExponent** (1.5, leva ; 2 = réel), traînée toujours en v². Raison : sans trim continu du pilote, la loi réelle fait ballonner tout excès de vitesse (au trim, CL est fixé par la gouverne ⇒ L ∝ v² > poids). S'applique aussi à l'autorité des gouvernes (surfaces). Masses catalogue ×~1.5 (avant lourd = CG devant l'aile) + T/W ≤ ~1.7 g soutenu (fusée 3.3 g assumée). L'ancien couple `liftExponent/maxAeroSpeed` (étape 4) était l'ancêtre direct — perdu dans la refonte 5b, réintroduit proprement ici.
 - **Terrain 3+A/B/C (leva « Monde », hors dossier)** : **seed 20260707**, worldRadius 2200, baseElevation 6, λ collines 420 / ampl. 14, octaves 5 / gain 0.5 / lacunarité 2, montagnes λ 1500 / hauteur 110 / contraste 2.2, fondu côtier 0.3 / irrégularité 0.35, lacs λ 700 / creusement 12, climat λ temp 1600 / λ humid 1100 / lapse 0.0045 / neige 0.08, végétation densité 1 / rayon 900, aérodromes 10 / 700 m / alt 55 / tolérance 7, viewRadius 1500 / nearRadius 650 / physicsRadius 500. ⚠️ Le masque de montagnosité doit être **remappé par smoothstep** (`0.58 ± 0.5/sharpness`) : un fBm normalisé ne sature jamais ±1, un simple `pow` plafonnait les sommets à ~40 % de `mountainHeight`. Vérif data par eval : `import('/src/core/world/terrain.ts?v='+Date.now())` (cache-buster obligatoire après HMR) + échantillonnage grille.
 - **Échelle monde (3+A)** : fog par défaut passé à 220/1500 (voir les massifs de loin), caméra `far` 2000→4000, **dôme de ciel suit la caméra** (rayon 3400 ; un dôme fixe à l'origine finirait derrière l'avion sur un monde de plusieurs km). Garder `viewRadius ≥ fogFar` sinon trous visibles au loin.
 - **Collisions terrain (S1)** : tout heightfield Rapier DOIT être créé avec `HeightFieldFlags.FIX_INTERNAL_EDGES`

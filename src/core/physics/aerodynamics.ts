@@ -43,6 +43,14 @@ export interface AeroSurfaceDef {
 export interface AeroParams {
   /** ρ effectif (0.5·ρ·v²·S·C) — calibration vs masses du jeu. */
   airDensity: number
+  /** Exposant de la PORTANCE vs vitesse au-delà de `liftRefSpeed` (2 = loi réelle
+   *  ½ρv² ; < 2 tempère la croissance — décision §8 J1, sans trim auto la loi
+   *  réelle fait « ballonner » tout excès de vitesse). Gouvernes incluses (ce
+   *  sont des surfaces) ⇒ l'autorité ne diverge plus à haute vitesse. */
+  liftSpeedExponent: number
+  /** Vitesse (m/s) sous laquelle la portance suit exactement ½ρv² (décollage
+   *  inchangé) ; au-delà, elle croît en v^exposant. */
+  liftRefSpeed: number
   /** k de la traînée induite : CDi = k·CL². */
   inducedDrag: number
   /** Coef de traînée « plaque plane » à forte incidence. */
@@ -160,13 +168,17 @@ export function computeSurfaceForce(
   const cl = liftCoefficient(aoa, def.liftSlope, def.stallAngle)
   const cd = def.zeroLiftDrag + params.inducedDrag * cl * cl + params.flatPlateDrag * Math.sin(aoa) ** 2
   const q = 0.5 * params.airDensity * speed * speed
+  // Portance TEMPÉRÉE au-delà de liftRefSpeed : q_lift = q·(v/vRef)^(n−2) ⇒ ∝ v^n.
+  // n = 2 ⇒ loi réelle. La TRAÎNÉE reste en v² (vitesse terminale conservée).
+  const over = speed / Math.max(1, params.liftRefSpeed)
+  const qLift = over > 1 ? q * Math.pow(over, params.liftSpeedExponent - 2) : q
 
   // Directions : traînée le long du vent relatif, portance ⟂ vent (côté +normale).
   _windDir.copy(_vp).multiplyScalar(-1 / speed) // = vent relatif (opposé à la vitesse)
   _liftDir.copy(_span).cross(_vp).normalize()
   if (_liftDir.dot(_normal) < 0) _liftDir.multiplyScalar(-1)
 
-  const liftMag = cl * q * def.area
+  const liftMag = cl * qLift * def.area
   const dragMag = cd * q * def.area
   out.force.copy(_liftDir).multiplyScalar(liftMag).addScaledVector(_windDir, dragMag)
 

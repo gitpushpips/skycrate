@@ -9,6 +9,10 @@ export interface FlightTunables {
   gravity: number
   // Aéro (AeroParams)
   airDensity: number
+  /** Exposant portance vs vitesse au-delà de `liftRefSpeed` (2 = ½ρv² réel). */
+  liftSpeedExponent: number
+  /** Vitesse (m/s) sous laquelle la portance reste exactement en ½ρv². */
+  liftRefSpeed: number
   inducedDrag: number
   flatPlateDrag: number
   bodyDrag: number
@@ -62,6 +66,10 @@ export function useFlightTunables(): FlightTunables {
     }),
     aéro: folder({
       airDensity: { value: 0.055, min: 0, max: 0.5, step: 0.001, label: 'densité air' },
+      // Portance tempérée (S-phys) : au-delà de `v réf.`, L ∝ v^n (2 = loi réelle).
+      // Sans trim continu, la loi réelle fait « ballonner » tout excès de vitesse.
+      liftSpeedExponent: { value: 1.5, min: 1, max: 2, step: 0.05, label: 'exposant portance' },
+      liftRefSpeed: { value: 30, min: 10, max: 80, step: 1, label: 'v réf. portance' },
       inducedDrag: { value: 0.05, min: 0, max: 0.5, step: 0.005, label: 'traînée induite' },
       flatPlateDrag: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'traînée plaque' },
       bodyDrag: { value: 0.12, min: 0, max: 2, step: 0.02, label: 'traînée corps' },
