@@ -12,6 +12,22 @@
  * pas ici : ce module ne décrit que la composition + sert au calcul des stats.
  */
 
+import type { SectionProfile } from '../parts'
+
+/**
+ * Forme RÉSOLUE d'un segment de fuselage déformable (S4-C) : section d'entrée
+ * héritée du parent, sortie = entrée × échelle, longueur et pointage réglés par
+ * instance. Calculée par `compileAircraft`, consommée par le rendu (loft) et
+ * les stats (∝ volume).
+ */
+export interface FuselageShape {
+  start: SectionProfile
+  end: SectionProfile
+  length: number
+  /** Décalage vertical de la section de sortie (pointage haut/bas). */
+  offsetY: number
+}
+
 export interface PlacedPart {
   /** id d'une pièce du catalogue (core/parts). */
   partId: string
@@ -25,6 +41,10 @@ export interface PlacedPart {
   scale?: number | [number, number, number]
   /** Géométrie reflétée (X) — pièce « gauche » d'une paire miroir. */
   mirrored?: boolean
+  /** Fuselage déformable : forme résolue (S4-C). */
+  fuselage?: FuselageShape
+  /** Multiplicateur de stats ∝ volume déformé (poids/fuel/cargo — S4-C). */
+  statScale?: number
 }
 
 export interface PlaneAssembly {

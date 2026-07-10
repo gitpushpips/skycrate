@@ -14,6 +14,13 @@ export interface PartSettings {
   thrustLimit?: number
   /** Force l'axe de commande de la gouverne (sinon dérivé de la catégorie + position). */
   controlAxis?: 'pitch' | 'roll' | 'yaw'
+  // ── Fuselage déformable (S4-C) — la section d'ENTRÉE est héritée du parent.
+  /** Longueur du segment (m). Défaut = `baseLength` de la pièce. */
+  fusLength?: number
+  /** Échelle de la section de SORTIE (0.25..1.5, 1 = même section qu'à l'entrée). */
+  fusEndScale?: number
+  /** Décalage vertical de la sortie (m) — pointer le segment vers le haut/bas. */
+  fusOffsetY?: number
 }
 
 export interface PartNode {

@@ -47,7 +47,9 @@ export function aggregateStats(assembly: PlaneAssembly): AssemblyStats {
 
   for (const placed of assembly.parts) {
     const part = getPart(placed.partId)
-    totalWeight += part.weight
+    // Fuselage déformable (S4-C) : poids/fuel/cargo ∝ volume déformé.
+    const k = placed.statScale ?? 1
+    totalWeight += part.weight * k
     totalCost += part.cost
 
     switch (part.category) {
@@ -57,9 +59,9 @@ export function aggregateStats(assembly: PlaneAssembly): AssemblyStats {
         totalCargo += part.cargo
         break
       case 'fuselage':
-        totalFuel += part.fuel
+        totalFuel += part.fuel * k
         electricCharge += part.electricCharge
-        totalCargo += part.cargo
+        totalCargo += part.cargo * k
         break
       case 'wing':
         totalLift += part.lift

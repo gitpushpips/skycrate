@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { getPart } from '../core/parts'
+import { FUS_LIMITS } from '../core/build/compile'
 import { useBuild } from '../store/build'
 
 /**
@@ -59,7 +60,47 @@ export function PartInspector() {
         </>
       )}
 
-      {part.category !== 'engine' && (
+      {part.category === 'fuselage' && (
+        <>
+          {/* Déformation du segment (S4-C) : la section d'ENTRÉE est héritée du
+              parent ; on règle longueur, rayon de sortie et pointage. */}
+          <Field label={`Longueur — ${(settings.fusLength ?? part.baseLength).toFixed(2)} m`}>
+            <input
+              type="range"
+              min={FUS_LIMITS.length[0]}
+              max={FUS_LIMITS.length[1]}
+              step={0.05}
+              value={settings.fusLength ?? part.baseLength}
+              onChange={(e) => updateSettings(node.nodeId, { fusLength: Number(e.target.value) })}
+              style={styles.range}
+            />
+          </Field>
+          <Field label={`Rayon de sortie — ${Math.round((settings.fusEndScale ?? 1) * 100)} %`}>
+            <input
+              type="range"
+              min={FUS_LIMITS.endScale[0]}
+              max={FUS_LIMITS.endScale[1]}
+              step={0.05}
+              value={settings.fusEndScale ?? 1}
+              onChange={(e) => updateSettings(node.nodeId, { fusEndScale: Number(e.target.value) })}
+              style={styles.range}
+            />
+          </Field>
+          <Field label={`Pointage haut/bas — ${(settings.fusOffsetY ?? 0).toFixed(2)} m`}>
+            <input
+              type="range"
+              min={FUS_LIMITS.offsetY[0]}
+              max={FUS_LIMITS.offsetY[1]}
+              step={0.02}
+              value={settings.fusOffsetY ?? 0}
+              onChange={(e) => updateSettings(node.nodeId, { fusOffsetY: Number(e.target.value) })}
+              style={styles.range}
+            />
+          </Field>
+        </>
+      )}
+
+      {part.category !== 'engine' && part.category !== 'fuselage' && (
         <p style={styles.none}>Position et orientation : utilise le gizmo (Déplacer / Tourner).</p>
       )}
 

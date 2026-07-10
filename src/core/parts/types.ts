@@ -35,8 +35,6 @@ export type EngineKind =
   | 'rocket'
   | 'electric'
 
-/** Tailles de fuselage (silhouette + volume) du petit au gros porteur. */
-export type FuselageSize = 'small' | 'medium' | 'large'
 
 /**
  * Modèles de cockpit (S4) — nez + verrière, inspirés de vrais avions (silhouettes
@@ -75,17 +73,25 @@ interface BasePart {
   readonly description?: string
 }
 
-/** Fuselage : corps porteur (déformable, règle 8). Porte le carburant de base. */
+/**
+ * Fuselage : SEGMENT déformable (S4-C, règle 8 : seul le fuselage se déforme).
+ * S'attache FACE-À-FACE (son nez contre la face survolée, corps le long de la
+ * normale) et **épouse la section du parent** (cockpit `section` ou sortie du
+ * segment parent). Réglages d'instance (longueur / rayon de sortie / pointage)
+ * dans `node.settings` ; poids/fuel/cargo ∝ volume déformé.
+ */
 export interface FuselagePart extends BasePart {
   readonly category: 'fuselage'
   readonly deformable: true
-  /** Taille (silhouette + colliders). */
-  readonly size: FuselageSize
-  /** ×100. Avion de base = 1 (→ 100 u) (dossier §6, §14). */
+  /** Section PAR DÉFAUT (si le parent n'a pas de profil à hériter). */
+  readonly section: SectionProfile
+  /** Longueur par défaut du segment (m) — déformable via settings. */
+  readonly baseLength: number
+  /** ×100. Carburant embarqué (∝ volume déformé). */
   readonly fuel: number
-  /** Charge électrique de base = 0,05 (dossier §6, §14). */
+  /** Charge électrique apportée. */
   readonly electricCharge: number
-  /** Volume de cargo (soute ; les gros fuselages en portent le plus — dossier §3). */
+  /** Volume de cargo (soute, ∝ volume déformé — dossier §3). */
   readonly cargo: number
 }
 

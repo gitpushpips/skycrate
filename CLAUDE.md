@@ -360,7 +360,31 @@ npm run format     # prettier --write
       intégrée), **joint de radôme** (fin liseré gris). Poste : **2 pare-brise frontaux en V** (grands) + **1 latéral
       par côté**, verre **teinté sombre** (contraste avec le nez blanc ⇒ se lit), **montants blancs** (post central +
       A-posts), **visière anti-éblouissement discrète**, sondes pitot, cheatline. Validé preview (front + 3/4) : nez
-      blanc, poste lisible, 0 erreur, typecheck/lint/build OK.
+      blanc, poste lisible, 0 erreur, typecheck/lint/build OK. *(+ fix suivant : pare-brise A320/cargo raked vers
+      l'ARRIÈRE — signe de rotation.x inversé.)*
+    - [x] **S4-C1 — fuselage adaptatif & déformable (cœur) ✅.** UN segment déformable remplace les 3 fuselages fixes
+      (`fuselage.mk1` « Segment de fuselage » ; medium/large supprimés).
+      - **Modèle** : `FuselagePart` {section défaut, baseLength} ; réglages d'instance dans `node.settings`
+        (`fusLength` 0.6-4 m, `fusEndScale` 0.25-1.5, `fusOffsetY` ±0.6 — bornes `FUS_LIMITS` exportées par compile).
+        Repère pièce : **entrée en z=0, corps vers +Z**, sortie décalée de `offsetY`.
+      - **Héritage de section (S4 4.4)** : `compileAircraft` résout la section d'ENTRÉE depuis le parent
+        (`rearSectionOf` récursif : cockpit → son `section` ; fuselage → sa sortie ⇒ **chaînage**) ; sortie = entrée
+        × `fusEndScale`. Forme résolue publiée dans `PlacedPart.fuselage` (`FuselageShape`) + `statScale` =
+        volume déformé / volume défaut ⇒ **poids/fuel/cargo ∝ volume** (stats.ts) et masse des colliders idem.
+      - **Compile par instance** : 2 boîtes (approx. du fût effilé) + 5 panneaux de traînée ∝ dims déformées —
+        le blueprint statique n'est qu'un repli.
+      - **Pose face-à-face** : `attachAxis` (HangarEditor) — un fuselage s'accroche **corps le long de la normale**
+        (entrée plaquée au contact, offset 0), le reste se pose dessus (+Y) comme avant.
+      - **Rendu** : `FuselageModel` lofté (7 stations smoothstep entrée→sortie, `loftGeometry` S4-B) ⇒ raccord
+        parfaitement continu avec le cockpit ; dispose() propre.
+      - **Inspecteur** : 3 curseurs (longueur / rayon de sortie / pointage haut-bas) ⇒ recompile live.
+      - **Validé preview** : pose sur l'arrière du cockpit GA → `start` = section du cockpit (0.42/0.42/0.55, pas le
+        défaut) ✅ ; déformation live (end 0.189 à 45 %, statScale suit) ✅ ; **chaînage** : 2e segment hérite de la
+        sortie du 1er ✅ ; liner → section héritée 0.55/0.56 round 1 ✅ ; avion complet (liner+fus+ailes+piston+train)
+        **vole** (73 m/s, AoA 0.6, intact) ✅ ; 0 erreur console, typecheck/lint/build OK.
+      - 🟡 Anciennes sauvegardes avec `fuselage.medium/large` rejetées (pièces retirées) — même politique que les
+        cabines. 🟡 S4-C2 (poignées de déformation à la souris dans le viewport) reste à faire — réglage via
+        inspecteur en attendant.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 

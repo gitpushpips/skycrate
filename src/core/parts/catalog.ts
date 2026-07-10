@@ -121,53 +121,24 @@ const cockpitFighter: CockpitPart = {
   description: 'Nez facetté furtif + bulle teintée or d’un chasseur moderne.',
 }
 
-const fuselageMk1: FuselagePart = {
+// UN segment de fuselage déformable (S4-C) : il épouse la section du parent au
+// raccord ; longueur/rayon de sortie/pointage se règlent par instance (inspecteur).
+// Poids/fuel/cargo ∝ volume déformé (statScale). Remplace les 3 tailles fixes.
+const fuselageSegment: FuselagePart = {
   id: 'fuselage.mk1',
-  name: 'Caisson — Léger',
+  name: 'Segment de fuselage',
   category: 'fuselage',
   tier: 'T0',
   deformable: true,
-  size: 'small',
-  weight: 3, // 🟡
-  cost: 100, // 🟡
+  section: { halfWidth: 0.42, halfHeight: 0.44, round: 0.6 }, // défaut si rien à hériter
+  baseLength: 1.6,
+  weight: 2, // 🟡 (pour le volume par défaut ; ∝ volume ensuite)
+  cost: 80, // 🟡
   researchCost: 0,
-  fuel: BASE_FUEL, // ✅ avion de base = 1 (→ 100 u)
-  electricCharge: BASE_ELECTRIC_CHARGE, // ✅ 0,05
-  cargo: 0, // volume de soute (fuselages plus gros en apportent)
-  description: 'Fuselage de base, léger. Porte le carburant initial de l’avion.',
-}
-
-// Fuselages plus gros = plus de carburant/volume mais plus lourds.
-const fuselageMedium: FuselagePart = {
-  id: 'fuselage.medium',
-  name: 'Fuselage — Général',
-  category: 'fuselage',
-  tier: 'T1',
-  deformable: true,
-  size: 'medium',
-  weight: 4.5, // 🟡
-  cost: 150, // 🟡
-  researchCost: 12, // 🟡
-  fuel: 1.5, // 🟡 plus de tankage
-  electricCharge: BASE_ELECTRIC_CHARGE,
-  cargo: 3, // 🟡 petit volume
-  description: 'Fuselage d’aviation générale : plus de carburant et un peu de volume.',
-}
-
-const fuselageLarge: FuselagePart = {
-  id: 'fuselage.large',
-  name: 'Fuselage — Gros porteur',
-  category: 'fuselage',
-  tier: 'T2',
-  deformable: true,
-  size: 'large',
-  weight: 8, // 🟡
-  cost: 280, // 🟡
-  researchCost: 35, // 🟡
-  fuel: 2.5, // 🟡
-  electricCharge: BASE_ELECTRIC_CHARGE,
-  cargo: 10, // 🟡 grosse soute
-  description: 'Gros fuselage utilitaire : énorme volume et carburant, mais lourd.',
+  fuel: 0.5, // 🟡 tankage du segment (∝ volume) — le carburant de BASE est au cockpit
+  electricCharge: 0,
+  cargo: 2, // 🟡 soute (∝ volume)
+  description: 'Segment déformable : épouse la section du parent ; longueur, rayon de sortie et pointage réglables. Chaînable.',
 }
 
 // Ailes à UN seul côté (le mode Miroir crée la paire). Une planforme par palier :
@@ -409,9 +380,7 @@ export const PARTS_LIST: readonly Part[] = [
   cockpitAirliner,
   cockpitWide,
   cockpitFighter,
-  fuselageMk1,
-  fuselageMedium,
-  fuselageLarge,
+  fuselageSegment,
   wingMk1,
   wingTapered,
   wingLaminar,

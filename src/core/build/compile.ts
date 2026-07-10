@@ -1,9 +1,10 @@
 import * as THREE from 'three'
 import { getPart } from '../parts'
+import type { SectionProfile } from '../parts'
 import { getBlueprint } from '../parts/blueprints'
 import type { BpLiftingSurface } from '../parts/blueprints'
 import { aggregateStats } from '../assembly'
-import type { AssemblyStats, PlacedPart } from '../assembly'
+import type { AssemblyStats, FuselageShape, PlacedPart } from '../assembly'
 import type { AeroSurfaceDef, ControlKey, DragPanelDef } from '../physics/aerodynamics'
 import type { Aircraft, PartNode } from './graph'
 
@@ -158,8 +159,63 @@ function generateStrips(s: BpLiftingSurface, nodeId: string): LocalStrip[] {
 const _v = new THREE.Vector3()
 const _e = new THREE.Euler()
 
+// ── Fuselage déformable (S4-C) ────────────────────────────────────────────────
+/** Bornes des réglages d'instance (partagées avec l'inspecteur). */
+export const FUS_LIMITS = {
+  length: [0.6, 4] as const,
+  endScale: [0.25, 1.5] as const,
+  offsetY: [-0.6, 0.6] as const,
+}
+
+/**
+ * Section ARRIÈRE (de sortie) qu'une pièce offre à un enfant : cockpit = son
+ * `section` ; fuselage = sa section de sortie (récursif — chaînage) ; sinon null.
+ */
+function rearSectionOf(
+  nodeId: string,
+  byId: Map<string, PartNode>,
+  memo: Map<string, SectionProfile | null>,
+): SectionProfile | null {
+  const cached = memo.get(nodeId)
+  if (cached !== undefined) return cached
+  const node = byId.get(nodeId)
+  let out: SectionProfile | null = null
+  if (node) {
+    const part = getPart(node.partId)
+    if (part.category === 'cockpit') out = part.section
+    else if (part.category === 'fuselage') out = fuselageShapeOf(node, byId, memo).end
+  }
+  memo.set(nodeId, out)
+  return out
+}
+
+/** Forme résolue d'un segment : entrée HÉRITÉE du parent + settings d'instance. */
+function fuselageShapeOf(
+  node: PartNode,
+  byId: Map<string, PartNode>,
+  memo: Map<string, SectionProfile | null>,
+): FuselageShape {
+  const part = getPart(node.partId)
+  if (part.category !== 'fuselage') throw new Error(`Pas un fuselage: ${node.partId}`)
+  const start = (node.parentId && rearSectionOf(node.parentId, byId, memo)) || part.section
+  const s = node.settings
+  const endScale = THREE.MathUtils.clamp(s?.fusEndScale ?? 1, ...FUS_LIMITS.endScale)
+  return {
+    start,
+    end: {
+      halfWidth: start.halfWidth * endScale,
+      halfHeight: start.halfHeight * endScale,
+      round: start.round,
+    },
+    length: THREE.MathUtils.clamp(s?.fusLength ?? part.baseLength, ...FUS_LIMITS.length),
+    offsetY: THREE.MathUtils.clamp(s?.fusOffsetY ?? 0, ...FUS_LIMITS.offsetY),
+  }
+}
+
 export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
   const wt = worldTransforms(aircraft)
+  const byId = new Map(aircraft.nodes.map((n) => [n.nodeId, n]))
+  const rearMemo = new Map<string, SectionProfile | null>()
   const placed: PlacedPart[] = []
   const surfaces: AeroSurfaceDef[] = []
   const dragPanels: DragPanelDef[] = []
@@ -182,27 +238,85 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
     const dirToWorld = (v: readonly [number, number, number]) =>
       new THREE.Vector3(v[0] * mx, v[1], v[2]).applyQuaternion(quat)
 
+    // Fuselage déformable (S4-C) : forme résolue (héritage de section) + stats
+    // ∝ volume (relatif au volume par défaut de la pièce).
+    let fusShape: FuselageShape | undefined
+    let statScale: number | undefined
+    if (part.category === 'fuselage') {
+      fusShape = fuselageShapeOf(node, byId, rearMemo)
+      const defArea = part.section.halfWidth * part.section.halfHeight
+      const avgArea =
+        (fusShape.start.halfWidth * fusShape.start.halfHeight +
+          fusShape.end.halfWidth * fusShape.end.halfHeight) /
+        2
+      statScale = (avgArea * fusShape.length) / (defArea * part.baseLength)
+    }
+
     placed.push({
       partId: node.partId,
       nodeId: node.nodeId,
       position: [pos.x, pos.y, pos.z],
       rotation: rotEuler,
       mirrored: node.mirrored,
+      fuselage: fusShape,
+      statScale,
     })
 
-    // Masse de la pièce répartie entre ses colliders (train = roues + structure).
-    const colMass = part.weight / bp.colliders.length
-    for (const col of bp.colliders) {
-      const off = col.offset ?? [0, 0, 0]
-      const w = toWorld(off)
-      colliders.push({
-        nodeId: node.nodeId,
-        half: col.half,
-        position: [w.x, w.y, w.z],
-        rotation: rotEuler,
-        mass: colMass,
-        ball: col.ball,
+    if (part.category === 'fuselage' && fusShape) {
+      // Colliders/panneaux GÉNÉRÉS par instance (le blueprint n'est qu'un repli).
+      // Repère pièce : entrée en z=0, corps vers +Z, sortie décalée de offsetY.
+      const { start, end, length: L, offsetY } = fusShape
+      const midHw = (start.halfWidth + end.halfWidth) / 2
+      const midHh = (start.halfHeight + end.halfHeight) / 2
+      const scaledWeight = part.weight * (statScale ?? 1)
+      // 2 boîtes = approximation du fût effilé (masse ∝ volume, répartie).
+      const segs = [
+        { hw: Math.max(start.halfWidth, midHw), hh: Math.max(start.halfHeight, midHh), yc: offsetY * 0.25, z: L * 0.25 },
+        { hw: Math.max(midHw, end.halfWidth), hh: Math.max(midHh, end.halfHeight), yc: offsetY * 0.75, z: L * 0.75 },
+      ]
+      for (const sg of segs) {
+        const w = toWorld([0, sg.yc, sg.z])
+        colliders.push({
+          nodeId: node.nodeId,
+          half: [sg.hw, sg.hh, L / 4],
+          position: [w.x, w.y, w.z],
+          rotation: rotEuler,
+          mass: scaledWeight / 2,
+        })
+      }
+      // Traînée ∝ dimensions déformées (coefficients calés sur l'ancien caisson).
+      const fusPanels: { p: [number, number, number]; n: [number, number, number]; area: number }[] = [
+        { p: [0, offsetY, L], n: [0, 0, 1], area: 2.8 * end.halfWidth * end.halfHeight }, // arrière
+        { p: [0, midHh + offsetY / 2, L / 2], n: [0, 1, 0], area: 2 * midHw * L }, // dessus
+        { p: [0, -midHh + offsetY / 2, L / 2], n: [0, -1, 0], area: 2 * midHw * L }, // dessous
+        { p: [-midHw, offsetY / 2, L / 2], n: [-1, 0, 0], area: 2 * midHh * L }, // gauche
+        { p: [midHw, offsetY / 2, L / 2], n: [1, 0, 0], area: 2 * midHh * L }, // droite
+      ]
+      fusPanels.forEach((panel, idx) => {
+        const p = toWorld(panel.p)
+        const n = dirToWorld(panel.n)
+        dragPanels.push({
+          name: `${node.nodeId}.fus${idx}`,
+          position: [p.x, p.y, p.z],
+          normal: [n.x, n.y, n.z],
+          area: panel.area,
+        })
       })
+    } else {
+      // Masse de la pièce répartie entre ses colliders (train = roues + structure).
+      const colMass = part.weight / bp.colliders.length
+      for (const col of bp.colliders) {
+        const off = col.offset ?? [0, 0, 0]
+        const w = toWorld(off)
+        colliders.push({
+          nodeId: node.nodeId,
+          half: col.half,
+          position: [w.x, w.y, w.z],
+          rotation: rotEuler,
+          mass: colMass,
+          ball: col.ball,
+        })
+      }
     }
 
     bp.mounts?.forEach((m, idx) => {

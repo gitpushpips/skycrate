@@ -1,16 +1,15 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { getPart } from '../core/parts'
 import type {
   CockpitModel,
   EngineKind,
-  FuselageSize,
   Part,
   WingPart,
   WingPlanform,
 } from '../core/parts'
-import type { PlaneAssembly, PlacedPart } from '../core/assembly'
+import type { FuselageShape, PlaneAssembly, PlacedPart } from '../core/assembly'
 import type { ControlKey } from '../core/physics/aerodynamics'
 import { palette } from './palette'
 import { useControlsRef } from './controlsContext'
@@ -57,48 +56,31 @@ function ControlFlap({
   )
 }
 
-// Dimensions par taille de fuselage (corps box + cône de queue +Z, nez plat -Z
-// pour le moteur). Le gros porteur reçoit une rampe cargo arrière.
-const FUSELAGE_DIMS: Record<FuselageSize, { w: number; h: number; l: number }> = {
-  small: { w: 0.9, h: 0.95, l: 4.0 },
-  medium: { w: 1.1, h: 1.12, l: 4.6 },
-  large: { w: 1.56, h: 1.44, l: 5.2 },
-}
-
-function FuselageModel({ size }: { size: FuselageSize }) {
-  const d = FUSELAGE_DIMS[size]
-  const half = d.l / 2
-  const large = size === 'large'
+// Fuselage DÉFORMABLE (S4-C) : loft de la forme résolue par le compile (entrée
+// z=0 héritée du parent → sortie z=L, échelle/pointage réglés par instance).
+// La transition est lissée (smoothstep) ⇒ lignes fluides même très effilé.
+function FuselageModel({ shape }: { shape: FuselageShape }) {
+  const geometry = useMemo(() => {
+    const { start, end, length: L, offsetY } = shape
+    const N = 7
+    const stations = Array.from({ length: N }, (_, i) => {
+      const t = i / (N - 1)
+      const s = t * t * (3 - 2 * t) // smoothstep : raccord doux aux deux bouts
+      return {
+        z: t * L,
+        hw: THREE.MathUtils.lerp(start.halfWidth, end.halfWidth, s),
+        hh: THREE.MathUtils.lerp(start.halfHeight, end.halfHeight, s),
+        round: THREE.MathUtils.lerp(start.round, end.round, s),
+        yc: offsetY * s,
+      }
+    })
+    return loftGeometry(stations, 28)
+  }, [shape])
+  useEffect(() => () => geometry.dispose(), [geometry])
   return (
-    <group>
-      {/* Corps. */}
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[d.w, d.h, d.l]} />
-        <meshStandardMaterial color={palette.planeBody} flatShading />
-      </mesh>
-      {/* Cône de queue (+Z). */}
-      <mesh position={[0, d.h * 0.06, half + (large ? 0.5 : 0.4)]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-        <coneGeometry args={[d.w * 0.55, large ? 1.0 : 1.1, large ? 10 : 8]} />
-        <meshStandardMaterial color={palette.planeBody} flatShading />
-      </mesh>
-      {/* Quille dorsale (ligne de panneau, sur le dessus). */}
-      <mesh position={[0, d.h / 2, 0]} castShadow>
-        <boxGeometry args={[0.06, 0.05, d.l * 0.86]} />
-        <meshStandardMaterial color={palette.planeTail} flatShading />
-      </mesh>
-      {/* Verrière intégrée (petit/moyen) ou rampe cargo arrière (gros). */}
-      {!large ? (
-        <mesh position={[0, d.h * 0.58, -d.l * 0.12]} castShadow>
-          <boxGeometry args={[d.w * 0.66, d.h * 0.44, d.l * 0.28]} />
-          <meshStandardMaterial color={palette.planeGlass} flatShading metalness={0.15} roughness={0.3} />
-        </mesh>
-      ) : (
-        <mesh position={[0, -d.h * 0.18, half - 0.1]} rotation={[0.5, 0, 0]} castShadow>
-          <boxGeometry args={[d.w * 0.8, d.h * 0.55, 0.9]} />
-          <meshStandardMaterial color={palette.planeTail} flatShading metalness={0.2} roughness={0.6} />
-        </mesh>
-      )}
-    </group>
+    <mesh geometry={geometry} castShadow receiveShadow>
+      <meshStandardMaterial color={palette.planeBody} roughness={0.55} metalness={0.05} />
+    </mesh>
   )
 }
 
@@ -1199,16 +1181,30 @@ function PartModel({
   part,
   mirrored,
   nodeId,
+  fuselage,
 }: {
   part: Part
   mirrored?: boolean
   nodeId?: string
+  /** Forme résolue du segment déformable (S4-C, fournie par le compile). */
+  fuselage?: FuselageShape
 }) {
   switch (part.category) {
     case 'cockpit':
       return <CockpitShape model={part.model} />
     case 'fuselage':
-      return <FuselageModel size={part.size} />
+      return (
+        <FuselageModel
+          shape={
+            fuselage ?? {
+              start: part.section,
+              end: part.section,
+              length: part.baseLength,
+              offsetY: 0,
+            }
+          }
+        />
+      )
     case 'wing':
       return <WingModel part={part} mirrored={mirrored} />
     case 'stabilizer':
@@ -1226,7 +1222,12 @@ function PlacedPartModel({ placed }: { placed: PlacedPart }) {
   const scale: [number, number, number] = placed.mirrored ? [-1, 1, 1] : [1, 1, 1]
   return (
     <group position={placed.position} rotation={placed.rotation} scale={scale}>
-      <PartModel part={part} mirrored={placed.mirrored} nodeId={placed.nodeId} />
+      <PartModel
+        part={part}
+        mirrored={placed.mirrored}
+        nodeId={placed.nodeId}
+        fuselage={placed.fuselage}
+      />
     </group>
   )
 }

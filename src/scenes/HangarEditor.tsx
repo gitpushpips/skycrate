@@ -24,6 +24,7 @@ import { useHud } from '../store/hud'
  * La connectivité est garantie par l'arbre (toute pièce a un parent).
  */
 const UP = new THREE.Vector3(0, 1, 0)
+const AFT = new THREE.Vector3(0, 0, 1)
 
 /** Surface touchée par le pointeur (repère avion). */
 interface SurfaceHit {
@@ -32,8 +33,15 @@ interface SurfaceHit {
   normal: [number, number, number]
 }
 
+/** Axe d'accroche : fuselage = FACE-À-FACE (corps le long de la normale, S4-C) ;
+ *  le reste se POSE sur la surface (+Y le long de la normale). */
+function attachAxis(partId: string): 'y' | 'z' {
+  return getPart(partId).category === 'fuselage' ? 'z' : 'y'
+}
+
 /** Distance origine → face inférieure de la pièce (pour la poser SUR la surface). */
 function attachOffset(partId: string): number {
+  if (attachAxis(partId) === 'z') return 0 // face d'entrée en z=0 : plaquée au contact
   let lowest = 0
   for (const col of getBlueprint(partId).colliders) {
     lowest = Math.min(lowest, (col.offset?.[1] ?? 0) - col.half[1])
@@ -41,16 +49,18 @@ function attachOffset(partId: string): number {
   return -lowest
 }
 
-/** Transform LOCAL (sous le host) d'une pièce posée sur une surface, +Y le long
- *  de la normale, pivotée de `angle` autour de la normale, décalée pour poser dessus. */
+/** Transform LOCAL (sous le host) d'une pièce posée sur une surface : axe `y` =
+ *  posée dessus (+Y le long de la normale) ; axe `z` = face-à-face (fuselage :
+ *  corps +Z le long de la normale). Pivot `angle` autour de la normale. */
 function placementOnSurface(
   parentWorld: WorldTf,
   point: THREE.Vector3,
   normal: THREE.Vector3,
   angle: number,
   offset: number,
+  axis: 'y' | 'z' = 'y',
 ): { position: [number, number, number]; rotation: [number, number, number] } {
-  const orient = new THREE.Quaternion().setFromUnitVectors(UP, normal)
+  const orient = new THREE.Quaternion().setFromUnitVectors(axis === 'z' ? AFT : UP, normal)
   const worldQuat = new THREE.Quaternion().setFromAxisAngle(normal, angle).multiply(orient)
   const worldPos = point.clone().addScaledVector(normal, offset)
   const inv = parentWorld.quat.clone().invert()
@@ -110,6 +120,7 @@ export function HangarEditor({
           new THREE.Vector3(...normal).normalize(),
           angle,
           attachOffset(partId),
+          attachAxis(partId),
         )
         useBuild.getState().addPart(nodeId, partId, position, rotation)
       },
@@ -186,6 +197,7 @@ export function HangarEditor({
       new THREE.Vector3(...hoveredSurface.normal),
       ghostAngle,
       attachOffset(selectedPartId),
+      attachAxis(selectedPartId),
     )
     return { hostNodeId: hoveredSurface.nodeId, ...t }
   }, [selectedPartId, hoveredSurface, ghostAngle, aircraft])
