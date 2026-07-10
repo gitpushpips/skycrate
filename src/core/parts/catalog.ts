@@ -31,7 +31,7 @@ const cockpitGa: CockpitPart = {
   category: 'cockpit',
   tier: 'T0',
   model: 'ga',
-  section: { halfWidth: 0.42, halfHeight: 0.42, round: 0.55 },
+  section: { halfWidth: 0.42, halfHeight: 0.4, round: 0.55 }, // = station arrière du loft GA
   weight: 0.6, // 🟡
   cost: 60, // 🟡
   researchCost: 0,
@@ -47,7 +47,7 @@ const cockpitGlider: CockpitPart = {
   category: 'cockpit',
   tier: 'T2',
   model: 'glider',
-  section: { halfWidth: 0.3, halfHeight: 0.33, round: 1 },
+  section: { halfWidth: 0.11, halfHeight: 0.115, round: 1 }, // fine poutre de queue
   weight: 0.45, // 🟡 très léger
   cost: 90, // 🟡
   researchCost: 14, // 🟡
@@ -63,7 +63,7 @@ const cockpitWarbird: CockpitPart = {
   category: 'cockpit',
   tier: 'T3',
   model: 'warbird',
-  section: { halfWidth: 0.36, halfHeight: 0.42, round: 0.85 },
+  section: { halfWidth: 0.33, halfHeight: 0.39, round: 0.8 },
   weight: 0.9, // 🟡
   cost: 150, // 🟡
   researchCost: 34, // 🟡
@@ -79,7 +79,7 @@ const cockpitAirliner: CockpitPart = {
   category: 'cockpit',
   tier: 'T4',
   model: 'airliner',
-  section: { halfWidth: 0.55, halfHeight: 0.56, round: 1 },
+  section: { halfWidth: 0.56, halfHeight: 0.57, round: 1 },
   weight: 1.6, // 🟡
   cost: 300, // 🟡
   researchCost: 70, // 🟡
@@ -95,7 +95,7 @@ const cockpitWide: CockpitPart = {
   category: 'cockpit',
   tier: 'T2',
   model: 'wide',
-  section: { halfWidth: 0.72, halfHeight: 0.6, round: 0.85 },
+  section: { halfWidth: 0.72, halfHeight: 0.68, round: 0.88 },
   weight: 1.9, // 🟡 gros
   cost: 200, // 🟡
   researchCost: 30, // 🟡
@@ -111,7 +111,7 @@ const cockpitFighter: CockpitPart = {
   category: 'cockpit',
   tier: 'T5',
   model: 'fighter',
-  section: { halfWidth: 0.4, halfHeight: 0.4, round: 0.6 },
+  section: { halfWidth: 0.42, halfHeight: 0.42, round: 0.4 },
   weight: 1.0, // 🟡
   cost: 380, // 🟡
   researchCost: 120, // 🟡

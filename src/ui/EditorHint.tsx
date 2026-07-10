@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { getPart } from '../core/parts'
 import { useBuild } from '../store/build'
 
 /**
@@ -11,7 +12,9 @@ export function EditorHint() {
   const selectedNodeId = useBuild((s) => s.selectedNodeId)
 
   let text: string
-  if (selectedPartId) {
+  if (selectedPartId && getPart(selectedPartId).category === 'fuselage') {
+    text = 'Fuselage aligné automatiquement à l’arrière • clique pour poser • Échap : annuler'
+  } else if (selectedPartId) {
     text = 'Survole une pièce pour poser au contact • R : pivoter • Échap : annuler'
   } else if (selectedNodeId) {
     text = 'Gizmo : Déplacer / Tourner (bas-gauche) • Suppr : retirer • Ctrl+Z : annuler • Échap : désélectionner'

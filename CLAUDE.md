@@ -385,6 +385,20 @@ npm run format     # prettier --write
       - 🟡 Anciennes sauvegardes avec `fuselage.medium/large` rejetées (pièces retirées) — même politique que les
         cabines. 🟡 S4-C2 (poignées de déformation à la souris dans le viewport) reste à faire — réglage via
         inspecteur en attendant.
+    - [x] **S4-C1-bis — fuselage blanc + auto-snap aligné + transition fluide (retour utilisateur).**
+      - **Blanc** : segment de fuselage et **corps du F-35** passés en blanc (`palette.fuselageWhite` #edf0f3 ;
+        la verrière du F-35 reste dorée) ⇒ se fond avec les cockpits clairs.
+      - **Auto-snap aligné** : sélectionner un fuselage l'aligne AUTOMATIQUEMENT sur la **face arrière libre la plus
+        reculée** (mount `localNormal.z≈+1`, host sans segment) — centré sur l'axe, plus besoin de viser. `compile`
+        expose un **mount de sortie** par segment (chaînage) ; `HangarEditor.fuselagePlacement` cible le rearmost libre,
+        rentre le nez de 4 cm (**tuck**) pour masquer le joint ; sol cliquable pour poser ; hint dédié.
+      - **Transition fluide** : chaque `section` de cockpit **recalée sur sa vraie station arrière de loft**
+        (GA 0.42/0.40/0.55, planeur 0.11 (poutre), warbird 0.33/0.39/0.8, A320 0.56/0.57/1, gros 0.72/0.68/0.88,
+        chasse 0.42/0.42/0.4) + mount arrière du GA centré à yc −0.02 ⇒ l'anneau d'entrée du fuselage = anneau de
+        sortie du cockpit (même taille, même centre) ⇒ raccord sans marche.
+      - **Validé preview** : fuselage `start` = section exacte du cockpit (GA 0.42/0.40/0.55) ✅ ; pos centrée + tuck
+        [0,−0.02,0.91] ✅ ; auto-snap ghost aligné sans viser ✅ ; F-35 blanc + verrière dorée ✅ ; blanc/crème
+        raccord fluide ✅ ; typecheck/lint/build OK.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 

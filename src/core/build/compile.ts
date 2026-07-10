@@ -302,6 +302,17 @@ export function compileAircraft(aircraft: Aircraft): CompiledAircraft {
           area: panel.area,
         })
       })
+      // Mount de SORTIE (face arrière) pour chaîner/auto-snapper un segment suivant.
+      const rw = toWorld([0, offsetY, L])
+      const rn = dirToWorld([0, 0, 1]).normalize()
+      mounts.push({
+        id: `${node.nodeId}.rear`,
+        hostNodeId: node.nodeId,
+        localPosition: [0, offsetY, L],
+        localNormal: [0, 0, 1],
+        position: [rw.x, rw.y, rw.z],
+        normal: [rn.x, rn.y, rn.z],
+      })
     } else {
       // Masse de la pièce répartie entre ses colliders (train = roues + structure).
       const colMass = part.weight / bp.colliders.length

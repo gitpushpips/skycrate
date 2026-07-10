@@ -186,8 +186,33 @@ export function HangarEditor({
     addPart('', selectedPartId, [0, 0, 0], [0, ghostAngle, 0])
   }
 
-  // Pose courante (host + transform local) déduite de la surface survolée.
+  // Fuselage (S4-C) : AUTO-SNAP aligné sur la face arrière libre la plus reculée
+  // (mount `localNormal.z ≈ +1`, host sans segment déjà attaché). Aligné sur l'axe,
+  // légèrement rentré dans le parent (TUCK) pour masquer le joint.
+  const isFuselage = !!selectedPartId && getPart(selectedPartId).category === 'fuselage'
+  const fuselagePlacement = useMemo(() => {
+    if (!isFuselage) return null
+    const occupied = new Set(
+      graph.nodes
+        .filter((n) => n.parentId && getPart(n.partId).category === 'fuselage')
+        .map((n) => n.parentId as string),
+    )
+    const rears = aircraft.mounts.filter(
+      (m) => m.localNormal[2] > 0.9 && !occupied.has(m.hostNodeId),
+    )
+    if (rears.length === 0) return null
+    const m = rears.reduce((best, x) => (x.position[2] > best.position[2] ? x : best))
+    const TUCK = 0.04 // rentre le nez du segment dans le parent (joint invisible)
+    return {
+      hostNodeId: m.hostNodeId,
+      position: [m.localPosition[0], m.localPosition[1], m.localPosition[2] - TUCK] as [number, number, number],
+      rotation: [0, 0, 0] as [number, number, number],
+    }
+  }, [isFuselage, graph, aircraft])
+
+  // Pose courante : fuselage = auto-snap ; autres = surface survolée.
   const placement = useMemo(() => {
+    if (isFuselage) return fuselagePlacement
     if (!selectedPartId || !hoveredSurface) return null
     const parentWorld = aircraft.transforms.get(hoveredSurface.nodeId)
     if (!parentWorld) return null
@@ -200,7 +225,7 @@ export function HangarEditor({
       attachAxis(selectedPartId),
     )
     return { hostNodeId: hoveredSurface.nodeId, ...t }
-  }, [selectedPartId, hoveredSurface, ghostAngle, aircraft])
+  }, [isFuselage, fuselagePlacement, selectedPartId, hoveredSurface, ghostAngle, aircraft])
 
   // Fantôme WYSIWYG : compile un graphe temporaire (graphe + candidat).
   const ghostPlaced = useMemo(() => {
@@ -258,6 +283,21 @@ export function HangarEditor({
 
       {/* Fantôme de pose (snap sur la surface survolée). */}
       {ghostPlaced && <GhostPlane placed={ghostPlaced} />}
+
+      {/* Fuselage (S4-C) : auto-snap ⇒ sol cliquable pour poser (aligné, sans viser). */}
+      {isFuselage && fuselagePlacement && (
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, -1.4, 0]}
+          onClick={(e) => {
+            e.stopPropagation()
+            placeHere()
+          }}
+        >
+          <planeGeometry args={[80, 80]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      )}
 
       {/* Page blanche : sol invisible cliquable + fantôme du cockpit racine. */}
       {isEmpty && selectedPartId && (

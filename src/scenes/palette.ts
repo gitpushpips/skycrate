@@ -81,4 +81,5 @@ export const palette = {
   cockFighterGold: '#c7a545', // chasse : verrière teintée or (iconique)
   cockGlassDark: '#12202e', // vitres sombres (hublots poste, verrières)
   cockFrame: '#30343a', // montants de verrière
+  fuselageWhite: '#edf0f3', // segments de fuselage (S4-C) + corps du chasseur
 } as const

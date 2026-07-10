@@ -79,7 +79,7 @@ function FuselageModel({ shape }: { shape: FuselageShape }) {
   useEffect(() => () => geometry.dispose(), [geometry])
   return (
     <mesh geometry={geometry} castShadow receiveShadow>
-      <meshStandardMaterial color={palette.planeBody} roughness={0.55} metalness={0.05} />
+      <meshStandardMaterial color={palette.fuselageWhite} roughness={0.5} metalness={0.05} />
     </mesh>
   )
 }
@@ -565,7 +565,7 @@ function CockpitFighter() {
   return (
     <group>
       <mesh geometry={body} castShadow receiveShadow>
-        <meshStandardMaterial color={palette.cockFighter} flatShading roughness={0.5} metalness={0.25} />
+        <meshStandardMaterial color={palette.fuselageWhite} flatShading roughness={0.5} metalness={0.15} />
       </mesh>
       {/* Bulle teintée OR (goutte). */}
       <mesh geometry={canopy} castShadow>

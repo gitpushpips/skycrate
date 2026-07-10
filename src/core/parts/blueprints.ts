@@ -97,7 +97,7 @@ export const BLUEPRINTS: Record<string, PartBlueprint> = {
   // famille d'avion (S4-B). Colliders alignés sur la silhouette rendue (Plane.tsx).
   'cockpit.ga': {
     mounts: [
-      { position: [0, 0, 0.95], normal: [0, 0, 1] },
+      { position: [0, -0.02, 0.95], normal: [0, 0, 1] }, // arrière = centre du loft
       { position: [0, 0, -0.95], normal: [0, 0, -1] },
       { position: [0, -0.42, 0], normal: [0, -1, 0] },
     ],
