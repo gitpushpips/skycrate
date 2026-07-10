@@ -14,6 +14,8 @@ export function Hud() {
   const overspeed = useHud((s) => s.overspeed)
   const broken = useHud((s) => s.broken)
   const outOfFuel = useHud((s) => s.outOfFuel)
+  const gearBroken = useHud((s) => s.gearBroken)
+  const gearUp = useHud((s) => s.gearUp)
   const oobSeconds = useHud((s) => s.oobSeconds)
 
   const fuelPct = fuelMax > 0 ? Math.max(0, Math.min(1, fuel / fuelMax)) : 0
@@ -31,6 +33,9 @@ export function Hud() {
         {broken && <div style={{ ...styles.alert, ...styles.alertBad }}>AILE CASSÉE — appuyez sur R</div>}
         {!broken && overspeed && <div style={{ ...styles.alert, ...styles.alertWarn }}>⚠ SURVITESSE STRUCTURELLE</div>}
         {!broken && outOfFuel && <div style={{ ...styles.alert, ...styles.alertWarn }}>PANNE SÈCHE</div>}
+        {!broken && gearBroken && (
+          <div style={{ ...styles.alert, ...styles.alertWarn }}>TRAIN CASSÉ — R pour réparer</div>
+        )}
       </div>
 
       {/* Bandeau bas */}
@@ -43,6 +48,12 @@ export function Hud() {
         </div>
 
         <div style={styles.readouts}>
+          {gearUp && (
+            <div style={styles.readout}>
+              <span style={styles.label}>TRAIN</span>
+              <span style={{ ...styles.value, fontSize: 16, color: '#9fb0bd' }}>RENTRÉ</span>
+            </div>
+          )}
           <Readout label="SPEED" value={Math.round(speed)} unit="m/s" warn={overspeed} />
           <Readout label="ALT" value={Math.max(0, Math.round(altitude))} unit="m" />
         </div>

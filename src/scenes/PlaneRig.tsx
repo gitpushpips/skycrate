@@ -8,6 +8,8 @@ import { DetachedWing } from './DetachedWing'
 import { ControlsContext } from './controlsContext'
 import { useHud } from '../store/hud'
 import { useThrottle } from '../store/throttle'
+import { useGear } from '../store/gear'
+import { getPart } from '../core/parts'
 import type { PlaneAssembly } from '../core/assembly'
 import { computeSurfaceForce, computePanelDrag, makeSurfaceResult } from '../core/physics/aerodynamics'
 import type { Deflections } from '../core/physics/aerodynamics'
@@ -94,6 +96,43 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
   )
   const facings = useRef<number[]>(new Array(surfaces.length + dragPanels.length).fill(0))
 
+  // Train (S4-D) : inventaire des pièces de train du build — rupture light
+  // (seuil = min strength × facteur leva) + rétraction physique (touche G).
+  const gearInfo = useMemo(() => {
+    let hasFixed = false
+    let hasRetract = false
+    let minStrength = Infinity
+    const retractByNode = new Map<string, boolean>()
+    for (const p of aircraft.placed) {
+      const part = getPart(p.partId)
+      if (part.category !== 'landingGear') continue
+      if (part.retractable) hasRetract = true
+      else hasFixed = true
+      minStrength = Math.min(minStrength, part.strength)
+      if (p.nodeId) retractByNode.set(p.nodeId, part.retractable)
+    }
+    return { hasFixed, hasRetract, minStrength, retractByNode }
+  }, [aircraft])
+  const gearDown = useGear((s) => s.down)
+  const gearBroken = useGear((s) => s.broken)
+  // Colliders effectifs : les ROUES (sphères) d'un train cassé — ou rentré (G) —
+  // sont RETIRÉES du corps ⇒ l'avion repose/frotte sur le ventre (pas de support
+  // fantôme). La boîte de structure (en soute) reste.
+  const activeColliders = useMemo(
+    () =>
+      colliders.filter((col) => {
+        if (!col.ball || !col.nodeId) return true
+        const retract = gearInfo.retractByNode.get(col.nodeId)
+        if (retract === undefined) return true // sphère hors train (aucune à ce jour)
+        if (gearBroken) return false
+        return retract ? gearDown : true
+      }),
+    [colliders, gearInfo, gearDown, gearBroken],
+  )
+  // Vitesse verticale ENTRANT dans le pas physique (pré-impact) — la rupture de
+  // train compare cette valeur (onContactForce arrive après résolution).
+  const prevVy = useRef(0)
+
   const body = useRef<RapierRigidBody>(null)
   const input = useFlightInput()
   const controls = useRef<Deflections>({ elevator: 0, aileronL: 0, aileronR: 0, rudder: 0 })
@@ -115,6 +154,7 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
 
     const lv = rb.linvel()
     _vel.set(lv.x, lv.y, lv.z)
+    prevVy.current = lv.y
     const av = rb.angvel()
     _omega.set(av.x, av.y, av.z)
     const rt = rb.rotation()
@@ -292,6 +332,8 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
         overspeed: speed > stats.warningSpeedMs,
         broken: brokenRef.current,
         outOfFuel: fuel.current <= 0,
+        gearBroken: useGear.getState().broken,
+        gearUp: gearInfo.hasRetract && !useGear.getState().down,
         x: _P.x,
         z: _P.z,
         heading: Math.atan2(_dbg.x, -_dbg.z), // 0 = nord (-Z), sens horaire vu de dessus
@@ -349,17 +391,28 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
       brokenRef.current = false
       held.current.bank = 0
       useThrottle.getState().resetCommand()
+      useGear.getState().reset()
       setBreakInfo(null)
     }
     window.addEventListener('keydown', onReset)
     return () => window.removeEventListener('keydown', onReset)
   }, [fuelMax, spawn])
 
-  // Retour au hangar : altitude HUD à 0 (train rétractable ressorti) + gaz à zéro.
+  // Train rétractable : G = rentrer / sortir (S4-D).
+  useEffect(() => {
+    const onGear = (e: KeyboardEvent) => {
+      if (e.code === 'KeyG' && gearInfo.hasRetract) useGear.getState().toggle()
+    }
+    window.addEventListener('keydown', onGear)
+    return () => window.removeEventListener('keydown', onGear)
+  }, [gearInfo])
+
+  // Retour au hangar : altitude HUD à 0 + gaz à zéro + train sorti/réparé.
   useEffect(
     () => () => {
-      useHud.setState({ altitude: 0 })
+      useHud.setState({ altitude: 0, gearBroken: false, gearUp: false })
       useThrottle.getState().resetCommand()
+      useGear.getState().reset()
     },
     [],
   )
@@ -379,11 +432,21 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
       angularDamping={tunables.angularDamping}
       canSleep={false}
       ccd
-      onContactForce={
-        import.meta.env.DEV ? (e) => body.current && recordContact(e, body.current) : undefined
-      }
+      onContactForce={(e) => {
+        const rb = body.current
+        if (!rb) return
+        if (import.meta.env.DEV) recordContact(e, rb)
+        // Rupture LIGHT du train (S4-D) : contact avec une vitesse verticale
+        // pré-impact trop dure, roues déployées ⇒ roues perdues (alerte HUD).
+        if (gearInfo.minStrength === Infinity) return
+        const g = useGear.getState()
+        if (g.broken) return
+        const wheelsExposed = gearInfo.hasFixed || (gearInfo.hasRetract && g.down)
+        if (!wheelsExposed) return
+        if (prevVy.current < -gearInfo.minStrength * tunables.gearBreakFactor) g.setBroken(true)
+      }}
     >
-        {colliders.map((col, i) =>
+        {activeColliders.map((col, i) =>
           col.ball ? (
             // Roues : sphères (roulent sur les arêtes du terrain — S1).
             <BallCollider

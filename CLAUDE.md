@@ -399,6 +399,26 @@ npm run format     # prettier --write
       - **Validé preview** : fuselage `start` = section exacte du cockpit (GA 0.42/0.40/0.55) ✅ ; pos centrée + tuck
         [0,−0.02,0.91] ✅ ; auto-snap ghost aligné sans viser ✅ ; F-35 blanc + verrière dorée ✅ ; blanc/crème
         raccord fluide ✅ ; typecheck/lint/build OK.
+    - [x] **S4-D — trains d'atterrissage (variantes + rétraction manuelle + rupture light) ✅.**
+      - **Variantes** (catalogue + blueprints + rendus) : `landingGear.single` T1 « Roue simple » (1 jambe + 1 roue,
+        élément MODULAIRE — en poser 3), `landingGear.skid` T1 « Patin de planeur » (lame à fleur de ventre, ultra
+        léger, fragile str 0.7), `landingGear.bogie` T4 « Bogie tandem » (2 roues tandem + trappe, rétractable,
+        str 2.5) — en plus du tricycle fixe T0 / rétractable T3.
+      - **Rétraction MANUELLE (G)** remplace l'auto-altitude de 3-E : store `store/gear.ts` (down/broken, global
+        light) ; l'anim remonte+bascule puis **cache réellement les roues** (`visible=false` à t>0.97, demande
+        utilisateur), trappes restent ; chip HUD « TRAIN RENTRÉ ». **Physique cohérente** : roues rentrées ⇒ leurs
+        colliders-sphères RETIRÉS du corps (`activeColliders` filtré dans PlaneRig) ⇒ le ventre frotte — les boîtes
+        de structure des blueprints remontées EN SOUTE (bottom ≈ ventre) pour éviter tout support fantôme.
+      - **Rupture light (règle utilisateur)** : au contact (`onContactForce`, désormais branché aussi en prod),
+        si la vitesse verticale PRÉ-impact (`prevVy` capturé au début du pas fixe — onContactForce arrive après
+        résolution) < −(min strength des trains × `gearBreakFactor` leva « Vol › sol », défaut 7) ⇒ roues perdues
+        (masquées + colliders retirés), alerte « TRAIN CASSÉ — R pour réparer », l'avion glisse sur le ventre.
+        Roues RENTRÉES = protégées (pas de rupture ventre). R / retour hangar répare (reset store).
+      - **Validé preview (data + captures)** : 5 trains au catalogue ✅ ; J1+retract : 12 colliders/3 roues ✅ ;
+        décollage roues sorties (contacts roulage vy≈0 ⇒ pas de rupture) ✅ ; G en vol → down=false, chip RENTRÉ,
+        roues invisibles à l'écran ✅ ; piqué vy −29.7 → impact → `broken` + alerte + glisse sur le ventre ✅ ;
+        R → réparé/ressorti ✅ ; pose des 3 variantes au snap de surface (7 roues compilées) ✅. Piège protocole :
+        voler plein nord > ~40 s à plein gaz franchit le HORS-LIMITES (retour hangar auto) — tester en boucle courte.
   - [x] **S-phys — physique prédictible & réaliste (régression maniabilité post-S4) ✅.** Symptômes : maniabilité
     excessive + « trim auto » trop fort. Diagnostic par diff S3→S4 : AUCUN changement des forces/leva — la refonte
     S4-C avait réaffecté `fuselage.mk1` (caisson 4 m poids 3 → segment 1.6 m poids 2) ⇒ CG reculé ~+0.24 m (marge

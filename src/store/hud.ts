@@ -20,6 +20,10 @@ export interface HudState {
   broken: boolean
   /** Plus de carburant. */
   outOfFuel: boolean
+  /** Train cassé (atterrissage trop dur, S4-D — rupture light). */
+  gearBroken: boolean
+  /** Train rétractable rentré (G). */
+  gearUp: boolean
   /** Position XZ (repère monde) + cap (rad, 0 = nord) — carte + hors-limites (3+E). */
   x: number
   z: number
@@ -36,6 +40,8 @@ export const useHud = create<HudState>(() => ({
   overspeed: false,
   broken: false,
   outOfFuel: false,
+  gearBroken: false,
+  gearUp: false,
   x: 0,
   z: 0,
   heading: 0,

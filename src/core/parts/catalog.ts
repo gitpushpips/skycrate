@@ -369,7 +369,48 @@ const landingGearRetract: LandingGearPart = {
   researchCost: 32, // 🟡
   strength: 1.2, // 🟡
   retractable: true,
-  description: 'Se rentre en vol ⇒ traînée quasi nulle, mais plus lourd. (T3+)',
+  description: 'Se rentre en vol (G) ⇒ traînée quasi nulle, mais plus lourd. (T3+)',
+}
+
+// Variantes S4-D : éléments MODULAIRES (une jambe = une pièce) pour composer son
+// propre train, + patin planeur, + bogie rétractable pour les gros porteurs.
+const landingGearSingle: LandingGearPart = {
+  id: 'landingGear.single',
+  name: 'Roue simple',
+  category: 'landingGear',
+  tier: 'T1',
+  weight: 0.35, // 🟡
+  cost: 15, // 🟡
+  researchCost: 4, // 🟡
+  strength: 1.0, // 🟡
+  retractable: false,
+  description: 'Une jambe + une roue : compose ton propre train (3 points conseillés).',
+}
+
+const landingGearSkid: LandingGearPart = {
+  id: 'landingGear.skid',
+  name: 'Patin de planeur',
+  category: 'landingGear',
+  tier: 'T1',
+  weight: 0.15, // 🟡 ultra léger
+  cost: 12, // 🟡
+  researchCost: 6, // 🟡
+  strength: 0.7, // 🟡 fragile
+  retractable: false,
+  description: 'Patin lisse à fleur de ventre : ultra léger, aucune traînée, fragile.',
+}
+
+const landingGearBogie: LandingGearPart = {
+  id: 'landingGear.bogie',
+  name: 'Bogie tandem',
+  category: 'landingGear',
+  tier: 'T4',
+  weight: 1.3, // 🟡
+  cost: 170, // 🟡
+  researchCost: 60, // 🟡
+  strength: 2.5, // 🟡 encaisse les gros porteurs
+  retractable: true,
+  description: 'Jambe à 2 roues tandem, rétractable (G) : pour les avions lourds.',
 }
 
 /** Toutes les pièces définies, dans l'ordre d'introduction. */
@@ -396,6 +437,9 @@ export const PARTS_LIST: readonly Part[] = [
   rocketEngine,
   landingGearMk1,
   landingGearRetract,
+  landingGearSingle,
+  landingGearSkid,
+  landingGearBogie,
 ]
 
 /** Identifiants des pièces composant l'avion en dur du Jalon 1 (assemblé à l'étape 3). */

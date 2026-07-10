@@ -407,27 +407,56 @@ export const BLUEPRINTS: Record<string, PartBlueprint> = {
   },
 
   // Train : colliders = les ROUES (sphères alignées sur le visuel : 2 principales
-  // + roulette arrière) + une boîte de structure (jambes, sélection éditeur).
+  // + roulette arrière) + une boîte de structure (mécanisme, sélection éditeur).
   // S1 : la boîte plate d'origine « cognait » les arêtes du terrain de ses coins.
+  // S4-D : la boîte est remontée EN SOUTE (au-dessus du ventre) — roues rentrées
+  // ou cassées ⇒ leurs sphères sont retirées et l'avion frotte du ventre (pas de
+  // support fantôme sous le fuselage).
   'landingGear.mk1': {
     colliders: [
       { half: [0.34, 0.34, 0.34], offset: [1.05, -0.95, -0.3], ball: true },
       { half: [0.34, 0.34, 0.34], offset: [-1.05, -0.95, -0.3], ball: true },
       { half: [0.2, 0.2, 0.2], offset: [0, -1.09, 2.0], ball: true },
-      { half: [1.1, 0.22, 1.25], offset: [0, -0.68, 0.55] },
+      { half: [1.0, 0.15, 1.2], offset: [0, -0.35, 0.55] },
     ],
     // Roues/jambes exposées : un peu de traînée (face au vent + dessous).
     dragPanels: [{ position: [0, -1.0, -0.3], normal: [0, 0, -1], area: 0.5 }],
   },
 
-  // Train rétractable : même empreinte au sol, mais escamotable ⇒ pas de panneau
-  // de traînée permanent (rentré en vol par le visuel + faible traînée).
+  // Train rétractable : même empreinte au sol, mais escamotable (G) ⇒ pas de
+  // panneau de traînée permanent ; rentré = colliders des roues retirés.
   'landingGear.retract': {
     colliders: [
       { half: [0.34, 0.34, 0.34], offset: [1.05, -0.95, -0.3], ball: true },
       { half: [0.34, 0.34, 0.34], offset: [-1.05, -0.95, -0.3], ball: true },
       { half: [0.2, 0.2, 0.2], offset: [0, -1.09, 2.0], ball: true },
-      { half: [1.1, 0.22, 1.25], offset: [0, -0.68, 0.55] },
+      { half: [1.0, 0.15, 1.2], offset: [0, -0.35, 0.55] },
+    ],
+  },
+
+  // Roue simple (S4-D) : une jambe + une roue — élément modulaire (en poser 3).
+  'landingGear.single': {
+    colliders: [
+      { half: [0.3, 0.3, 0.3], offset: [0, -0.85, 0], ball: true },
+      { half: [0.12, 0.15, 0.12], offset: [0, -0.3, 0] },
+    ],
+    dragPanels: [{ position: [0, -0.85, 0], normal: [0, 0, -1], area: 0.18 }],
+  },
+
+  // Patin de planeur (S4-D) : à fleur de ventre, aucune traînée, fragile.
+  'landingGear.skid': {
+    colliders: [
+      { half: [0.16, 0.16, 0.16], offset: [0, -0.42, 0], ball: true },
+      { half: [0.1, 0.08, 0.5], offset: [0, -0.3, 0] },
+    ],
+  },
+
+  // Bogie tandem rétractable (S4-D) : une jambe, 2 roues en tandem, costaud.
+  'landingGear.bogie': {
+    colliders: [
+      { half: [0.3, 0.3, 0.3], offset: [0, -0.9, -0.35], ball: true },
+      { half: [0.3, 0.3, 0.3], offset: [0, -0.9, 0.35], ball: true },
+      { half: [0.18, 0.15, 0.6], offset: [0, -0.32, 0] },
     ],
   },
 }

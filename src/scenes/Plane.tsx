@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react'
+import type { ReactElement } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { getPart } from '../core/parts'
 import type {
   CockpitModel,
   EngineKind,
+  LandingGearPart,
   Part,
   WingPart,
   WingPlanform,
@@ -14,7 +16,7 @@ import type { ControlKey } from '../core/physics/aerodynamics'
 import { palette } from './palette'
 import { useControlsRef } from './controlsContext'
 import { useThrottle } from '../store/throttle'
-import { useHud } from '../store/hud'
+import { useGear } from '../store/gear'
 
 /**
  * Rendu low-poly procédural de l'avion. Repère local : nez = -Z, haut = +Y.
@@ -1143,36 +1145,99 @@ function Strut({ position, height }: { position: [number, number, number]; heigh
   )
 }
 
-// Train : tricycle (2 jambes principales + roulette). Le rétractable se rentre
-// dans le ventre quand l'avion est en l'air (altitude HUD), avec des trappes.
-function LandingGearModel({ retractable }: { retractable?: boolean }) {
+/**
+ * Train d'atterrissage (S4-D). Rétraction MANUELLE (touche G, store `useGear`) :
+ * les roues remontent dans le ventre puis sont réellement CACHÉES en fin de
+ * course (visible=false) — les trappes restent. Rupture light : train cassé ⇒
+ * roues masquées immédiatement (l'avion glisse sur le ventre). Un layout de
+ * roues/jambes/trappes par variante de pièce.
+ */
+function LandingGearModel({ part }: { part: LandingGearPart }) {
   const ref = useRef<THREE.Group>(null)
   const t = useRef(0)
   useFrame((_, dt) => {
-    if (!ref.current || !retractable) return
-    const target = useHud.getState().altitude > 5 ? 1 : 0
+    const g = ref.current
+    if (!g) return
+    const { down, broken } = useGear.getState()
+    if (broken) {
+      g.visible = false // rupture light : roues perdues
+      return
+    }
+    if (!part.retractable) {
+      g.visible = true
+      return
+    }
+    const target = down ? 0 : 1
     t.current += (target - t.current) * Math.min(1, dt * 2.5)
-    ref.current.position.y = t.current * 1.18 // remonte les roues dans le ventre
-    ref.current.rotation.x = t.current * 0.5 // bascule vers l'arrière
+    g.position.y = t.current * 1.18 // remonte les roues dans le ventre
+    g.rotation.x = t.current * 0.5 // bascule vers l'arrière
+    g.visible = t.current < 0.97 // rentré ⇒ roues CACHÉES dans l'avion
   })
+
+  // Trappes (rétractables) : restent visibles au ventre, roues rentrées ou non.
+  const doors = part.retractable && (
+    <>
+      {(part.id === 'landingGear.bogie' ? [0] : [1.05, -1.05]).map((x) => (
+        <mesh key={x} position={[x, -0.44, part.id === 'landingGear.bogie' ? 0 : -0.3]} castShadow>
+          <boxGeometry args={part.id === 'landingGear.bogie' ? [0.5, 0.04, 1.3] : [0.42, 0.04, 0.7]} />
+          <meshStandardMaterial color={palette.fuselageWhite} flatShading />
+        </mesh>
+      ))}
+    </>
+  )
+
+  let legs: ReactElement
+  switch (part.id) {
+    case 'landingGear.single':
+      legs = (
+        <group ref={ref}>
+          <Strut position={[0, -0.55, 0]} height={0.6} />
+          <Wheel position={[0, -0.85, 0]} radius={0.3} />
+        </group>
+      )
+      break
+    case 'landingGear.skid':
+      // Lame lisse à fleur de ventre (pas de roue).
+      legs = (
+        <group ref={ref}>
+          <mesh position={[0, -0.38, 0]} rotation={[0.12, 0, 0]} castShadow>
+            <boxGeometry args={[0.14, 0.1, 1.0]} />
+            <meshStandardMaterial color={palette.planeStrut} flatShading metalness={0.5} roughness={0.4} />
+          </mesh>
+        </group>
+      )
+      break
+    case 'landingGear.bogie':
+      legs = (
+        <group ref={ref}>
+          <Strut position={[0, -0.55, 0]} height={0.75} />
+          <mesh position={[0, -0.9, 0]} castShadow>
+            <boxGeometry args={[0.12, 0.1, 0.85]} />
+            <meshStandardMaterial color={palette.planeStrut} flatShading metalness={0.4} roughness={0.5} />
+          </mesh>
+          <Wheel position={[0, -0.9, -0.35]} radius={0.3} />
+          <Wheel position={[0, -0.9, 0.35]} radius={0.3} />
+        </group>
+      )
+      break
+    default:
+      // Tricycle (mk1 / retract) : 2 jambes principales + roulette arrière.
+      legs = (
+        <group ref={ref}>
+          <Strut position={[1.05, -0.72, -0.3]} height={0.55} />
+          <Strut position={[-1.05, -0.72, -0.3]} height={0.55} />
+          <Wheel position={[1.05, -0.95, -0.3]} radius={0.34} />
+          <Wheel position={[-1.05, -0.95, -0.3]} radius={0.34} />
+          <Strut position={[0, -0.82, 2.0]} height={0.55} />
+          <Wheel position={[0, -1.09, 2.0]} radius={0.2} />
+        </group>
+      )
+  }
+
   return (
     <group>
-      {/* Trappes de train (rétractable) — restent au ventre. */}
-      {retractable &&
-        ([1.05, -1.05] as const).map((x) => (
-          <mesh key={x} position={[x, -0.46, -0.3]} castShadow>
-            <boxGeometry args={[0.42, 0.04, 0.7]} />
-            <meshStandardMaterial color={palette.planeBody} flatShading />
-          </mesh>
-        ))}
-      <group ref={ref}>
-        <Strut position={[1.05, -0.72, -0.3]} height={0.55} />
-        <Strut position={[-1.05, -0.72, -0.3]} height={0.55} />
-        <Wheel position={[1.05, -0.95, -0.3]} radius={0.34} />
-        <Wheel position={[-1.05, -0.95, -0.3]} radius={0.34} />
-        <Strut position={[0, -0.82, 2.0]} height={0.55} />
-        <Wheel position={[0, -1.09, 2.0]} radius={0.2} />
-      </group>
+      {doors}
+      {legs}
     </group>
   )
 }
@@ -1212,7 +1277,7 @@ function PartModel({
     case 'engine':
       return <EngineModel kind={part.kind} nodeId={nodeId} />
     case 'landingGear':
-      return <LandingGearModel retractable={part.retractable} />
+      return <LandingGearModel part={part} />
   }
 }
 

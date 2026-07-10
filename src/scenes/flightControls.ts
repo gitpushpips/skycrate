@@ -29,6 +29,9 @@ export interface FlightTunables {
   /** « Peau » de contact des colliders de l'avion (m) — amortit l'accrochage
    *  des arêtes du terrain (S1). */
   contactSkin: number
+  /** Rupture de train (S4-D, light) : vitesse verticale limite au toucher =
+   *  min(strength des trains) × ce facteur (m/s). */
+  gearBreakFactor: number
   linearDamping: number
   angularDamping: number
   // Gouvernes
@@ -84,6 +87,7 @@ export function useFlightTunables(): FlightTunables {
     sol: folder({
       groundFriction: { value: 0.08, min: 0, max: 1, step: 0.01, label: 'friction sol' },
       contactSkin: { value: 0.02, min: 0, max: 0.15, step: 0.005, label: 'peau de contact' },
+      gearBreakFactor: { value: 7, min: 2, max: 30, step: 0.5, label: 'rupture train (×robust.)' },
     }),
     amortissement: folder({
       linearDamping: { value: 0, min: 0, max: 2, step: 0.01, label: 'amorti. linéaire' },
