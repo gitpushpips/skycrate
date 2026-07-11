@@ -501,7 +501,37 @@ npm run format     # prettier --write
     (auto-respawn = C5). R + retour hangar résettent. Le snap d'aile n'est PAS le crash (c'est l'impact qui suit).
     **Validé preview** : roulage/décollage 62 m/s sur roues ⇒ pas de crash ✓ ; piqué au sol ⇒ `crashed:true`
     cause `structure`, thr 0, alerte DOM ✓ ; R ⇒ reset + respawn ✓ ; 0 erreur console, typecheck/lint/build OK.
-  - [ ] C2 explosion (flash/boule de feu/fumée/braises/**débris = pièces détachées** + impulsions/onde/shake).
+    **Ajustement post-feu-vert** : `crashContactSpeed` 12 → **50** (demande utilisateur : une glissade sur le
+    ventre reste survivable jusqu'à 50 m/s — vérifié : glissades 15-40 m/s sur terre ET sur l'eau sans crash,
+    ventre à 51.8 m/s ⇒ crash `structure`).
+  - [x] **C2 — explosion soignée (terre) ✅.** Au crash terre, l'avion est **remplacé par ses pièces** + effet
+    multi-couches ; capturé au crash : `CrashPose` {position, quaternion, velocity} dans `store/crash.ts`.
+    - **`scenes/CrashDebris.tsx`** : chaque `PlacedPart` du graphe compilé devient un **RigidBody indépendant**
+      (ses colliders réexprimés en repère pièce, masse conservée, ccd), pose monde = pose crash ∘ transform pièce,
+      **impulsion radiale** depuis le CG (biais vers le haut, héritage FAIBLE de la vitesse d'impact — sinon une
+      chute verticale écrase la gerbe) + couple aléatoire ; rendu = `Plane` mono-pièce (mirrored/fuselage
+      conservés) ; nettoyés après `debrisLifetime` (7 s).
+    - **`scenes/CrashExplosion.tsx`** : FLASH additif bref → **BOULE DE FEU** (2 sphères, corps en blending
+      NORMAL — l'additif se lave sur fond clair — cœur additif, jaune→orange→rouge sombre) → **FUMÉE** (10
+      volutes icosaèdres sombres, montée/croissance/fondu ~3.6 s) → **BRAISES** (80 Points additifs, gravité,
+      extinction au sol) → **ONDE** (anneau plat qui s'étend) → **pointLight** orange en pic (lit le décor même
+      sans bloom). Matériaux/géométries disposés à l'unmount ; autodestruction après la fumée.
+    - **PlaneRig** : `exploded` ⇒ RigidBody principal **DÉMONTÉ** (HUD figé, caméra figée sur le crash) ;
+      **camera shake** amorti (offset aléatoire, actif corps démonté) ; hook **`playSfx('explosion')`**
+      (`core/audio/sfx.ts`, placeholder — pas d'asset). R remonte l'avion au spawn (reset stores AVANT le
+      test rb null — sinon R était muet après explosion). Leva « Vol › crash » : rayon 7 / durée 1.4 /
+      éjection 18 / vie débris 7 / secousse 0.7.
+    - **Harnais de test DEV** : `window.__planeApi.launch(x,y,z,vx,vy,vz)` (téléporte + vitesse imposée,
+      try/catch anti-handle rapier périmé) — un piqué « au manche » est trop doux pour crasher de façon fiable
+      (l'assist borne à 35°, l'arrondi de portance ramène sous les seuils — 3 glissades survivables observées,
+      cohérent avec les seuils choisis).
+    - **Validé preview (data + captures)** : chute verticale −40 ⇒ crash `impact`, corps démonté (HUD figé),
+      **aile éjectée à ~15 m + dispersion + fumée sombre** à l'écran ✓ ; mur de hangar à 52 m/s ⇒ crash
+      `structure` ✓ ; roulage 62 m/s roues ⇒ rien ✓ ; hook sfx loggé à chaque crash ✓ ; R ⇒ remontage spawn ✓ ;
+      0 erreur console ; typecheck/lint/build OK. 🟡 Boule de feu non capturée en screenshot (fenêtre 1.4 s <
+      latence capture + renderer wedgé par HMR — couches sœurs prouvées à l'écran) : à valider à l'œil en jeu.
+      ⚠️ Piège dev : chaque HMR remonte PlaneRig ⇒ son cleanup « retour hangar » RESET le store crash en pleine
+      session de test (pas un bug de prod).
   - [ ] C3 eau récupérable (submersion ≤ 0,5 leva : flottaison + traînée d'eau ; océan → sensor).
   - [ ] C4 naufrage (splash/écume/bulles/enfoncement, pas d'explosion).
   - [ ] C5 respawn (dernier aérodrome, avion intact, marqueur perso retiré, fondu optionnel).

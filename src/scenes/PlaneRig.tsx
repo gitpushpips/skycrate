@@ -6,6 +6,9 @@ import type { Collider } from '@dimforge/rapier3d-compat'
 import * as THREE from 'three'
 import { Plane } from './Plane'
 import { DetachedWing } from './DetachedWing'
+import { CrashDebris } from './CrashDebris'
+import { CrashExplosion } from './CrashExplosion'
+import { playSfx } from '../core/audio/sfx'
 import { ControlsContext } from './controlsContext'
 import { useHud } from '../store/hud'
 import { useThrottle } from '../store/throttle'
@@ -151,6 +154,19 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
   // Inclinaison capturée au dernier lâché du roulis (cible du maintien).
   const held = useRef({ bank: 0 })
   const camera = useThree((s) => s.camera)
+
+  // Crash terre (C2) : avion remplacé par débris + explosion ; secousse caméra.
+  const crashedUi = useCrash((s) => s.crashed)
+  const crashCause = useCrash((s) => s.cause)
+  const crashPose = useCrash((s) => s.pose)
+  const exploded = crashedUi && crashCause !== 'water' && crashPose !== null
+  const shake = useRef(0)
+  useEffect(() => {
+    if (!exploded) return
+    shake.current = tunables.shakeIntensity
+    playSfx('explosion')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- déclenché par le crash seul
+  }, [exploded])
 
   // Carburant + rupture structurelle (étape 6).
   const fuelMax = stats.totalFuelUnits
@@ -380,22 +396,33 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
     }
   })
 
-  // RENDU — caméra référencée moteur + télémétrie.
-  useFrame(() => {
+  // RENDU — caméra référencée moteur + télémétrie + secousse (C2).
+  useFrame((_, dt) => {
     const rb = body.current
-    if (!rb) return
-    const rt = rb.rotation()
-    _Q.set(rt.x, rt.y, rt.z, rt.w)
-    const tr = rb.translation()
-    _P.set(tr.x, tr.y, tr.z)
+    if (rb) {
+      const rt = rb.rotation()
+      _Q.set(rt.x, rt.y, rt.z, rt.w)
+      const tr = rb.translation()
+      _P.set(tr.x, tr.y, tr.z)
 
-    _offset.copy(referenceForward).multiplyScalar(-tunables.camDistance).addScaledVector(UP, tunables.camHeight)
-    _camPos.copy(_offset).applyQuaternion(_Q).add(_P)
-    camera.position.lerp(_camPos, 0.12)
-    _camQuat.copy(_Q).multiply(camAlign)
-    camera.quaternion.slerp(_camQuat, 0.12)
+      _offset.copy(referenceForward).multiplyScalar(-tunables.camDistance).addScaledVector(UP, tunables.camHeight)
+      _camPos.copy(_offset).applyQuaternion(_Q).add(_P)
+      camera.position.lerp(_camPos, 0.12)
+      _camQuat.copy(_Q).multiply(camAlign)
+      camera.quaternion.slerp(_camQuat, 0.12)
+    }
 
-    if (import.meta.env.DEV) {
+    // Secousse (C2) : offset aléatoire amorti — actif aussi quand l'avion a
+    // explosé (corps démonté, caméra figée sur le point de crash).
+    if (shake.current > 0.001) {
+      const s = shake.current
+      camera.position.x += (Math.random() - 0.5) * s
+      camera.position.y += (Math.random() - 0.5) * s * 0.7
+      camera.position.z += (Math.random() - 0.5) * s
+      shake.current = Math.max(0, s - dt * (1.2 + s * 2.5))
+    }
+
+    if (import.meta.env.DEV && rb) {
       const lv = rb.linvel()
       _vel.set(lv.x, lv.y, lv.z)
       _dbg.set(0, 0, -1).applyQuaternion(_Q)
@@ -422,12 +449,9 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
   useEffect(() => {
     const onReset = (e: KeyboardEvent) => {
       if (e.code !== 'KeyR') return
-      const rb = body.current
-      if (!rb) return
-      rb.setTranslation({ x: spawn[0], y: spawn[1] + REST_Y, z: spawn[2] }, true)
-      rb.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true)
-      rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
-      rb.setAngvel({ x: 0, y: 0, z: 0 }, true)
+      // Stores D'ABORD : après une explosion le RigidBody est DÉMONTÉ
+      // (body.current = null) — le reset du store crash le fait remonter
+      // au spawn (props initiales : position + vitesses nulles).
       fuel.current = fuelMax
       brokenRef.current = false
       held.current.bank = 0
@@ -435,6 +459,12 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
       useGear.getState().reset()
       useCrash.getState().reset()
       setBreakInfo(null)
+      const rb = body.current
+      if (!rb) return
+      rb.setTranslation({ x: spawn[0], y: spawn[1] + REST_Y, z: spawn[2] }, true)
+      rb.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true)
+      rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
+      rb.setAngvel({ x: 0, y: 0, z: 0 }, true)
     }
     window.addEventListener('keydown', onReset)
     return () => window.removeEventListener('keydown', onReset)
@@ -465,8 +495,33 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
     if (import.meta.env.DEV) installContactsApi()
   }, [])
 
+  // Harnais de test DEV (C2+) : téléporte l'avion avec une vitesse imposée —
+  // impacts/immersions REPRODUCTIBLES en preview (un piqué « au manche » est
+  // trop doux pour atteindre les seuils de crash de façon fiable).
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    ;(window as unknown as Record<string, unknown>).__planeApi = {
+      launch: (x: number, y: number, z: number, vx: number, vy: number, vz: number) => {
+        const rb = body.current
+        if (!rb) return false
+        try {
+          rb.setTranslation({ x, y, z }, true)
+          rb.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true)
+          rb.setLinvel({ x: vx, y: vy, z: vz }, true)
+          rb.setAngvel({ x: 0, y: 0, z: 0 }, true)
+          return true
+        } catch {
+          return false // handle rapier libéré (unmount/HMR) — réessayer
+        }
+      },
+    }
+  }, [])
+
   return (
     <>
+      {/* Avion : DÉMONTÉ après explosion (remplacé par les débris C2) ;
+          remonté au spawn quand le store crash est réinitialisé (R / C5). */}
+      {!exploded && (
       <RigidBody
         ref={body}
         colliders={false}
@@ -498,7 +553,14 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
           const structureHit = !isWheel && pv.length() > tunables.crashContactSpeed
           if (fatalImpact || structureHit) {
             const p = rb.translation()
-            crashStore.crash(fatalImpact ? 'impact' : 'structure', [p.x, p.y, p.z])
+            const rq = rb.rotation()
+            // Pose complète capturée (position + orientation + vitesse
+            // pré-impact) : ancre de l'explosion et héritage des débris (C2).
+            crashStore.crash(fatalImpact ? 'impact' : 'structure', {
+              position: [p.x, p.y, p.z],
+              quaternion: [rq.x, rq.y, rq.z, rq.w],
+              velocity: [pv.x, pv.y, pv.z],
+            })
             useThrottle.getState().resetCommand()
           }
         }
@@ -549,6 +611,25 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
 
         <AirflowPanels panels={vizPanels} facings={facings} visible={tunables.showAirflow} />
       </RigidBody>
+      )}
+
+      {/* Explosion soignée (C2) : éclatement en pièces + flash/feu/fumée/
+          braises/onde — style arcade, pas de gore. */}
+      {exploded && crashPose && (
+        <>
+          <CrashDebris
+            aircraft={aircraft}
+            pose={crashPose}
+            impulse={tunables.debrisImpulse}
+            lifetime={tunables.debrisLifetime}
+          />
+          <CrashExplosion
+            center={crashPose.position}
+            radius={tunables.explosionRadius}
+            duration={tunables.explosionDuration}
+          />
+        </>
+      )}
 
       {breakInfo && <DetachedWing {...breakInfo} />}
     </>

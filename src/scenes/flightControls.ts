@@ -37,12 +37,22 @@ export interface FlightTunables {
   refuelRate: number
   /** Vitesse max (m/s) sous laquelle le ravitaillement s'engage. */
   refuelMaxSpeed: number
-  // Crash (C1) — 🟡 hors dossier
+  // Crash (C1/C2) — 🟡 hors dossier
   /** Vitesse d'approche fatale au contact (m/s, projetée sur la normale). */
   crashImpactSpeed: number
   /** Vitesse « notable » (m/s) : une pièce NON-train qui touche le sol
    *  au-delà ⇒ crash (flanc, ventre, cockpit). */
   crashContactSpeed: number
+  /** Rayon visuel de l'explosion (m). */
+  explosionRadius: number
+  /** Durée de la boule de feu (s) — la fumée dure ~2 s de plus. */
+  explosionDuration: number
+  /** Vitesse d'éjection des débris (m/s). */
+  debrisImpulse: number
+  /** Durée de vie des débris avant nettoyage (s). */
+  debrisLifetime: number
+  /** Intensité de la secousse caméra au crash. */
+  shakeIntensity: number
   linearDamping: number
   angularDamping: number
   // Gouvernes
@@ -107,9 +117,16 @@ export function useFlightTunables(): FlightTunables {
     crash: folder({
       // Étagement avec la rupture de train (S4-D) : doux < rupture train
       // (≈ strength×7 vertical) < impact fatal. Le contact structure regarde
-      // la vitesse TOTALE (une glissade ventre rapide est un crash).
+      // la vitesse TOTALE — seuil haut (50) : une glissade sur le ventre reste
+      // survivable jusqu'à 50 m/s (demande utilisateur) ; l'impact FATAL
+      // (vitesse d'approche vers la surface) attrape les vrais crashs.
       crashImpactSpeed: { value: 15, min: 3, max: 60, step: 0.5, label: 'impact fatal (m/s)' },
-      crashContactSpeed: { value: 12, min: 2, max: 60, step: 0.5, label: 'contact structure (m/s)' },
+      crashContactSpeed: { value: 50, min: 2, max: 90, step: 0.5, label: 'contact structure (m/s)' },
+      explosionRadius: { value: 7, min: 2, max: 20, step: 0.5, label: 'explosion : rayon (m)' },
+      explosionDuration: { value: 1.4, min: 0.5, max: 4, step: 0.1, label: 'explosion : durée (s)' },
+      debrisImpulse: { value: 18, min: 0, max: 40, step: 1, label: 'débris : éjection (m/s)' },
+      debrisLifetime: { value: 7, min: 2, max: 20, step: 0.5, label: 'débris : durée (s)' },
+      shakeIntensity: { value: 0.7, min: 0, max: 3, step: 0.05, label: 'secousse caméra' },
     }),
     amortissement: folder({
       linearDamping: { value: 0, min: 0, max: 2, step: 0.01, label: 'amorti. linéaire' },
