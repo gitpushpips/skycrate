@@ -37,6 +37,12 @@ export interface FlightTunables {
   refuelRate: number
   /** Vitesse max (m/s) sous laquelle le ravitaillement s'engage. */
   refuelMaxSpeed: number
+  // Crash (C1) — 🟡 hors dossier
+  /** Vitesse d'approche fatale au contact (m/s, projetée sur la normale). */
+  crashImpactSpeed: number
+  /** Vitesse « notable » (m/s) : une pièce NON-train qui touche le sol
+   *  au-delà ⇒ crash (flanc, ventre, cockpit). */
+  crashContactSpeed: number
   linearDamping: number
   angularDamping: number
   // Gouvernes
@@ -97,6 +103,13 @@ export function useFlightTunables(): FlightTunables {
     ravitaillement: folder({
       refuelRate: { value: 40, min: 0, max: 120, step: 1, label: 'débit (u/s)' },
       refuelMaxSpeed: { value: 25, min: 0.5, max: 60, step: 0.5, label: 'v max (m/s)' },
+    }),
+    crash: folder({
+      // Étagement avec la rupture de train (S4-D) : doux < rupture train
+      // (≈ strength×7 vertical) < impact fatal. Le contact structure regarde
+      // la vitesse TOTALE (une glissade ventre rapide est un crash).
+      crashImpactSpeed: { value: 15, min: 3, max: 60, step: 0.5, label: 'impact fatal (m/s)' },
+      crashContactSpeed: { value: 12, min: 2, max: 60, step: 0.5, label: 'contact structure (m/s)' },
     }),
     amortissement: folder({
       linearDamping: { value: 0, min: 0, max: 2, step: 0.01, label: 'amorti. linéaire' },

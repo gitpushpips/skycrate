@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { RigidBody, CuboidCollider, BallCollider, useBeforePhysicsStep } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
+import type { Collider } from '@dimforge/rapier3d-compat'
 import * as THREE from 'three'
 import { Plane } from './Plane'
 import { DetachedWing } from './DetachedWing'
@@ -9,6 +10,7 @@ import { ControlsContext } from './controlsContext'
 import { useHud } from '../store/hud'
 import { useThrottle } from '../store/throttle'
 import { useGear } from '../store/gear'
+import { useCrash } from '../store/crash'
 import { useSettings } from '../store/settings'
 import { getPart } from '../core/parts'
 import type { PlaneAssembly } from '../core/assembly'
@@ -133,9 +135,15 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
       }),
     [colliders, gearInfo, gearDown, gearBroken],
   )
-  // Vitesse verticale ENTRANT dans le pas physique (pré-impact) — la rupture de
-  // train compare cette valeur (onContactForce arrive après résolution).
-  const prevVy = useRef(0)
+  // Vitesse ENTRANT dans le pas physique (pré-impact) — rupture de train et
+  // détection de crash (C1) comparent cette valeur (onContactForce arrive
+  // APRÈS la résolution, la vitesse post-impact est déjà amortie).
+  const prevVel = useRef(new THREE.Vector3())
+  // Handle de collider → est-ce une ROUE ? (les roues encaissent l'impact ;
+  // toute autre pièce au sol à vitesse notable = crash). Les handles sont
+  // (ré)enregistrés au montage de chaque collider ; un handle réutilisé par un
+  // de nos colliders est réécrit à son remontage.
+  const colliderIsWheel = useRef(new Map<number, boolean>())
 
   const body = useRef<RapierRigidBody>(null)
   const input = useFlightInput()
@@ -158,7 +166,7 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
 
     const lv = rb.linvel()
     _vel.set(lv.x, lv.y, lv.z)
-    prevVy.current = lv.y
+    prevVel.current.copy(_vel)
     const av = rb.angvel()
     _omega.set(av.x, av.y, av.z)
     const rt = rb.rotation()
@@ -221,12 +229,14 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
         }
       }
     }
+    // Crash (C1) : avion détruit ⇒ moteurs morts, pas de ravitaillement.
+    const crashedNow = useCrash.getState().crashed
     const refueling =
-      padName !== null && speed < tunables.refuelMaxSpeed && fuel.current < fuelMax
+      padName !== null && speed < tunables.refuelMaxSpeed && fuel.current < fuelMax && !crashedNow
     if (refueling) {
       fuel.current = Math.min(fuelMax, fuel.current + tunables.refuelRate * FIXED_DT)
     }
-    const fuelOk = fuel.current > 0
+    const fuelOk = fuel.current > 0 && !crashedNow
 
     // Rupture structurelle : l'aile casse si vitesse > strength×100 (règle 5).
     if (!brokenRef.current && speed > stats.snapSpeedMs) {
@@ -402,6 +412,8 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
         thr: +useThrottle.getState().level.toFixed(2),
         snap: stats.snapSpeedMs,
         broken: brokenRef.current,
+        crashed: useCrash.getState().crashed,
+        crashCause: useCrash.getState().cause,
       }
     }
   })
@@ -421,6 +433,7 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
       held.current.bank = 0
       useThrottle.getState().resetCommand()
       useGear.getState().reset()
+      useCrash.getState().reset()
       setBreakInfo(null)
     }
     window.addEventListener('keydown', onReset)
@@ -442,6 +455,7 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
       useHud.setState({ altitude: 0, gearBroken: false, gearUp: false, refueling: false, padName: null })
       useThrottle.getState().resetCommand()
       useGear.getState().reset()
+      useCrash.getState().reset()
     },
     [],
   )
@@ -465,6 +479,30 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
         const rb = body.current
         if (!rb) return
         if (import.meta.env.DEV) recordContact(e, rb)
+
+        // CRASH terre (C1) : contre le MONDE (corps fixes : terrain/pads/
+        // bâtiments — pas l'aile détachée, dynamique). Deux déclencheurs :
+        //  (a) vitesse d'approche pré-impact projetée sur la normale de
+        //      contact > seuil fatal (touchdown trop dur, flanc, mur) ;
+        //  (b) une pièce NON-roue touche à vitesse totale notable (ventre,
+        //      cockpit, bout d'aile) — une glissade lente reste survivable.
+        const crashStore = useCrash.getState()
+        if (!crashStore.crashed && e.other.rigidBody?.isFixed()) {
+          const n = e.maxForceDirection
+          const nMag = Math.hypot(n.x, n.y, n.z)
+          const pv = prevVel.current
+          const approach = nMag > 1e-6 ? Math.abs((pv.x * n.x + pv.y * n.y + pv.z * n.z) / nMag) : 0
+          const handle = e.target.collider?.handle
+          const isWheel = handle !== undefined && colliderIsWheel.current.get(handle) === true
+          const fatalImpact = approach > tunables.crashImpactSpeed
+          const structureHit = !isWheel && pv.length() > tunables.crashContactSpeed
+          if (fatalImpact || structureHit) {
+            const p = rb.translation()
+            crashStore.crash(fatalImpact ? 'impact' : 'structure', [p.x, p.y, p.z])
+            useThrottle.getState().resetCommand()
+          }
+        }
+
         // Rupture LIGHT du train (S4-D) : contact avec une vitesse verticale
         // pré-impact trop dure, roues déployées ⇒ roues perdues (alerte HUD).
         if (gearInfo.minStrength === Infinity) return
@@ -472,7 +510,7 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
         if (g.broken) return
         const wheelsExposed = gearInfo.hasFixed || (gearInfo.hasRetract && g.down)
         if (!wheelsExposed) return
-        if (prevVy.current < -gearInfo.minStrength * tunables.gearBreakFactor) g.setBroken(true)
+        if (prevVel.current.y < -gearInfo.minStrength * tunables.gearBreakFactor) g.setBroken(true)
       }}
     >
         {activeColliders.map((col, i) =>
@@ -480,6 +518,9 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
             // Roues : sphères (roulent sur les arêtes du terrain — S1).
             <BallCollider
               key={i}
+              ref={(c: Collider | null) => {
+                if (c) colliderIsWheel.current.set(c.handle, true)
+              }}
               args={[col.half[0]]}
               position={col.position}
               mass={col.mass}
@@ -489,6 +530,9 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
           ) : (
             <CuboidCollider
               key={i}
+              ref={(c: Collider | null) => {
+                if (c) colliderIsWheel.current.set(c.handle, false)
+              }}
               args={col.half}
               position={col.position}
               rotation={col.rotation}

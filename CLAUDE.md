@@ -484,6 +484,27 @@ npm run format     # prettier --write
     (right 64) pour l'engrenage. **Validé preview (DOM+store)** : menu ouvre, qualité change + persiste
     localStorage, assist toggle + persiste, leva apparaît/disparaît au toggle, persistance après reload ✅.
     (Captures KO sur cette machine — renderer `always` bloque le screenshot ; vérif par DOM/store.)
+- **Chantier C — crash (terre & eau) + respawn** *(en cours — cadence : un sous-jalon à la fois, feu vert entre
+  chaque)*. Découpage validé : C1 détection terre → C2 explosion soignée → C3 eau récupérable (≤50 % submersion) →
+  C4 naufrage → C5 respawn aérodrome (marqueur perso retiré, spec §10 ; missions pas encore implémentées).
+  Style arcade/stylisé, pas de gore ; sons = placeholders. Vertical = **Y**.
+  - [x] **C1 — détection de crash sur terre ✅.** Store `store/crash.ts` ({crashed, cause 'impact'/'structure'/
+    'water', position}) alimenté par `PlaneRig.onContactForce` CONTRE LES CORPS FIXES uniquement (terrain/pads/
+    bâtiments — pas l'aile détachée). Deux déclencheurs, seuils leva « Vol › crash » 🟡 :
+    (a) **vitesse d'approche pré-impact** projetée sur `maxForceDirection` > `crashImpactSpeed` (15) — touchdown
+    trop dur, flanc, mur ; (b) **pièce NON-roue** au sol à vitesse TOTALE > `crashContactSpeed` (12) — ventre/
+    cockpit/bout d'aile ; une glissade lente reste survivable. Roues identifiées par **handle de collider**
+    (`colliderIsWheel`, refs sur Ball/CuboidCollider — le patin de planeur a une sphère de contact ⇒ « roue »).
+    `prevVy` généralisé en **`prevVel` vecteur** (capturé au début du pas fixe : onContactForce arrive après
+    résolution). Étagement : doux < rupture train (strength×7, S4-D) < fatal. Crash ⇒ **moteurs morts** (via
+    `fuelOk && !crashed`), pas de ravitaillement, gaz coupés ; alerte HUD « 💥 CRASH — R pour réapparaître »
+    (auto-respawn = C5). R + retour hangar résettent. Le snap d'aile n'est PAS le crash (c'est l'impact qui suit).
+    **Validé preview** : roulage/décollage 62 m/s sur roues ⇒ pas de crash ✓ ; piqué au sol ⇒ `crashed:true`
+    cause `structure`, thr 0, alerte DOM ✓ ; R ⇒ reset + respawn ✓ ; 0 erreur console, typecheck/lint/build OK.
+  - [ ] C2 explosion (flash/boule de feu/fumée/braises/**débris = pièces détachées** + impulsions/onde/shake).
+  - [ ] C3 eau récupérable (submersion ≤ 0,5 leva : flottaison + traînée d'eau ; océan → sensor).
+  - [ ] C4 naufrage (splash/écume/bulles/enfoncement, pas d'explosion).
+  - [ ] C5 respawn (dernier aérodrome, avion intact, marqueur perso retiré, fondu optionnel).
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 
