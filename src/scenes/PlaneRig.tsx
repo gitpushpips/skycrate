@@ -24,6 +24,7 @@ import { computeAssistTorque } from '../core/flight/assist'
 import { recordContact, installContactsApi } from './contactProbe'
 import type { CompiledAircraft } from '../core/build/compile'
 import type { RefuelPad } from '../core/world/airportDecor'
+import { SEA_Y } from '../core/world/world'
 import { AirflowPanels } from './AirflowPanels'
 import type { VizPanel } from './AirflowPanels'
 import type { FlightTunables } from './flightControls'
@@ -47,6 +48,9 @@ const _assist = new THREE.Vector3()
 const _att = new THREE.Vector3()
 const _dbg = new THREE.Vector3()
 const _euler = new THREE.Euler()
+const _m4 = new THREE.Matrix4()
+const _aabbC = new THREE.Vector3()
+const _wDrag = new THREE.Vector3()
 
 /** Transform + vitesses capturés à la rupture pour lâcher l'aile détachée. */
 interface DetachInfo {
@@ -122,6 +126,25 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
     }
     return { hasFixed, hasRetract, minStrength, retractByNode }
   }, [aircraft])
+  // AABB de l'avion (repère avion, depuis les colliders) — la fraction de
+  // submersion (C3) compare son étendue VERTICALE monde à la ligne d'eau.
+  const aabb = useMemo(() => {
+    const min = [Infinity, Infinity, Infinity]
+    const max = [-Infinity, -Infinity, -Infinity]
+    for (const col of colliders) {
+      for (let a = 0; a < 3; a++) {
+        const h = col.ball ? col.half[0] : col.half[a]
+        min[a] = Math.min(min[a], col.position[a] - h)
+        max[a] = Math.max(max[a], col.position[a] + h)
+      }
+    }
+    if (min[0] === Infinity) return { center: new THREE.Vector3(), half: new THREE.Vector3(0.5, 0.5, 0.5) }
+    return {
+      center: new THREE.Vector3((min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2),
+      half: new THREE.Vector3((max[0] - min[0]) / 2, (max[1] - min[1]) / 2, (max[2] - min[2]) / 2),
+    }
+  }, [colliders])
+
   const gearDown = useGear((s) => s.down)
   const gearBroken = useGear((s) => s.broken)
   // Colliders effectifs : les ROUES (sphères) d'un train cassé — ou rentré (G) —
@@ -161,6 +184,8 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
   const crashPose = useCrash((s) => s.pose)
   const exploded = crashedUi && crashCause !== 'water' && crashPose !== null
   const shake = useRef(0)
+  // Fraction de submersion courante (C3) — télémétrie DEV.
+  const subRef = useRef(0)
   useEffect(() => {
     if (!exploded) return
     shake.current = tunables.shakeIntensity
@@ -338,6 +363,55 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
     }
     useThrottle.setState({ level: vizLevel, boost: vizBoost, actual })
 
+    // EAU (C3) : fraction de submersion = (ligne d'eau − bas de l'avion) /
+    // hauteur verticale MONDE (AABB orientée : demi-hauteur = Σ |R1j|·hj —
+    // un avion piqué du nez présente une étendue verticale plus grande).
+    // ≤ seuil : RÉCUPÉRABLE — flottaison (équilibre du poids à
+    // `waterBuoyancyEq`) + forte traînée d'eau ∝ v² ⇒ on effleure, ça freine
+    // fort, on ressort en tirant. > seuil : NAUFRAGE — crash 'water',
+    // flottaison coupée ⇒ l'avion coule (visuels C4). Marche aussi pour les
+    // lacs (même nappe d'eau globale à SEA_Y).
+    _m4.makeRotationFromQuaternion(_Q)
+    const me = _m4.elements
+    const halfY =
+      Math.abs(me[1]) * aabb.half.x + Math.abs(me[5]) * aabb.half.y + Math.abs(me[9]) * aabb.half.z
+    _aabbC.copy(aabb.center).applyQuaternion(_Q).add(_P)
+    const subFrac =
+      halfY > 0 ? Math.min(1, Math.max(0, (SEA_Y - (_aabbC.y - halfY)) / (2 * halfY))) : 0
+    subRef.current = subFrac
+    if (subFrac > 0) {
+      const m = rb.mass()
+      const crashState = useCrash.getState()
+      if (!crashState.crashed && subFrac > tunables.waterSinkFraction) {
+        const rq = rb.rotation()
+        crashState.crash('water', {
+          position: [_P.x, _P.y, _P.z],
+          quaternion: [rq.x, rq.y, rq.z, rq.w],
+          velocity: [_vel.x, _vel.y, _vel.z],
+        })
+        useThrottle.getState().resetCommand()
+      }
+      const sinking = useCrash.getState().cause === 'water'
+      if (!sinking) {
+        rb.addForce(
+          { x: 0, y: m * tunables.gravity * (subFrac / tunables.waterBuoyancyEq), z: 0 },
+          true,
+        )
+      }
+      // Traînée d'eau (∝ submersion × v²) + viscosité verticale + amorti angulaire.
+      _wDrag.copy(_vel).multiplyScalar(-tunables.waterDrag * subFrac * speed)
+      _wDrag.y -= tunables.waterViscosity * subFrac * m * _vel.y
+      rb.addForce(_wDrag, true)
+      rb.addTorque(
+        {
+          x: -_omega.x * tunables.waterAngularDrag * subFrac * m,
+          y: -_omega.y * tunables.waterAngularDrag * subFrac * m,
+          z: -_omega.z * tunables.waterAngularDrag * subFrac * m,
+        },
+        true,
+      )
+    }
+
     // Capture l'inclinaison tant qu'on roule ; figée au lâché ⇒ cible du maintien
     // (clampée dans la borne pour éviter tout conflit hold ↔ borne).
     _att.set(1, 0, 0).applyQuaternion(_Q)
@@ -441,6 +515,7 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
         broken: brokenRef.current,
         crashed: useCrash.getState().crashed,
         crashCause: useCrash.getState().cause,
+        sub: +subRef.current.toFixed(2),
       }
     }
   })

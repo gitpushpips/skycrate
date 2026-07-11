@@ -53,6 +53,18 @@ export interface FlightTunables {
   debrisLifetime: number
   /** Intensité de la secousse caméra au crash. */
   shakeIntensity: number
+  // Eau (C3) — 🟡 hors dossier
+  /** Fraction de submersion au-delà de laquelle l'avion coule (naufrage). */
+  waterSinkFraction: number
+  /** Fraction de submersion où la flottaison équilibre le poids (< seuil
+   *  naufrage ⇒ un avion arrêté flotte au lieu de couler). */
+  waterBuoyancyEq: number
+  /** Traînée d'eau (∝ submersion × v²) — freine fort à l'effleurement. */
+  waterDrag: number
+  /** Amorti vertical dans l'eau (anti-rebond de flottaison). */
+  waterViscosity: number
+  /** Amorti angulaire dans l'eau. */
+  waterAngularDrag: number
   linearDamping: number
   angularDamping: number
   // Gouvernes
@@ -127,6 +139,15 @@ export function useFlightTunables(): FlightTunables {
       debrisImpulse: { value: 18, min: 0, max: 40, step: 1, label: 'débris : éjection (m/s)' },
       debrisLifetime: { value: 7, min: 2, max: 20, step: 0.5, label: 'débris : durée (s)' },
       shakeIntensity: { value: 0.7, min: 0, max: 3, step: 0.05, label: 'secousse caméra' },
+    }),
+    eau: folder({
+      // Submersion = (ligne d'eau − bas de l'avion) / hauteur (AABB orientée).
+      // ≤ seuil : récupérable (flottaison + traînée) ; > seuil : naufrage (C4).
+      waterSinkFraction: { value: 0.5, min: 0.2, max: 0.9, step: 0.05, label: 'seuil naufrage' },
+      waterBuoyancyEq: { value: 0.42, min: 0.15, max: 0.8, step: 0.01, label: 'équilibre flottaison' },
+      waterDrag: { value: 0.6, min: 0, max: 3, step: 0.05, label: "traînée d'eau" },
+      waterViscosity: { value: 2.5, min: 0, max: 8, step: 0.1, label: 'amorti vertical' },
+      waterAngularDrag: { value: 1.5, min: 0, max: 6, step: 0.1, label: 'amorti angulaire' },
     }),
     amortissement: folder({
       linearDamping: { value: 0, min: 0, max: 2, step: 0.01, label: 'amorti. linéaire' },

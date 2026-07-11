@@ -94,11 +94,13 @@ export function FlightScene({
               friction={tunables.groundFriction}
             />
           ))}
-          {/* Nappe d'océan (sous tout le monde). */}
+          {/* Nappe d'océan : SENSOR depuis C3 — l'avion pénètre l'eau (la
+              flottaison/traînée d'eau sont calculées analytiquement depuis
+              SEA_Y dans PlaneRig) ; le fond marin solide = heightfields. */}
           <CuboidCollider
             args={[WORLD_RADIUS * 1.2, 1, WORLD_RADIUS * 1.2]}
             position={[0, SEA_Y - 1, 0]}
-            friction={tunables.groundFriction}
+            sensor
           />
         </RigidBody>
 

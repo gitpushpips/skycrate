@@ -532,7 +532,26 @@ npm run format     # prettier --write
       latence capture + renderer wedgé par HMR — couches sœurs prouvées à l'écran) : à valider à l'œil en jeu.
       ⚠️ Piège dev : chaque HMR remonte PlaneRig ⇒ son cleanup « retour hangar » RESET le store crash en pleine
       session de test (pas un bug de prod).
-  - [ ] C3 eau récupérable (submersion ≤ 0,5 leva : flottaison + traînée d'eau ; océan → sensor).
+  - [x] **C3 — eau récupérable (effleurement ≤ 50 %) ✅ (code + data ; dynamique à valider en jeu).**
+    - **Océan → SENSOR** (`FlightScene`) : l'avion PÉNÈTRE l'eau ; le fond marin solide = heightfields. Les forces
+      d'eau sont ANALYTIQUES depuis `SEA_Y` (aucun collider requis) ⇒ marchent aussi pour les **lacs** (même
+      nappe globale). Effet de bord : plus de crash `structure` en glissant sur l'eau (les règles d'eau prennent
+      le relais) ; un avion peut rouler au fond d'un lac peu profond (< 50 % submergé), assumé.
+    - **Submersion** (`PlaneRig`, pas fixe) : AABB avion (repère avion, mémoïsée des colliders) → étendue
+      VERTICALE monde par l'orientation (demi-hauteur = Σ |R1j|·hj — un piqué présente plus de hauteur) ;
+      `subFrac = (SEA_Y − bas) / hauteur` clampé 0..1. Télémétrie `__plane.sub`.
+    - **Zone récupérable (sub ≤ `waterSinkFraction` 0.5)** : **flottaison** = m·g·(sub/`waterBuoyancyEq` 0.42)
+      (équilibre le poids à 42 % ⇒ un avion ARRÊTÉ flotte, seul un plongeon franc passe le seuil) + **traînée
+      d'eau** ∝ sub × v² (`waterDrag` 0.6 — freine fort à l'effleurement) + viscosité verticale (anti-rebond,
+      2.5) + amorti angulaire (1.5). Leva « Vol › eau » 🟡.
+    - **sub > seuil ⇒ crash `water`** (pose capturée) : moteurs morts (gate existant), **flottaison COUPÉE** ⇒
+      l'avion coule (traînée d'eau conservée = descente amortie) ; PAS d'explosion (`exploded` exclut 'water',
+      le corps reste monté) ; alerte CRASH générique (UX naufrage = C4). R répare.
+    - **Validé (data pure, harnais preview KO)** : AABB J1 hauteur 2.63 m ; sub 0 posé au sol ✓, 0.11 bas de
+      l'avion affleurant ✓, 0.45 centre à la ligne d'eau ✓, 1 enfoncé ✓, piqué ⇒ étendue verticale ↑ ✓ ;
+      typecheck/lint/build OK. 🟡 Comportement dynamique (freinage/flottaison/naufrage) à valider en jeu — le
+      Browser pane de cette session est resté « stuck » (screenshots en timeout 30 s, page `hidden` en continu
+      ⇒ rAF/R3F gelés, `fiber.advance()` pompé à la main ne suffit pas : le mount R3F attend un frame visible).
   - [ ] C4 naufrage (splash/écume/bulles/enfoncement, pas d'explosion).
   - [ ] C5 respawn (dernier aérodrome, avion intact, marqueur perso retiré, fondu optionnel).
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
