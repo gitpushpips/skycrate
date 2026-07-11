@@ -9,6 +9,7 @@ import type { FlightTunables } from './flightControls'
 import { AIRPORTS, SEA_Y, START_AIRPORT, TOP_Y, WORLD_RADIUS } from '../core/world/world'
 import { SPAWN_PAD_RADIUS } from '../core/world/terrain'
 import { buildWorld } from '../core/world/airports'
+import { buildAirportDecor } from '../core/world/airportDecor'
 import { useWorldTunables } from './worldControls'
 import { useWorldUi } from '../store/world'
 
@@ -28,8 +29,21 @@ export function FlightScene({
   tunables: FlightTunables
 }) {
   const world = useWorldTunables()
-  const { terrain, airports } = buildWorld(world.terrain) // mémoïsé par valeur (partagé avec World)
+  const worldData = buildWorld(world.terrain) // mémoïsé par valeur (partagé avec World)
+  const { terrain, airports } = worldData
+  const decor = buildAirportDecor(worldData) // bâtiments (colliders) + pads de ravitaillement
   const [sx, , sz] = START_AIRPORT.position
+
+  // Spawn EN BOUT DE PISTE (S5) : au seuil aval de l'axe (heading 0 ⇒ seuil
+  // sud, +z), nez au nord ⇒ toute la longueur de piste devant l'avion.
+  const spawn = useMemo<[number, number, number]>(() => {
+    const back = START_AIRPORT.runwayLength / 2 - 12
+    return [
+      sx + Math.sin(START_AIRPORT.heading) * back,
+      TOP_Y,
+      sz + Math.cos(START_AIRPORT.heading) * back,
+    ]
+  }, [sx, sz])
 
   // Découverte liée au seed courant (persistance localStorage).
   useEffect(() => {
@@ -69,6 +83,16 @@ export function FlightScene({
               friction={tunables.groundFriction}
             />
           ))}
+          {/* Bâtiments d'aérodrome (S5) : hangars, tours, citernes = solides. */}
+          {decor.colliders.map((c, i) => (
+            <CuboidCollider
+              key={`decor-${i}`}
+              args={c.half}
+              position={c.position}
+              rotation={[0, c.rotY, 0]}
+              friction={tunables.groundFriction}
+            />
+          ))}
           {/* Nappe d'océan (sous tout le monde). */}
           <CuboidCollider
             args={[WORLD_RADIUS * 1.2, 1, WORLD_RADIUS * 1.2]}
@@ -77,7 +101,12 @@ export function FlightScene({
           />
         </RigidBody>
 
-        <PlaneRig aircraft={aircraft} tunables={tunables} spawn={[sx, TOP_Y, sz]} />
+        <PlaneRig
+          aircraft={aircraft}
+          tunables={tunables}
+          spawn={spawn}
+          refuelPads={decor.refuelPads}
+        />
       </Physics>
       <DiscoveryTracker airports={trackedAirports} />
     </>

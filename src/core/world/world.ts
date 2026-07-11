@@ -25,7 +25,7 @@ export const SEA_Y = -3
 export const WORLD_RADIUS = 2200
 
 export const AIRPORTS: readonly Airport[] = [
-  { id: 'ap.start', name: 'Aérodrome de départ', position: [0, TOP_Y, 0], heading: 0, runwayLength: 170, runwayWidth: 14 },
+  { id: 'ap.start', name: 'Aérodrome de départ', position: [0, TOP_Y, 0], heading: 0, runwayLength: 170, runwayWidth: 22 },
 ]
 
 /** Aéroport de départ (spawn de l'avion). */

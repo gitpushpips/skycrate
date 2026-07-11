@@ -32,6 +32,11 @@ export interface FlightTunables {
   /** Rupture de train (S4-D, light) : vitesse verticale limite au toucher =
    *  min(strength des trains) × ce facteur (m/s). */
   gearBreakFactor: number
+  // Ravitaillement (S5) — 🟡 hors dossier
+  /** Débit de remplissage sur un pad d'aérodrome (unités de fuel / s). */
+  refuelRate: number
+  /** Vitesse max (m/s) sous laquelle le ravitaillement s'engage. */
+  refuelMaxSpeed: number
   linearDamping: number
   angularDamping: number
   // Gouvernes
@@ -88,6 +93,10 @@ export function useFlightTunables(): FlightTunables {
       groundFriction: { value: 0.08, min: 0, max: 1, step: 0.01, label: 'friction sol' },
       contactSkin: { value: 0.02, min: 0, max: 0.15, step: 0.005, label: 'peau de contact' },
       gearBreakFactor: { value: 7, min: 2, max: 30, step: 0.5, label: 'rupture train (×robust.)' },
+    }),
+    ravitaillement: folder({
+      refuelRate: { value: 8, min: 0, max: 40, step: 0.5, label: 'débit (u/s)' },
+      refuelMaxSpeed: { value: 4, min: 0.5, max: 15, step: 0.5, label: 'v max (m/s)' },
     }),
     amortissement: folder({
       linearDamping: { value: 0, min: 0, max: 2, step: 0.01, label: 'amorti. linéaire' },

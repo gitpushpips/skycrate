@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { palette } from './palette'
@@ -6,6 +7,8 @@ import { AIRPORTS, SEA_Y } from '../core/world/world'
 import type { Airport } from '../core/world/world'
 import type { Terrain, TerrainParams } from '../core/world/terrain'
 import { buildWorld } from '../core/world/airports'
+import { buildAirportDecor } from '../core/world/airportDecor'
+import { AirportDecor } from './AirportDecor'
 import { TerrainChunks } from './Terrain'
 import { Vegetation } from './Vegetation'
 import { useWorldTunables } from './worldControls'
@@ -120,9 +123,19 @@ function Lighthouse({ at }: { at: [number, number, number] }) {
   )
 }
 
-/** Manche à air en bord de piste — repère visuel d'aérodrome. */
+/** Manche à air en bord de piste — repère visuel d'aérodrome, ANIMÉE (S5) :
+ *  la chaussette oscille doucement (phase par position ⇒ pas de synchro). */
 function Windsock({ airport }: { airport: Airport }) {
   const [x, y, z] = airport.position
+  const sock = useRef<THREE.Group>(null)
+  const phase = useMemo(() => ((x * 3.1 + z * 1.7) % Math.PI) * 2, [x, z])
+  useFrame(({ clock }) => {
+    const g = sock.current
+    if (!g) return
+    const t = clock.elapsedTime
+    g.rotation.y = Math.sin(t * 0.6 + phase) * 0.5 + Math.sin(t * 1.9 + phase * 2) * 0.12
+    g.rotation.z = Math.sin(t * 2.6 + phase) * 0.05 // flottement léger
+  })
   return (
     <group position={[x, y, z]} rotation={[0, airport.heading, 0]}>
       <group position={[airport.runwayWidth / 2 + 6, 0, -airport.runwayLength * 0.25]}>
@@ -130,10 +143,12 @@ function Windsock({ airport }: { airport: Airport }) {
           <cylinderGeometry args={[0.06, 0.09, 4.2, 5]} />
           <meshStandardMaterial color={palette.planeStrut} />
         </mesh>
-        <mesh position={[0.7, 4.0, 0]} rotation={[0, 0, -Math.PI / 2]} castShadow>
-          <coneGeometry args={[0.32, 1.4, 6, 1, true]} />
-          <meshStandardMaterial color={palette.windsock} side={THREE.DoubleSide} />
-        </mesh>
+        <group position={[0, 4.0, 0]} ref={sock}>
+          <mesh position={[0.7, 0, 0]} rotation={[0, 0, -Math.PI / 2]} castShadow>
+            <coneGeometry args={[0.32, 1.4, 6, 1, true]} />
+            <meshStandardMaterial color={palette.windsock} side={THREE.DoubleSide} />
+          </mesh>
+        </group>
       </group>
     </group>
   )
@@ -145,10 +160,9 @@ export function World() {
   // Régénération uniquement quand un param change réellement (clé par valeur) ;
   // buildWorld mémoïse par la même clé ⇒ instance partagée avec FlightScene.
   const terrainKey = JSON.stringify(tunables.terrain)
-  const { terrain, airports } = useMemo(
-    () => buildWorld(JSON.parse(terrainKey) as TerrainParams),
-    [terrainKey],
-  )
+  const world = useMemo(() => buildWorld(JSON.parse(terrainKey) as TerrainParams), [terrainKey])
+  const { terrain, airports } = world
+  const decor = useMemo(() => buildAirportDecor(world), [world])
   const cape = useMemo(() => findCape(terrain), [terrain])
 
   return (
@@ -199,6 +213,8 @@ export function World() {
           <Windsock airport={a} />
         </group>
       ))}
+      {/* Décor d'aérodromes (S5) : hangars/tour/citernes/caisses/feux par biome. */}
+      <AirportDecor decor={decor} />
 
       {cape && <Lighthouse at={cape} />}
       {marker && <MarkerBeam terrain={terrain} x={marker[0]} z={marker[1]} />}

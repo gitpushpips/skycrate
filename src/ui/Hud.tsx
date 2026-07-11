@@ -16,6 +16,8 @@ export function Hud() {
   const outOfFuel = useHud((s) => s.outOfFuel)
   const gearBroken = useHud((s) => s.gearBroken)
   const gearUp = useHud((s) => s.gearUp)
+  const refueling = useHud((s) => s.refueling)
+  const padName = useHud((s) => s.padName)
   const oobSeconds = useHud((s) => s.oobSeconds)
 
   const fuelPct = fuelMax > 0 ? Math.max(0, Math.min(1, fuel / fuelMax)) : 0
@@ -35,6 +37,11 @@ export function Hud() {
         {!broken && outOfFuel && <div style={{ ...styles.alert, ...styles.alertWarn }}>PANNE SÈCHE</div>}
         {!broken && gearBroken && (
           <div style={{ ...styles.alert, ...styles.alertWarn }}>TRAIN CASSÉ — R pour réparer</div>
+        )}
+        {refueling && padName && (
+          <div style={{ ...styles.alert, ...styles.alertGood }}>
+            ⛽ RAVITAILLEMENT — {padName.toUpperCase()}
+          </div>
         )}
       </div>
 
@@ -114,6 +121,7 @@ const styles: Record<string, CSSProperties> = {
   },
   alertWarn: { background: 'rgba(224, 162, 58, 0.9)', color: '#1a1208' },
   alertBad: { background: 'rgba(216, 66, 58, 0.92)', color: '#fff' },
+  alertGood: { background: 'rgba(91, 208, 106, 0.92)', color: '#0c2410' },
   bottom: {
     position: 'absolute',
     left: 24,

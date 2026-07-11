@@ -75,7 +75,9 @@ export const DEFAULT_TERRAIN: TerrainParams = {
   airportCount: 10,
   airportMinDist: 700,
   airportMaxAlt: 55,
-  airportFlatness: 7,
+  // 7 → 10 (S5) : l'emprise élargie (pistes + marges décor) durcissait le
+  // filtre de site — sans ce relèvement, ~5 aérodromes au lieu de ~8.
+  airportFlatness: 10,
 }
 
 /** Pad du spawn : rayon plat + largeur du fondu vers le relief (m). */

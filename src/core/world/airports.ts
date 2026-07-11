@@ -25,11 +25,12 @@ export interface WorldData {
   airports: AirportSite[]
 }
 
-/** Classes de pistes (courte ⇒ court-terrain requis, cf. spec §10). */
+/** Classes de pistes (courte ⇒ court-terrain requis, cf. spec §10).
+ *  Largeurs élargies (S5, demande utilisateur) — confort de roulage/atterrissage. */
 const RUNWAY_CLASSES = [
-  { length: 120, width: 12 },
-  { length: 170, width: 14 },
-  { length: 260, width: 18 },
+  { length: 120, width: 18 },
+  { length: 170, width: 22 },
+  { length: 260, width: 30 },
 ] as const
 
 /** Banque de noms par biome (génériques, aucun nom réel). */
@@ -48,7 +49,7 @@ const smoothstep = (e0: number, e1: number, v: number) => {
 }
 
 /** Étiquette de biome depuis le climat (mêmes seuils que la végétation). */
-function classifyBiome(t: number, u: number): BiomeTag {
+export function classifyBiome(t: number, u: number): BiomeTag {
   if (t < 0.16) return 'snow'
   const desertF = smoothstep(0.6, 0.75, t) * (1 - smoothstep(0.3, 0.5, u))
   if (desertF > 0.5) return 'desert'
@@ -56,9 +57,10 @@ function classifyBiome(t: number, u: number): BiomeTag {
   return 'prairie'
 }
 
-/** Marges du pad aplani autour de la piste. */
-const PAD_MARGIN_W = 16
-const PAD_MARGIN_L = 24
+/** Marges du pad aplani autour de la piste (élargies S5 : le décor — hangars,
+ *  tour, citernes — vit sur le flanc du pad et a besoin de sol plat). */
+export const PAD_MARGIN_W = 30
+export const PAD_MARGIN_L = 30
 /** Largeur du fondu pad → relief (m). */
 export const PAD_FALLOFF = 60
 

@@ -24,6 +24,10 @@ export interface HudState {
   gearBroken: boolean
   /** Train rétractable rentré (G). */
   gearUp: boolean
+  /** Ravitaillement en cours (posé sur un pad, quasi à l'arrêt — S5). */
+  refueling: boolean
+  /** Nom de l'aérodrome dont on occupe le pad (null = hors pad). */
+  padName: string | null
   /** Position XZ (repère monde) + cap (rad, 0 = nord) — carte + hors-limites (3+E). */
   x: number
   z: number
@@ -42,6 +46,8 @@ export const useHud = create<HudState>(() => ({
   outOfFuel: false,
   gearBroken: false,
   gearUp: false,
+  refueling: false,
+  padName: null,
   x: 0,
   z: 0,
   heading: 0,

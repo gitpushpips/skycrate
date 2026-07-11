@@ -18,6 +18,7 @@ import { useFlightInput } from '../core/flight/input'
 import { computeAssistTorque } from '../core/flight/assist'
 import { recordContact, installContactsApi } from './contactProbe'
 import type { CompiledAircraft } from '../core/build/compile'
+import type { RefuelPad } from '../core/world/airportDecor'
 import { AirflowPanels } from './AirflowPanels'
 import type { VizPanel } from './AirflowPanels'
 import type { FlightTunables } from './flightControls'
@@ -71,9 +72,11 @@ interface PlaneRigProps {
   tunables: FlightTunables
   /** Point de spawn (sol) ; l'avion est posé à `spawn.y + REST_Y`. */
   spawn?: [number, number, number]
+  /** Zones de ravitaillement (pads d'aérodromes, S5). */
+  refuelPads?: RefuelPad[]
 }
 
-export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProps) {
+export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: PlaneRigProps) {
   const { stats, referenceForward, surfaces, dragPanels, colliders, engines } = aircraft
   const camAlign = useMemo(
     () => new THREE.Quaternion().setFromUnitVectors(BACK_Z, referenceForward),
@@ -200,6 +203,28 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
     }
     if (burn > 0 && fuel.current > 0) {
       fuel.current = Math.max(0, fuel.current - burn * FIXED_DT)
+    }
+
+    // RAVITAILLEMENT (S5) : posé sur le pad d'un aérodrome, quasi à l'arrêt ⇒
+    // le plein se refait (débit leva 🟡 hors dossier). Gratuit, comme le cargo.
+    let padName: string | null = null
+    if (refuelPads) {
+      for (const pad of refuelPads) {
+        const dx = _P.x - pad.x
+        const dz = _P.z - pad.z
+        // Repère local piste (même convention que le flatten du terrain).
+        const lx = dx * pad.cos - dz * pad.sin
+        const lz = dx * pad.sin + dz * pad.cos
+        if (Math.abs(lx) < pad.hw && Math.abs(lz) < pad.hl && _P.y - pad.y < 6) {
+          padName = pad.name
+          break
+        }
+      }
+    }
+    const refueling =
+      padName !== null && speed < tunables.refuelMaxSpeed && fuel.current < fuelMax
+    if (refueling) {
+      fuel.current = Math.min(fuelMax, fuel.current + tunables.refuelRate * FIXED_DT)
     }
     const fuelOk = fuel.current > 0
 
@@ -336,6 +361,8 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
         outOfFuel: fuel.current <= 0,
         gearBroken: useGear.getState().broken,
         gearUp: gearInfo.hasRetract && !useGear.getState().down,
+        refueling,
+        padName,
         x: _P.x,
         z: _P.z,
         heading: Math.atan2(_dbg.x, -_dbg.z), // 0 = nord (-Z), sens horaire vu de dessus
@@ -412,7 +439,7 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
   // Retour au hangar : altitude HUD à 0 + gaz à zéro + train sorti/réparé.
   useEffect(
     () => () => {
-      useHud.setState({ altitude: 0, gearBroken: false, gearUp: false })
+      useHud.setState({ altitude: 0, gearBroken: false, gearUp: false, refueling: false, padName: null })
       useThrottle.getState().resetCommand()
       useGear.getState().reset()
     },

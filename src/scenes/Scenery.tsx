@@ -17,9 +17,10 @@ function useScatter() {
       const x = (rng() - 0.5) * 300
       const z = (rng() - 0.5) * 300
       const r = Math.hypot(x, z)
-      // Garder dégagés : couloir de piste (nord-sud) + premier plan ; rester sur
+      // Garder dégagés : couloir de piste (nord-sud, élargi S5 : piste 22 m +
+      // village d'aérodrome sur le flanc est) + premier plan ; rester sur
       // le pad aplani du spawn (rayon 150, cf. core/world/terrain).
-      if (Math.abs(x) < 26 && Math.abs(z) < 110) continue
+      if (Math.abs(x) < 58 && Math.abs(z) < 125) continue
       if (r < 34 || r > 140) continue
       trees.push({ x, z, s: 0.7 + rng() * 1.2, rot: rng() * Math.PI * 2, tint: rng() })
     }

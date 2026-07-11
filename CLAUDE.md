@@ -442,6 +442,29 @@ npm run format     # prettier --write
       un `import('/@id/leva')` crée une 2ᵉ instance vide.
     - **Suite** : trim auto (`altHold`) passé à **0 par défaut** (demande utilisateur — la portance tempérée
       amorti la phugoïde seule ⇒ l'artifice n'est plus nécessaire ; réglage laissé en leva pour dépannage).
+  - [x] **S5 — aérodromes : ravitaillement + décor biome + pistes élargies + spawn en bout de piste ✅.**
+    - **Pistes élargies** (demande utilisateur) : classes **120×18 / 170×22 / 260×30** (départ 170×22) ; marges de
+      pad 30/30 (le décor vit sur le flanc plat du pad). ⚠️ Emprise plus grande = filtre de site plus dur ⇒
+      **`airportFlatness` 7 → 10** (sinon ~5 aérodromes au lieu de ~8 ; vérifié seed 20260707 : 8 générés, mix
+      120/170/260, déviation piste/terrain 0.000, espacement min 823 m).
+    - **Spawn en bout de piste** : l'avion démarre au seuil aval (axe piste, `L/2 − 12`, nez au nord) ⇒ toute la
+      longueur devant lui ; R re-spawn au même point (`FlightScene` calcule le spawn, `PlaneRig` le consomme).
+    - **Ravitaillement** (`PlaneRig`) : posé sur l'**emprise d'un aérodrome** (rectangle du pad en repère local
+      piste, départ compris) + v < `refuelMaxSpeed` (4 m/s) ⇒ le plein se refait à `refuelRate` (8 u/s) — leva
+      « Vol › ravitaillement » 🟡 hors dossier, gratuit (comme le cargo). HUD : `refueling`/`padName` + chip
+      verte « ⛽ RAVITAILLEMENT — <NOM> ».
+    - **Décor d'aérodrome par biome** : `core/world/airportDecor.ts` = DONNÉES déterministes (seed) partagées
+      rendu/physique ; `scenes/AirportDecor.tsx` = rendu. Par aérodrome : hangar(s) à toit deux pans + porte, tour
+      de contrôle + vigie + **gyrophare pulsant**, **citerne de carburant** (matérialise le ravitaillement), caisses
+      de cargo (annonce des missions), dalle apron, **feux de bord de piste** émissifs — couleurs par biome (grange
+      rouge prairie / vert sapin forêt / adobe désert / ardoise neige). Petit (120) sans tour ; grand (260) 2 hangars.
+      **UN InstancedMesh par archétype pour TOUS les aérodromes** (~10 draw calls). **Manche à air animée**
+      (oscillation, phase par position). **Bâtiments solides** (cuboïdes fixes dans FlightScene). Village côté est
+      vers le bout de piste sud ⇒ visible au spawn ; couloir sans arbres de `Scenery` élargi en conséquence.
+    - **Validé preview (data + captures + cycle scripté)** : 8+1 aérodromes décorés sur sol plat (dév. 0) ; spawn
+      z=73, pad détecté ; cycle taxi→freinage : conso 50→43.8 (v>4 : PAS de ravitaillement), v<4 ⇒ `refueling` +
+      remontée 44→50 à ~8 u/s + chip DOM ✓, plein ⇒ stop ✓ ; village rendu (hangar/tour/citerne/caisses/feux) ;
+      0 erreur console ; **60 fps** au sol décor complet ; typecheck/lint/build OK.
   - [x] **S6 — menu paramètres joueur (+ accès leva) ✅.** Les réglages joueur vivaient dans leva (masqué en
     prod ⇒ inaccessibles). Nouveau store `store/settings.ts` (persisté localStorage `skycrate.settings` :
     `quality` + `assist` ; `showLeva`/`open` = session) + `ui/SettingsMenu.tsx` (engrenage haut-droite → modal) :
@@ -476,7 +499,7 @@ npm run format     # prettier --write
 - **Assistance (étape 5d-E)** : couple correctif **par-dessus** la physique (`core/flight/assist.ts`). Défaut = amortissement des taux + **bornes d'attitude** + **maintien actif de l'inclinaison** (`holdGain`) vers le bank **capturé au lâché du roulis** (clampé à la borne). Nécessaire car la **stabilité aéro naturelle (dièdre) remet les ailes à plat** toute seule ; le maintien la contre ⇒ l'avion **garde son virage** au lâché (demande utilisateur : NE PAS se remettre à plat). Le tangage tient le climb par simple amortissement. `levelReturn` (ailes à plat) / `altHold` (anti-perte d'alt en virage) = options à 0. ⚠️ télémétrie `window.__plane` désormais **gardée mais `import.meta.env.DEV` only** (sera remplacée par le HUD étape 6).
 - **Calibrage 5d (leva « Vol », hors dossier)** : airDensity 0.055, inducedDrag 0.05, flatPlateDrag 1, bodyDrag 0.12, thrustCoef 2.5, CD0 ailes 0.012 / empennages 0.01, calage aile 2°. Assistance : pitch/roll/yawDamp 30/70/40, limitGain 150, maxPitch 35° / maxBank 55°, déflexion gouvernes 15°. **Limite connue** : virages inclinés perdent de l'altitude (pas de maintien d'alt par défaut) → tirer pour compenser, ou monter `altHold`.
 - **Portance tempérée (S-phys)** : `computeSurfaceForce` sépare `qLift` de `q` — sous `liftRefSpeed` (30, leva) loi réelle ½ρv², au-delà **L ∝ v^liftSpeedExponent** (1.5, leva ; 2 = réel), traînée toujours en v². Raison : sans trim continu du pilote, la loi réelle fait ballonner tout excès de vitesse (au trim, CL est fixé par la gouverne ⇒ L ∝ v² > poids). S'applique aussi à l'autorité des gouvernes (surfaces). Masses catalogue ×~1.5 (avant lourd = CG devant l'aile) + T/W ≤ ~1.7 g soutenu (fusée 3.3 g assumée). L'ancien couple `liftExponent/maxAeroSpeed` (étape 4) était l'ancêtre direct — perdu dans la refonte 5b, réintroduit proprement ici.
-- **Terrain 3+A/B/C (leva « Monde », hors dossier)** : **seed 20260707**, worldRadius 2200, baseElevation 6, λ collines 420 / ampl. 14, octaves 5 / gain 0.5 / lacunarité 2, montagnes λ 1500 / hauteur 110 / contraste 2.2, fondu côtier 0.3 / irrégularité 0.35, lacs λ 700 / creusement 12, climat λ temp 1600 / λ humid 1100 / lapse 0.0045 / neige 0.08, végétation densité 1 / rayon 900, aérodromes 10 / 700 m / alt 55 / tolérance 7, viewRadius 1500 / nearRadius 650 / physicsRadius 500. ⚠️ Le masque de montagnosité doit être **remappé par smoothstep** (`0.58 ± 0.5/sharpness`) : un fBm normalisé ne sature jamais ±1, un simple `pow` plafonnait les sommets à ~40 % de `mountainHeight`. Vérif data par eval : `import('/src/core/world/terrain.ts?v='+Date.now())` (cache-buster obligatoire après HMR) + échantillonnage grille.
+- **Terrain 3+A/B/C (leva « Monde », hors dossier)** : **seed 20260707**, worldRadius 2200, baseElevation 6, λ collines 420 / ampl. 14, octaves 5 / gain 0.5 / lacunarité 2, montagnes λ 1500 / hauteur 110 / contraste 2.2, fondu côtier 0.3 / irrégularité 0.35, lacs λ 700 / creusement 12, climat λ temp 1600 / λ humid 1100 / lapse 0.0045 / neige 0.08, végétation densité 1 / rayon 900, aérodromes 10 / 700 m / alt 55 / tolérance 10 (7 avant l'élargissement des pads S5), viewRadius 1500 / nearRadius 650 / physicsRadius 500. ⚠️ Le masque de montagnosité doit être **remappé par smoothstep** (`0.58 ± 0.5/sharpness`) : un fBm normalisé ne sature jamais ±1, un simple `pow` plafonnait les sommets à ~40 % de `mountainHeight`. Vérif data par eval : `import('/src/core/world/terrain.ts?v='+Date.now())` (cache-buster obligatoire après HMR) + échantillonnage grille.
 - **Échelle monde (3+A)** : fog par défaut passé à 220/1500 (voir les massifs de loin), caméra `far` 2000→4000, **dôme de ciel suit la caméra** (rayon 3400 ; un dôme fixe à l'origine finirait derrière l'avion sur un monde de plusieurs km). Garder `viewRadius ≥ fogFar` sinon trous visibles au loin.
 - **Collisions terrain (S1)** : tout heightfield Rapier DOIT être créé avec `HeightFieldFlags.FIX_INTERNAL_EDGES`
   (sinon arêtes internes = murs invisibles) → création **impérative** (`world.createCollider`), le composant
