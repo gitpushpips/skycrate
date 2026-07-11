@@ -44,7 +44,7 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: 'system-ui, sans-serif',
     boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
   },
-  fly: { right: 16, background: '#5bd06a', color: '#0c2410' },
+  fly: { right: 64, background: '#5bd06a', color: '#0c2410' }, // room pour l'engrenage (S6)
   back: { left: 16, background: 'rgba(18,24,32,0.8)', color: '#eef3f6' },
   disabled: { opacity: 0.4, cursor: 'not-allowed' },
 }

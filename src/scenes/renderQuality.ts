@@ -1,4 +1,4 @@
-import { useControls } from 'leva'
+import { useSettings } from '../store/settings'
 
 /**
  * Niveau de qualité du rendu (jalon perf). Mesures Intel HD 630 (hangar,
@@ -7,16 +7,14 @@ import { useControls } from 'leva'
  * - performance : AUCUN post-process (ACES + ombres VSM conservés) → ~60 fps
  * - équilibré   : bloom + vignette (MSAA 0)                        → ~45 fps
  * - qualité     : N8AO + bloom + vignette + MSAA 4                 → ~20 fps
+ *
+ * S6 : la valeur vit désormais dans le store `settings` (menu paramètres joueur,
+ * persisté) — plus dans leva (masqué en prod).
  */
 export type RenderQuality = 'performance' | 'équilibré' | 'qualité'
 
+export const RENDER_QUALITIES: RenderQuality[] = ['performance', 'équilibré', 'qualité']
+
 export function useRenderQuality(): RenderQuality {
-  const { quality } = useControls('Rendu', {
-    quality: {
-      value: 'performance' as RenderQuality,
-      options: ['performance', 'équilibré', 'qualité'] as RenderQuality[],
-      label: 'qualité',
-    },
-  })
-  return quality as RenderQuality
+  return useSettings((s) => s.quality)
 }

@@ -110,9 +110,10 @@ export function useFlightTunables(): FlightTunables {
       yawDamp: { value: 40, min: 0, max: 120, step: 1, label: 'amorti lacet' },
       holdGain: { value: 150, min: 0, max: 400, step: 5, label: 'maintien attitude' },
       levelReturn: { value: 0, min: 0, max: 250, step: 1, label: 'ailes à plat (option)' },
-      // S3 : ON par défaut — amortit la phugoïde (vy→0 à commandes neutres) ⇒
-      // accélérer ne fait plus « ballonner » l'avion.
-      altHold: { value: 12, min: 0, max: 60, step: 1, label: 'maintien palier' },
+      // Trim auto (artifice) DÉSACTIVÉ (défaut 0, demande utilisateur) : la portance
+      // tempérée (liftSpeedExponent) amortit déjà la phugoïde toute seule ⇒ plus
+      // besoin de maintien de palier. Réglage laissé en leva pour dépannage.
+      altHold: { value: 0, min: 0, max: 60, step: 1, label: 'maintien palier (trim auto)' },
       limitGain: { value: 150, min: 0, max: 400, step: 5, label: 'fermeté bornes' },
       antiStall: { value: 8, min: 0, max: 40, step: 0.5, label: 'anti-décrochage' },
       stallGuardDeg: { value: 12, min: 5, max: 20, step: 0.5, label: 'seuil décroch.°' },

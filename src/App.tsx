@@ -19,9 +19,11 @@ import { ThrottleGauge } from './ui/ThrottleGauge'
 import { ThrottlePanel } from './ui/ThrottlePanel'
 import { SaveLoadPanel } from './ui/SaveLoadPanel'
 import { ModeToggle } from './ui/ModeToggle'
+import { SettingsMenu } from './ui/SettingsMenu'
 import { compileAircraft } from './core/build/compile'
 import { coinsAvailable } from './core/economy'
 import { useBuild } from './store/build'
+import { useSettings } from './store/settings'
 
 /**
  * Boucle construire → voler → ajuster (Jalon 2). Le graphe d'avion (store `build`)
@@ -37,12 +39,13 @@ export default function App() {
   const mode = useBuild((s) => s.mode)
   const aircraft = useMemo(() => compileAircraft(aircraftGraph), [aircraftGraph])
   const available = coinsAvailable(coinsBudget, aircraft.stats.totalCost)
+  const showLeva = useSettings((s) => s.showLeva)
 
   return (
     <>
-      {/* Panneau de réglage dev : masqué en prod (le jeu tourne sur les valeurs
-          par défaut des useControls). Visible en dev pour calibrer. */}
-      <Leva collapsed hidden={import.meta.env.PROD} />
+      {/* Panneau de réglages fins (leva) : masqué par défaut, ouvrable depuis le
+          menu Paramètres (S6). Sert au calibrage physique/rendu/économie. */}
+      <Leva collapsed hidden={!showLeva} />
       <Canvas
         frameloop="always"
         shadows="variance"
@@ -62,6 +65,7 @@ export default function App() {
       </Canvas>
 
       <ModeToggle />
+      <SettingsMenu />
       {mode === 'hangar' ? (
         <>
           <PartsPalette available={available} />

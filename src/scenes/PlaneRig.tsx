@@ -9,6 +9,7 @@ import { ControlsContext } from './controlsContext'
 import { useHud } from '../store/hud'
 import { useThrottle } from '../store/throttle'
 import { useGear } from '../store/gear'
+import { useSettings } from '../store/settings'
 import { getPart } from '../core/parts'
 import type { PlaneAssembly } from '../core/assembly'
 import { computeSurfaceForce, computePanelDrag, makeSurfaceResult } from '../core/physics/aerodynamics'
@@ -295,7 +296,8 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0] }: PlaneRigProp
       held.current.bank = THREE.MathUtils.clamp(curBank, -maxB, maxB)
     }
 
-    _gains.enabled = tunables.assistEnabled
+    // Assistance : ET du toggle joueur (menu Paramètres S6) ET du dev leva.
+    _gains.enabled = tunables.assistEnabled && useSettings.getState().assist
     _gains.pitchDamp = tunables.pitchDamp
     _gains.rollDamp = tunables.rollDamp
     _gains.yawDamp = tunables.yawDamp

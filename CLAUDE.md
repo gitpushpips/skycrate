@@ -440,6 +440,18 @@ npm run format     # prettier --write
       l'assistance (qui redevient un simple confort, à retirer à terme). Astuce vérif : le store leva de l'app
       s'atteint par l'URL exacte du dep (`performance.getEntriesByType('resource')` → `.vite/deps/leva.js?v=…`),
       un `import('/@id/leva')` crée une 2ᵉ instance vide.
+    - **Suite** : trim auto (`altHold`) passé à **0 par défaut** (demande utilisateur — la portance tempérée
+      amorti la phugoïde seule ⇒ l'artifice n'est plus nécessaire ; réglage laissé en leva pour dépannage).
+  - [x] **S6 — menu paramètres joueur (+ accès leva) ✅.** Les réglages joueur vivaient dans leva (masqué en
+    prod ⇒ inaccessibles). Nouveau store `store/settings.ts` (persisté localStorage `skycrate.settings` :
+    `quality` + `assist` ; `showLeva`/`open` = session) + `ui/SettingsMenu.tsx` (engrenage haut-droite → modal) :
+    **Qualité graphique** (performance/équilibré/qualité — `renderQuality.ts` lit désormais le store, plus leva),
+    **Assistance de pilotage** ON/OFF (gate `PlaneRig`: `tunables.assistEnabled && settings.assist`),
+    **Réglages avancés** = ouvre/masque le **panneau leva** (`<Leva hidden={!showLeva}>` piloté par le store ;
+    défaut visible en dev, ouvrable en prod), **aide-mémoire commandes**. `ModeToggle` « Vol d'essai » décalé
+    (right 64) pour l'engrenage. **Validé preview (DOM+store)** : menu ouvre, qualité change + persiste
+    localStorage, assist toggle + persiste, leva apparaît/disparaît au toggle, persistance après reload ✅.
+    (Captures KO sur cette machine — renderer `always` bloque le screenshot ; vérif par DOM/store.)
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 
