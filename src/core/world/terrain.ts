@@ -80,8 +80,9 @@ export const DEFAULT_TERRAIN: TerrainParams = {
   airportFlatness: 10,
 }
 
-/** Pad du spawn : rayon plat + largeur du fondu vers le relief (m). */
-export const SPAWN_PAD_RADIUS = 150
+/** Pad du spawn : rayon plat + largeur du fondu vers le relief (m). Rayon
+ *  porté à 220 (S5) pour couvrir la piste de départ rallongée (340 m, demi 170). */
+export const SPAWN_PAD_RADIUS = 220
 export const SPAWN_PAD_FALLOFF = 110
 
 /** Fond marin (sous le niveau de la mer) vers lequel fond le bord du monde. */

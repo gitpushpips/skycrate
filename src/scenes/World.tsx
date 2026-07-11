@@ -23,9 +23,15 @@ import { useWorldUi } from '../store/world'
 function Runway({ airport }: { airport: Airport }) {
   const [x, y, z] = airport.position
   const { runwayLength: L, runwayWidth: W } = airport
+  const surface = airport.surface ?? 'asphalt'
+  const paved = surface === 'asphalt'
+  const surfColor =
+    surface === 'grass' ? palette.runwayGrass : surface === 'dirt' ? palette.runwayDirt : palette.runway
   // Marquages (seuils + pointillés d'axe) FUSIONNÉS en une seule géométrie :
-  // 2 draw calls par piste au lieu de ~13 (jalon perf).
+  // 2 draw calls par piste au lieu de ~13 (jalon perf). Peints uniquement sur
+  // le bitume (une bande d'herbe ou de terre n'a pas de marquage au sol).
   const markings = useMemo(() => {
+    if (!paved) return null
     const parts: THREE.BufferGeometry[] = []
     const quad = (w: number, l: number, zz: number, yy: number) => {
       const g = new THREE.PlaneGeometry(w, l)
@@ -41,16 +47,18 @@ function Runway({ airport }: { airport: Airport }) {
     const merged = mergeGeometries(parts)
     for (const g of parts) g.dispose()
     return merged
-  }, [L, W])
+  }, [L, W, paved])
   return (
     <group position={[x, y + 0.02, z]} rotation={[0, airport.heading, 0]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[W, L]} />
-        <meshStandardMaterial color={palette.runway} roughness={0.95} />
+        <meshStandardMaterial color={surfColor} roughness={paved ? 0.95 : 1} />
       </mesh>
-      <mesh geometry={markings}>
-        <meshStandardMaterial color={palette.runwayLine} />
-      </mesh>
+      {markings && (
+        <mesh geometry={markings}>
+          <meshStandardMaterial color={palette.runwayLine} />
+        </mesh>
+      )}
     </group>
   )
 }

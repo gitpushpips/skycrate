@@ -34,10 +34,11 @@ export function FlightScene({
   const decor = buildAirportDecor(worldData) // bâtiments (colliders) + pads de ravitaillement
   const [sx, , sz] = START_AIRPORT.position
 
-  // Spawn EN BOUT DE PISTE (S5) : au seuil aval de l'axe (heading 0 ⇒ seuil
-  // sud, +z), nez au nord ⇒ toute la longueur de piste devant l'avion.
+  // Spawn vers le tiers aval de la piste (S5) : reculé à 0,33·L du centre (axe
+  // piste, +z pour heading 0), nez au nord ⇒ ~0,83·L de piste devant l'avion,
+  // ~0,17·L derrière (pas COLLÉ au bout de piste, demande utilisateur).
   const spawn = useMemo<[number, number, number]>(() => {
-    const back = START_AIRPORT.runwayLength / 2 - 12
+    const back = START_AIRPORT.runwayLength * 0.33
     return [
       sx + Math.sin(START_AIRPORT.heading) * back,
       TOP_Y,

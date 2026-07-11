@@ -1,6 +1,6 @@
 import { mulberry32 } from '../rng'
 import { makeTerrain, type Terrain, type TerrainParams } from './terrain'
-import { SEA_Y, START_AIRPORT, type Airport } from './world'
+import { SEA_Y, START_AIRPORT, type Airport, type RunwaySurface } from './world'
 
 /**
  * Aérodromes parsemés (3+D) : échantillonnage à distance minimale (type
@@ -25,12 +25,13 @@ export interface WorldData {
   airports: AirportSite[]
 }
 
-/** Classes de pistes (courte ⇒ court-terrain requis, cf. spec §10).
- *  Largeurs élargies (S5, demande utilisateur) — confort de roulage/atterrissage. */
+/** Classes de pistes (courte ⇒ court-terrain requis, cf. spec §10). Longueurs
+ *  DOUBLÉES (S5, demande utilisateur : « 2× plus longue ») ; la plus courte
+ *  (240 m) reste ≥ l'ancienne longueur de départ. Largeurs élargies (confort). */
 const RUNWAY_CLASSES = [
-  { length: 120, width: 18 },
-  { length: 170, width: 22 },
-  { length: 260, width: 30 },
+  { length: 240, width: 18 },
+  { length: 340, width: 22 },
+  { length: 520, width: 30 },
 ] as const
 
 /** Banque de noms par biome (génériques, aucun nom réel). */
@@ -55,6 +56,19 @@ export function classifyBiome(t: number, u: number): BiomeTag {
   if (desertF > 0.5) return 'desert'
   if (smoothstep(0.5, 0.7, u) * (1 - desertF) > 0.5) return 'forest'
   return 'prairie'
+}
+
+/** Revêtement de piste (S5) : les grands terrains sont bitumés ; les petits
+ *  penchent vers l'herbe (prairie/forêt) ou la terre (désert/neige). */
+function pickSurface(rng: () => number, biome: BiomeTag, length: number): RunwaySurface {
+  if (length >= 500) return 'asphalt' // grand terrain = bitume marqué
+  const r = rng()
+  if (biome === 'desert') return r < 0.55 ? 'dirt' : 'asphalt'
+  if (biome === 'snow') return r < 0.4 ? 'dirt' : 'asphalt'
+  // prairie / forêt : bande d'herbe fréquente, parfois terre battue.
+  if (r < 0.45) return 'grass'
+  if (r < 0.6) return 'dirt'
+  return 'asphalt'
 }
 
 /** Marges du pad aplani autour de la piste (élargies S5 : le décor — hangars,
@@ -140,6 +154,7 @@ function generateAirports(raw: Terrain): AirportSite[] {
 
     const { temperature, humidity } = raw.climateAt(x, z, mean)
     const biome = classifyBiome(temperature, humidity)
+    const surface = pickSurface(rng, biome, cls.length)
     const bank = NAMES[biome]
     let name = bank[Math.floor(rng() * bank.length)]
     if (usedNames.has(name)) name = `${name} II`
@@ -153,6 +168,7 @@ function generateAirports(raw: Terrain): AirportSite[] {
       heading,
       runwayLength: cls.length,
       runwayWidth: cls.width,
+      surface,
       biome,
       padHalfWidth: hw,
       padHalfLength: hl,

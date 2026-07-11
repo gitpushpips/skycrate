@@ -17,6 +17,8 @@ export const palette = {
   grass: '#86b14b',
   runway: '#9aa0a3',
   runwayLine: '#ece6d4',
+  runwayGrass: '#6f8f3e', // bande d'herbe fauchée (piste gazon, S5)
+  runwayDirt: '#a5895b', // terre battue (piste en terre, S5)
 
   // Monde ouvert : océan + biomes des îles (herbe/neige/désert) + falaises.
   ocean: '#2c6a93',

@@ -6,6 +6,9 @@
  * 3+A : seul l'aérodrome de départ existe (spawn) ; les autres seront parsemés
  * procéduralement (Poisson-disk + flatten local) en 3+D.
  */
+/** Revêtement de piste (S5) : bitume marqué, ou surface naturelle non peinte. */
+export type RunwaySurface = 'asphalt' | 'grass' | 'dirt'
+
 export interface Airport {
   id: string
   name: string
@@ -15,6 +18,8 @@ export interface Airport {
   heading: number
   runwayLength: number
   runwayWidth: number
+  /** Revêtement (défaut = bitume si absent). */
+  surface?: RunwaySurface
 }
 
 /** Altitude de référence du sol au spawn (= piste de départ). */
@@ -25,7 +30,7 @@ export const SEA_Y = -3
 export const WORLD_RADIUS = 2200
 
 export const AIRPORTS: readonly Airport[] = [
-  { id: 'ap.start', name: 'Aérodrome de départ', position: [0, TOP_Y, 0], heading: 0, runwayLength: 170, runwayWidth: 22 },
+  { id: 'ap.start', name: 'Aérodrome de départ', position: [0, TOP_Y, 0], heading: 0, runwayLength: 340, runwayWidth: 22, surface: 'asphalt' },
 ]
 
 /** Aéroport de départ (spawn de l'avion). */

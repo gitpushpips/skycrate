@@ -442,29 +442,38 @@ npm run format     # prettier --write
       un `import('/@id/leva')` crée une 2ᵉ instance vide.
     - **Suite** : trim auto (`altHold`) passé à **0 par défaut** (demande utilisateur — la portance tempérée
       amorti la phugoïde seule ⇒ l'artifice n'est plus nécessaire ; réglage laissé en leva pour dépannage).
-  - [x] **S5 — aérodromes : ravitaillement + décor biome + pistes élargies + spawn en bout de piste ✅.**
-    - **Pistes élargies** (demande utilisateur) : classes **120×18 / 170×22 / 260×30** (départ 170×22) ; marges de
-      pad 30/30 (le décor vit sur le flanc plat du pad). ⚠️ Emprise plus grande = filtre de site plus dur ⇒
-      **`airportFlatness` 7 → 10** (sinon ~5 aérodromes au lieu de ~8 ; vérifié seed 20260707 : 8 générés, mix
-      120/170/260, déviation piste/terrain 0.000, espacement min 823 m).
-    - **Spawn en bout de piste** : l'avion démarre au seuil aval (axe piste, `L/2 − 12`, nez au nord) ⇒ toute la
-      longueur devant lui ; R re-spawn au même point (`FlightScene` calcule le spawn, `PlaneRig` le consomme).
+  - [x] **S5 — aérodromes : ravitaillement + décor biome + pistes longues/variées + revêtements + spawn ✅.**
+    - **Pistes 2× plus longues + longueurs variées** (demande utilisateur) : classes **240×18 / 340×22 / 520×30**
+      (doublées ; la plus courte 240 m ≥ l'ancienne longueur de départ) ; départ **340×22**. Marges de pad 30/30
+      (le décor vit sur le flanc plat du pad). ⚠️ Emprise plus grande = filtre de site plus dur ⇒ **`airportFlatness`
+      7 → 10** (sinon trop peu de sites). ⚠️ La **piste de départ 340 m dépasse l'ancien pad plat 150 m** ⇒
+      `SPAWN_PAD_RADIUS` 150 → **220** (terrain.ts) + collider spawn/couloir Scenery agrandis en conséquence.
+    - **Revêtements** (S5) : `RunwaySurface` = `asphalt | grass | dirt` (`world.ts`). Grands terrains (≥500 m)
+      bitumés ; petits penchent herbe (prairie/forêt) ou terre (désert/neige) — `pickSurface` déterministe.
+      `Runway` (World.tsx) colore selon le revêtement (`palette.runwayGrass/Dirt`) et ne **peint les marquages
+      que sur le bitume**. `Airport.surface?` optionnel (défaut bitume).
+    - **Spawn pas collé au bout** : l'avion démarre à **0,33·L** du centre (axe piste, nez au nord) ⇒ ~0,83·L de
+      piste devant, ~0,17·L derrière (mesuré : 282 m devant / 58 m derrière pour L=340). R re-spawn au même point
+      (`FlightScene` calcule le spawn, `PlaneRig` le consomme).
     - **Ravitaillement** (`PlaneRig`) : posé sur l'**emprise d'un aérodrome** (rectangle du pad en repère local
-      piste, départ compris) + v < `refuelMaxSpeed` (4 m/s) ⇒ le plein se refait à `refuelRate` (8 u/s) — leva
-      « Vol › ravitaillement » 🟡 hors dossier, gratuit (comme le cargo). HUD : `refueling`/`padName` + chip
-      verte « ⛽ RAVITAILLEMENT — <NOM> ».
+      piste, départ compris) + v < `refuelMaxSpeed` (**25 m/s**, demande utilisateur) ⇒ le plein se refait à
+      `refuelRate` (**40 u/s**) — leva « Vol › ravitaillement » 🟡 hors dossier, gratuit (comme le cargo).
+      HUD : `refueling`/`padName` + chip verte « ⛽ RAVITAILLEMENT — <NOM> ».
     - **Décor d'aérodrome par biome** : `core/world/airportDecor.ts` = DONNÉES déterministes (seed) partagées
       rendu/physique ; `scenes/AirportDecor.tsx` = rendu. Par aérodrome : hangar(s) à toit deux pans + porte, tour
       de contrôle + vigie + **gyrophare pulsant**, **citerne de carburant** (matérialise le ravitaillement), caisses
       de cargo (annonce des missions), dalle apron, **feux de bord de piste** émissifs — couleurs par biome (grange
-      rouge prairie / vert sapin forêt / adobe désert / ardoise neige). Petit (120) sans tour ; grand (260) 2 hangars.
+      rouge prairie / vert sapin forêt / adobe désert / ardoise neige). Petit (240) sans tour ; grand (520) 2 hangars.
       **UN InstancedMesh par archétype pour TOUS les aérodromes** (~10 draw calls). **Manche à air animée**
       (oscillation, phase par position). **Bâtiments solides** (cuboïdes fixes dans FlightScene). Village côté est
       vers le bout de piste sud ⇒ visible au spawn ; couloir sans arbres de `Scenery` élargi en conséquence.
-    - **Validé preview (data + captures + cycle scripté)** : 8+1 aérodromes décorés sur sol plat (dév. 0) ; spawn
-      z=73, pad détecté ; cycle taxi→freinage : conso 50→43.8 (v>4 : PAS de ravitaillement), v<4 ⇒ `refueling` +
-      remontée 44→50 à ~8 u/s + chip DOM ✓, plein ⇒ stop ✓ ; village rendu (hangar/tour/citerne/caisses/feux) ;
-      0 erreur console ; **60 fps** au sol décor complet ; typecheck/lint/build OK.
+    - **Validé preview (data + captures)** : seed 20260707 → 9 aérodromes, longueurs **240/340/520**, revêtements
+      **asphalt/grass/dirt** mixés, déviation piste/terrain **0.000**, espacement min 711 m ; piste de départ 340 m
+      **entièrement plate** sur le pad 220 (dév. 0), spawn à 58 m du seuil aval ; **ravito bridé par la vitesse**
+      (à 50 m/s sur le pad la conso baisse 50→37, PAS de plein ; à l'arrêt `refueling` + retour au plein) ;
+      village rendu (hangars/tour/citerne/caisses/feux/manche) ; 0 erreur console ; typecheck/lint/build OK.
+      🟡 Débit exact 40 u/s = défaut leva câblé (rampe fine non capturée — le renderer `always` gèle le rAF quand
+      l'onglet preview passe `hidden`, throttlant les boucles JS ; comportement validé, valeur code-vérifiée).
   - [x] **S6 — menu paramètres joueur (+ accès leva) ✅.** Les réglages joueur vivaient dans leva (masqué en
     prod ⇒ inaccessibles). Nouveau store `store/settings.ts` (persisté localStorage `skycrate.settings` :
     `quality` + `assist` ; `showLeva`/`open` = session) + `ui/SettingsMenu.tsx` (engrenage haut-droite → modal) :

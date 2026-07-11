@@ -95,8 +95,8 @@ export function useFlightTunables(): FlightTunables {
       gearBreakFactor: { value: 7, min: 2, max: 30, step: 0.5, label: 'rupture train (×robust.)' },
     }),
     ravitaillement: folder({
-      refuelRate: { value: 8, min: 0, max: 40, step: 0.5, label: 'débit (u/s)' },
-      refuelMaxSpeed: { value: 4, min: 0.5, max: 15, step: 0.5, label: 'v max (m/s)' },
+      refuelRate: { value: 40, min: 0, max: 120, step: 1, label: 'débit (u/s)' },
+      refuelMaxSpeed: { value: 25, min: 0.5, max: 60, step: 0.5, label: 'v max (m/s)' },
     }),
     amortissement: folder({
       linearDamping: { value: 0, min: 0, max: 2, step: 0.01, label: 'amorti. linéaire' },
