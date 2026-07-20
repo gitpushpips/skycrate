@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { Physics, RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier'
 import { GameScene } from './GameScene'
 import { PlaneRig } from './PlaneRig'
+import type { RespawnPoint } from './PlaneRig'
 import { TerrainColliders } from './TerrainColliders'
 import { DiscoveryTracker } from './DiscoveryTracker'
 import type { CompiledAircraft } from '../core/build/compile'
@@ -34,17 +35,28 @@ export function FlightScene({
   const decor = buildAirportDecor(worldData) // bâtiments (colliders) + pads de ravitaillement
   const [sx, , sz] = START_AIRPORT.position
 
-  // Spawn vers le tiers aval de la piste (S5) : reculé à 0,33·L du centre (axe
-  // piste, +z pour heading 0), nez au nord ⇒ ~0,83·L de piste devant l'avion,
-  // ~0,17·L derrière (pas COLLÉ au bout de piste, demande utilisateur).
-  const spawn = useMemo<[number, number, number]>(() => {
-    const back = START_AIRPORT.runwayLength * 0.33
+  // Points de réapparition (C5) : un par aérodrome (départ + générés), placé
+  // comme le spawn — reculé à 0,33·L du centre sur l'axe de piste, cap de la
+  // piste ⇒ ~0,83·L de piste devant l'avion. `[0]` = aérodrome de départ.
+  const respawnPoints = useMemo<RespawnPoint[]>(() => {
+    const mk = (
+      name: string,
+      pos: readonly [number, number, number],
+      heading: number,
+      len: number,
+    ): RespawnPoint => {
+      const back = len * 0.33
+      return {
+        name,
+        position: [pos[0] + Math.sin(heading) * back, pos[1], pos[2] + Math.cos(heading) * back],
+        heading,
+      }
+    }
     return [
-      sx + Math.sin(START_AIRPORT.heading) * back,
-      TOP_Y,
-      sz + Math.cos(START_AIRPORT.heading) * back,
+      mk(START_AIRPORT.name, [sx, TOP_Y, sz], START_AIRPORT.heading, START_AIRPORT.runwayLength),
+      ...airports.map((a) => mk(a.name, a.position, a.heading, a.runwayLength)),
     ]
-  }, [sx, sz])
+  }, [airports, sx, sz])
 
   // Découverte liée au seed courant (persistance localStorage).
   useEffect(() => {
@@ -107,7 +119,7 @@ export function FlightScene({
         <PlaneRig
           aircraft={aircraft}
           tunables={tunables}
-          spawn={spawn}
+          respawnPoints={respawnPoints}
           refuelPads={decor.refuelPads}
         />
       </Physics>

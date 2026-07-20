@@ -10,6 +10,7 @@ import { useEconomyTunables } from './scenes/economyControls'
 import { Hud } from './ui/Hud'
 import { MapOverlay } from './ui/MapOverlay'
 import { OutOfBounds } from './ui/OutOfBounds'
+import { RespawnFade } from './ui/RespawnFade'
 import { StatsPanel } from './ui/StatsPanel'
 import { PartsPalette } from './ui/PartsPalette'
 import { PartInspector } from './ui/PartInspector'
@@ -82,6 +83,7 @@ export default function App() {
           <ThrottlePanel engines={aircraft.engines} pcDetent={flight.pcDetent} />
           <MapOverlay />
           <OutOfBounds />
+          <RespawnFade />
         </>
       )}
     </>

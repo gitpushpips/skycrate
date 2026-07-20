@@ -21,6 +21,7 @@ export function Hud() {
   const padName = useHud((s) => s.padName)
   const oobSeconds = useHud((s) => s.oobSeconds)
   const crashed = useCrash((s) => s.crashed)
+  const crashCause = useCrash((s) => s.cause)
 
   const fuelPct = fuelMax > 0 ? Math.max(0, Math.min(1, fuel / fuelMax)) : 0
   const fuelColor = fuelPct > 0.3 ? '#5bd06a' : fuelPct > 0.12 ? '#e0a23a' : '#d8423a'
@@ -30,7 +31,9 @@ export function Hud() {
       {/* Alertes centrales */}
       <div style={styles.alerts}>
         {crashed && (
-          <div style={{ ...styles.alert, ...styles.alertBad }}>💥 CRASH — R pour réapparaître</div>
+          <div style={{ ...styles.alert, ...styles.alertBad }}>
+            {crashCause === 'water' ? '🌊 NAUFRAGE' : '💥 CRASH'} — réapparition…
+          </div>
         )}
         {oobSeconds !== null && (
           <div style={{ ...styles.alert, ...styles.alertBad }}>

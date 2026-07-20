@@ -67,6 +67,11 @@ export interface FlightTunables {
   waterAngularDrag: number
   /** Naufrage (C4) : durée de l'enfoncement avant retrait de l'épave (s). */
   sinkDuration: number
+  // Respawn (C5) — 🟡 hors dossier
+  /** Délai après un crash TERRE avant la réapparition (s). */
+  respawnDelay: number
+  /** Fondu au noir pour masquer le repositionnement. */
+  respawnFade: boolean
   linearDamping: number
   angularDamping: number
   // Gouvernes
@@ -141,6 +146,9 @@ export function useFlightTunables(): FlightTunables {
       debrisImpulse: { value: 18, min: 0, max: 40, step: 1, label: 'débris : éjection (m/s)' },
       debrisLifetime: { value: 7, min: 2, max: 20, step: 0.5, label: 'débris : durée (s)' },
       shakeIntensity: { value: 0.7, min: 0, max: 3, step: 0.05, label: 'secousse caméra' },
+      // Terre : laisse voir l'explosion. Eau : le délai suit `naufrage : durée`.
+      respawnDelay: { value: 3, min: 0.5, max: 12, step: 0.5, label: 'respawn : délai (s)' },
+      respawnFade: { value: true, label: 'respawn : fondu' },
     }),
     eau: folder({
       // Submersion = (ligne d'eau − bas de l'avion) / hauteur (AABB orientée).

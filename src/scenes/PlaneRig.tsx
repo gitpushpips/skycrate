@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { RigidBody, CuboidCollider, BallCollider, useBeforePhysicsStep } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
@@ -15,6 +15,7 @@ import { useHud } from '../store/hud'
 import { useThrottle } from '../store/throttle'
 import { useGear } from '../store/gear'
 import { useCrash } from '../store/crash'
+import { useWorldUi } from '../store/world'
 import { useSettings } from '../store/settings'
 import { getPart } from '../core/parts'
 import type { PlaneAssembly } from '../core/assembly'
@@ -79,17 +80,34 @@ const BACK_Z = new THREE.Vector3(0, 0, -1)
 /** Teinte vers laquelle l'épave se fond en coulant (C4). */
 const DEEP_WATER = new THREE.Color('#0e2c3d')
 const _bubbleSrc = new THREE.Vector3()
+const _respawnQ = new THREE.Quaternion()
+
+/** Point de réapparition (C5) : un par aérodrome, sur l'axe de piste. */
+export interface RespawnPoint {
+  name: string
+  /** Position au sol ; l'avion est posé à `y + REST_Y`. */
+  position: [number, number, number]
+  /** Cap de la piste (rad) — orientation au poser. */
+  heading: number
+}
+
+const DEFAULT_RESPAWN: RespawnPoint[] = [{ name: 'origine', position: [0, 0, 0], heading: 0 }]
 
 interface PlaneRigProps {
   aircraft: CompiledAircraft
   tunables: FlightTunables
-  /** Point de spawn (sol) ; l'avion est posé à `spawn.y + REST_Y`. */
-  spawn?: [number, number, number]
+  /** Aérodromes où réapparaître ; `[0]` = départ (spawn initial). */
+  respawnPoints?: RespawnPoint[]
   /** Zones de ravitaillement (pads d'aérodromes, S5). */
   refuelPads?: RefuelPad[]
 }
 
-export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: PlaneRigProps) {
+export function PlaneRig({
+  aircraft,
+  tunables,
+  respawnPoints = DEFAULT_RESPAWN,
+  refuelPads,
+}: PlaneRigProps) {
   const { stats, referenceForward, surfaces, dragPanels, colliders, engines } = aircraft
   const camAlign = useMemo(
     () => new THREE.Quaternion().setFromUnitVectors(BACK_Z, referenceForward),
@@ -200,6 +218,40 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
   // Éclaboussures (une par ENTRÉE dans l'eau, effleurement compris).
   const [splashes, setSplashes] = useState<{ id: number; position: [number, number, number]; strength: number }[]>([])
   const splashId = useRef(0)
+
+  // RESPAWN (C5) : point de réapparition COURANT (= position de montage du
+  // corps ; après un crash le corps est démonté, il remonte donc ici).
+  // Le dernier aérodrome fréquenté est mémorisé au passage sur son emprise.
+  const [respawn, setRespawn] = useState<RespawnPoint>(respawnPoints[0])
+  const lastPad = useRef<string | null>(null)
+  useEffect(() => {
+    setRespawn(respawnPoints[0])
+    lastPad.current = null
+  }, [respawnPoints])
+
+  const respawnPointsRef = useRef(respawnPoints)
+  respawnPointsRef.current = respawnPoints
+
+  /** Aérodrome de réapparition : le dernier fréquenté, sinon le plus proche.
+   *  Stable (deps vides) mais toujours à jour : ne lit que des refs. */
+  const pickRespawn = useCallback((from: [number, number, number] | null): RespawnPoint => {
+    const pts = respawnPointsRef.current
+    if (lastPad.current) {
+      const hit = pts.find((p) => p.name === lastPad.current)
+      if (hit) return hit
+    }
+    if (!from) return pts[0]
+    let best = pts[0]
+    let bestD = Infinity
+    for (const p of pts) {
+      const d = (p.position[0] - from[0]) ** 2 + (p.position[2] - from[2]) ** 2
+      if (d < bestD) {
+        bestD = d
+        best = p
+      }
+    }
+    return best
+  }, [])
 
   useEffect(() => {
     if (!sinking) {
@@ -322,6 +374,7 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
         const lz = dx * pad.sin + dz * pad.cos
         if (Math.abs(lx) < pad.hw && Math.abs(lz) < pad.hl && _P.y - pad.y < 6) {
           padName = pad.name
+          lastPad.current = pad.name // mémorisé pour la réapparition (C5)
           break
         }
       }
@@ -536,6 +589,66 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
     }
   })
 
+  /**
+   * RÉAPPARITION (C5) : avion INTACT au dernier aérodrome fréquenté (sinon le
+   * plus proche du crash), vitesses remises à zéro. Conserve le design, la
+   * découverte et l'économie ; **retire le marqueur perso** de la carte
+   * (spec §10 — la mission sélectionnée, elle, resterait active).
+   * Les stores sont remis à zéro AVANT de toucher au corps : après une
+   * explosion ou un naufrage il est DÉMONTÉ, et c'est le reset qui le fait
+   * remonter — à la position `respawn` fixée juste avant.
+   */
+  const doRespawn = useCallback(() => {
+    const crash = useCrash.getState()
+    const point = pickRespawn(crash.pose ? crash.pose.position : null)
+    setRespawn(point)
+    useWorldUi.getState().setMarker(null)
+
+    fuel.current = fuelMax
+    brokenRef.current = false
+    held.current.bank = 0
+    sinkT.current = 0
+    useThrottle.getState().resetCommand()
+    useGear.getState().reset()
+    crash.reset()
+    setBreakInfo(null)
+    setSplashes([])
+
+    // Corps encore monté (reset « à froid ») ⇒ téléportation immédiate ; sinon
+    // il remonte tout seul aux props (position/rotation de `respawn`).
+    const rb = body.current
+    if (!rb) return
+    try {
+      const q = _respawnQ.setFromAxisAngle(UP, point.heading)
+      rb.setTranslation({ x: point.position[0], y: point.position[1] + REST_Y, z: point.position[2] }, true)
+      rb.setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }, true)
+      rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
+      rb.setAngvel({ x: 0, y: 0, z: 0 }, true)
+    } catch {
+      /* handle rapier périmé : le remontage aux props s'en charge */
+    }
+  }, [fuelMax, pickRespawn])
+
+  // Réapparition AUTOMATIQUE après l'animation de crash : la terre laisse voir
+  // l'explosion (`respawnDelay`), l'eau attend la fin du naufrage. Fondu au
+  // noir optionnel juste avant, pour masquer le repositionnement.
+  useEffect(() => {
+    if (!crashedUi) return
+    const delay = crashCause === 'water' ? tunables.sinkDuration + 0.8 : tunables.respawnDelay
+    const fade = tunables.respawnFade ? 0.45 : 0
+    const timers: number[] = []
+    if (fade > 0) {
+      timers.push(
+        window.setTimeout(() => useCrash.getState().setRespawning(true), Math.max(0, (delay - fade) * 1000)),
+      )
+    }
+    timers.push(window.setTimeout(() => doRespawn(), delay * 1000))
+    return () => {
+      for (const t of timers) window.clearTimeout(t)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- planifié à l'entrée en crash
+  }, [crashedUi, crashCause])
+
   // RENDU — caméra référencée moteur + télémétrie + secousse (C2).
   useFrame((_, dt) => {
     const rb = body.current
@@ -602,27 +715,11 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
   // Reset (touche R) : réinitialise position/vitesses + carburant + rupture.
   useEffect(() => {
     const onReset = (e: KeyboardEvent) => {
-      if (e.code !== 'KeyR') return
-      // Stores D'ABORD : après une explosion le RigidBody est DÉMONTÉ
-      // (body.current = null) — le reset du store crash le fait remonter
-      // au spawn (props initiales : position + vitesses nulles).
-      fuel.current = fuelMax
-      brokenRef.current = false
-      held.current.bank = 0
-      useThrottle.getState().resetCommand()
-      useGear.getState().reset()
-      useCrash.getState().reset()
-      setBreakInfo(null)
-      const rb = body.current
-      if (!rb) return
-      rb.setTranslation({ x: spawn[0], y: spawn[1] + REST_Y, z: spawn[2] }, true)
-      rb.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true)
-      rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
-      rb.setAngvel({ x: 0, y: 0, z: 0 }, true)
+      if (e.code === 'KeyR') doRespawn()
     }
     window.addEventListener('keydown', onReset)
     return () => window.removeEventListener('keydown', onReset)
-  }, [fuelMax, spawn])
+  }, [doRespawn])
 
   // Train rétractable : G = rentrer / sortir (S4-D).
   useEffect(() => {
@@ -680,7 +777,8 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
       <RigidBody
         ref={body}
         colliders={false}
-        position={[spawn[0], spawn[1] + REST_Y, spawn[2]]}
+        position={[respawn.position[0], respawn.position[1] + REST_Y, respawn.position[2]]}
+        rotation={[0, respawn.heading, 0]}
       linearDamping={tunables.linearDamping}
       angularDamping={tunables.angularDamping}
       canSleep={false}

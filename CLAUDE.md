@@ -591,7 +591,33 @@ npm run format     # prettier --write
       flottaison** qui oscille autour de la ligne d'eau (anti-spam par le gate v > 4), déclencheur **réarmé**
       après sortie ✓ ; typecheck/lint/build OK.
     - 🟡 **Non vérifié visuellement** (gerbe/écume/bulles/fondu à l'écran, cadence) — à valider en jeu.
-  - [ ] C5 respawn (dernier aérodrome, avion intact, marqueur perso retiré, fondu optionnel).
+  - [x] **C5 — respawn (dernier aérodrome, avion intact, marqueur retiré) ✅ (code + data ; visuel à valider).**
+    - **Points de réapparition** (`FlightScene` → prop `respawnPoints`, type `RespawnPoint` exporté par
+      `PlaneRig`) : un par aérodrome (départ + générés), placé comme le spawn — reculé à **0,33·L** sur l'axe de
+      piste, au cap de la piste. Le prop `spawn` est remplacé par `respawnPoints` (`[0]` = départ).
+    - **Choix de l'aérodrome** : le **dernier fréquenté** (`lastPad`, mémorisé quand l'avion est sur une emprise
+      — même détection que le ravitaillement S5), sinon le **plus proche** du lieu du crash. `pickRespawn` est
+      un `useCallback` stable qui ne lit que des refs (jamais périmé dans les timers).
+    - **Réapparition automatique** : délai `respawnDelay` (leva, 3 s) sur terre — laisse voir l'explosion ; sur
+      eau, `sinkDuration + 0.8` (attend la fin du naufrage). `doRespawn` remet fuel/rupture/gaz/train/crash à
+      zéro, vide les éclaboussures, **retire le marqueur perso** (`useWorldUi.setMarker(null)`, spec §10) et
+      **conserve** design/découverte/économie. ⚠️ Ordre imposé : stores D'ABORD, corps ENSUITE — après une
+      explosion ou un naufrage le RigidBody est démonté, et c'est le reset qui le fait **remonter aux props**
+      `position`/`rotation` du nouveau point (d'où le passage de `respawn` en state).
+    - **Touche R** = même chemin (`doRespawn`), donc réapparition au dernier aérodrome, plus au spawn fixe.
+    - **Fondu** : `crash.respawning` (store) → `ui/RespawnFade.tsx` (voile noir plein écran, transition CSS
+      450 ms) allumé juste avant le repositionnement, éteint par `reset()`. Désactivable (leva `respawnFade`).
+    - **HUD** : alerte devenue « 💥 CRASH — réapparition… » / « 🌊 NAUFRAGE — réapparition… » (plus « appuyez sur R »).
+    - **Validé (data, headless — Browser pane `hidden` toute la session)** : modules (App/PlaneRig/FlightScene/
+      RespawnFade) importés sans erreur ✓ ; **10 points** (départ + 9), tous **exactement sur l'axe** de leur
+      piste, **dans la piste**, **déviation terrain 0.000** (sol plat), 199-432 m de piste devant selon la
+      classe ✓ ; sélection du plus proche correcte (depuis le spawn → départ ; près de Bois-Noir → Bois-Noir) ✓ ;
+      typecheck/lint/build OK.
+    - 🟡 **Non vérifié visuellement** : enchaînement crash → fondu → réapparition à l'écran, et respawn effectif
+      sur un aérodrome distant après un vol réel.
+- **Chantier C terminé (C1→C5)** — reste à valider À L'ŒIL en jeu : boule de feu (C2), gerbe/bulles/fondu de
+  l'épave (C4), enchaînement du respawn (C5). Le Browser pane de ces sessions est resté inutilisable
+  (page `hidden` ⇒ rAF gelé, screenshots en timeout) : tout a été vérifié en data/simulation headless.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 

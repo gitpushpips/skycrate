@@ -22,7 +22,10 @@ interface CrashState {
   crashed: boolean
   cause: CrashCause | null
   pose: CrashPose | null
+  /** Fondu de réapparition en cours (C5) — masque le repositionnement. */
+  respawning: boolean
   crash: (cause: CrashCause, pose: CrashPose) => void
+  setRespawning: (v: boolean) => void
   reset: () => void
 }
 
@@ -30,6 +33,8 @@ export const useCrash = create<CrashState>((set) => ({
   crashed: false,
   cause: null,
   pose: null,
+  respawning: false,
   crash: (cause, pose) => set({ crashed: true, cause, pose }),
-  reset: () => set({ crashed: false, cause: null, pose: null }),
+  setRespawning: (v) => set({ respawning: v }),
+  reset: () => set({ crashed: false, cause: null, pose: null, respawning: false }),
 }))
