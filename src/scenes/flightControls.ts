@@ -51,6 +51,8 @@ export interface FlightTunables {
   debrisImpulse: number
   /** Durée de vie des débris avant nettoyage (s). */
   debrisLifetime: number
+  /** Nombre MAX de morceaux éjectés (borne le coût de la frame de crash). */
+  debrisMaxPieces: number
   /** Intensité de la secousse caméra au crash. */
   shakeIntensity: number
   // Eau (C3) — 🟡 hors dossier
@@ -141,13 +143,14 @@ export function useFlightTunables(): FlightTunables {
       // (vitesse d'approche vers la surface) attrape les vrais crashs.
       crashImpactSpeed: { value: 15, min: 3, max: 60, step: 0.5, label: 'impact fatal (m/s)' },
       crashContactSpeed: { value: 50, min: 2, max: 90, step: 0.5, label: 'contact structure (m/s)' },
-      explosionRadius: { value: 7, min: 2, max: 20, step: 0.5, label: 'explosion : rayon (m)' },
-      explosionDuration: { value: 1.4, min: 0.5, max: 4, step: 0.1, label: 'explosion : durée (s)' },
+      explosionRadius: { value: 8, min: 2, max: 20, step: 0.5, label: 'explosion : rayon (m)' },
+      explosionDuration: { value: 2.2, min: 0.5, max: 6, step: 0.1, label: 'explosion : durée (s)' },
       debrisImpulse: { value: 18, min: 0, max: 40, step: 1, label: 'débris : éjection (m/s)' },
       debrisLifetime: { value: 7, min: 2, max: 20, step: 0.5, label: 'débris : durée (s)' },
+      debrisMaxPieces: { value: 12, min: 1, max: 40, step: 1, label: 'débris : max morceaux' },
       shakeIntensity: { value: 0.7, min: 0, max: 3, step: 0.05, label: 'secousse caméra' },
       // Terre : laisse voir l'explosion. Eau : le délai suit `naufrage : durée`.
-      respawnDelay: { value: 3, min: 0.5, max: 12, step: 0.5, label: 'respawn : délai (s)' },
+      respawnDelay: { value: 4.5, min: 0.5, max: 12, step: 0.5, label: 'respawn : délai (s)' },
       respawnFade: { value: true, label: 'respawn : fondu' },
     }),
     eau: folder({

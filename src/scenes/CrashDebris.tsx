@@ -40,18 +40,39 @@ const _dir = new THREE.Vector3()
 /** RNG local (débris décoratifs — pas besoin de déterminisme seedé). */
 const rnd = (a: number, b: number) => a + Math.random() * (b - a)
 
-function buildDebris(aircraft: CompiledAircraft, pose: CrashPose, impulse: number): DebrisSpec[] {
+function buildDebris(
+  aircraft: CompiledAircraft,
+  pose: CrashPose,
+  impulse: number,
+  maxPieces: number,
+): DebrisSpec[] {
   const crashQ = _q.set(...pose.quaternion)
   const out: DebrisSpec[] = []
-  for (const part of aircraft.placed) {
+  // ⚠️ BORNE le nombre de morceaux : chaque débris = un corps Rapier + un
+  // modèle procédural reconstruit (lofts). Sans plafond, un gros build
+  // (30+ pièces) fige la frame du crash et l'explosion n'a pas le temps de
+  // se jouer. On garde les pièces les plus LOURDES (les plus lisibles).
+  const massOf = (nodeId: string) =>
+    aircraft.colliders.reduce((s, c) => (c.nodeId === nodeId ? s + c.mass : s), 0)
+  const kept =
+    aircraft.placed.length <= maxPieces
+      ? aircraft.placed
+      : [...aircraft.placed]
+          .sort((a, b) => massOf(b.nodeId ?? '') - massOf(a.nodeId ?? ''))
+          .slice(0, maxPieces)
+
+  for (const part of kept) {
     if (!part.nodeId) continue
     const partQ = _pq.setFromEuler(_e.set(...(part.rotation ?? [0, 0, 0])))
 
     // Pose monde de la pièce = pose du crash ∘ transform pièce (repère avion).
     const wp = _v.set(...part.position).applyQuaternion(crashQ)
+    // Léger relèvement : l'avion vient de percuter, ses pièces sont donc en
+    // partie SOUS la surface. Les lâcher enfoncées force le solveur à résoudre
+    // une interpénétration profonde (très coûteux) — d'où le à-coup.
     const position: [number, number, number] = [
       pose.position[0] + wp.x,
-      pose.position[1] + wp.y,
+      pose.position[1] + wp.y + 0.35,
       pose.position[2] + wp.z,
     ]
     const worldQ = crashQ.clone().multiply(partQ)
@@ -119,14 +140,19 @@ export function CrashDebris({
   pose,
   impulse,
   lifetime,
+  maxPieces,
 }: {
   aircraft: CompiledAircraft
   pose: CrashPose
   impulse: number
   lifetime: number
+  maxPieces: number
 }) {
   const [gone, setGone] = useState(false)
-  const debris = useMemo(() => buildDebris(aircraft, pose, impulse), [aircraft, pose, impulse])
+  const debris = useMemo(
+    () => buildDebris(aircraft, pose, impulse, maxPieces),
+    [aircraft, pose, impulse, maxPieces],
+  )
 
   // Nettoyage après stabilisation (les corps Rapier sont retirés à l'unmount).
   useEffect(() => {
@@ -146,7 +172,6 @@ export function CrashDebris({
           linearVelocity={d.linearVelocity}
           angularVelocity={d.angularVelocity}
           colliders={false}
-          ccd
           linearDamping={0.1}
           angularDamping={0.4}
         >

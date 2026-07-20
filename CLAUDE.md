@@ -615,9 +615,31 @@ npm run format     # prettier --write
       typecheck/lint/build OK.
     - 🟡 **Non vérifié visuellement** : enchaînement crash → fondu → réapparition à l'écran, et respawn effectif
       sur un aérodrome distant après un vol réel.
+  - [x] **C-fix2 — « l'animation n'a pas le temps de se lancer, l'écran fige » (retour utilisateur) ✅ (code ;
+    à valider à l'œil).** Trois causes CUMULÉES, toutes dans le chemin « corps démonté » :
+    1. **La caméra mourait avec l'avion** (cause principale) : `useFrame` faisait `if (!rb) return` pour le
+       bloc caméra ⇒ dès l'explosion (RigidBody démonté) plus AUCUNE mise à jour de caméra ⇒ **image
+       littéralement figée** pendant toute l'animation ; en prime la secousse **s'accumulait** en marche
+       aléatoire (plus rien ne réécrivait `camera.position`). Correctif : branche `else if (crashPose)` qui
+       **cadre le lieu du crash** (recul + hauteur dérivés de la pose de crash, `offset.y` planchonné à 3 m
+       pour ne pas passer sous le sol quand l'avion piquait) avec un **léger travelling orbital** ⇒ la scène
+       reste vivante et l'explosion est forcément dans le champ. Vaut aussi pour l'épave engloutie (C4).
+    2. **Frame de crash trop lourde** : chaque pièce devenait un corps Rapier **CCD** lâché en
+       interpénétration avec le terrain (l'avion vient de le percuter) + reconstruction du modèle procédural
+       (lofts aile/fuselage) de CHAQUE morceau. Sur un build de 30 pièces = 30 corps CCD + 30 lofts dans la
+       même frame. Correctifs : **CCD retiré** des débris, **relèvement de 0.35 m** au spawn (évite la
+       résolution d'interpénétration profonde, très coûteuse), et **plafond `debrisMaxPieces`** (leva, 12) qui
+       garde les pièces les plus LOURDES ⇒ coût borné quel que soit l'avion.
+    3. **Fenêtre trop courte** : `explosionDuration` 1.4 → **2.2 s**, rayon 7 → 8, `respawnDelay` 3 → **4.5 s**
+       ⇒ l'explosion a le temps de se jouer avant le fondu.
+    🟡 Non reproduit/validé à l'écran : le Browser pane est resté inutilisable (page `hidden` ⇒ R3F ne monte
+    même pas la scène, screenshots en timeout 30 s) — diagnostic par lecture de code, correctifs typés/lintés/
+    buildés. À confirmer en jeu.
 - **Chantier C terminé (C1→C5)** — reste à valider À L'ŒIL en jeu : boule de feu (C2), gerbe/bulles/fondu de
-  l'épave (C4), enchaînement du respawn (C5). Le Browser pane de ces sessions est resté inutilisable
-  (page `hidden` ⇒ rAF gelé, screenshots en timeout) : tout a été vérifié en data/simulation headless.
+  l'épave (C4), enchaînement du respawn (C5), et le C-fix2 ci-dessus. Le Browser pane de ces sessions est resté
+  inutilisable (page `hidden` ⇒ rAF gelé, screenshots en timeout) : tout a été vérifié en data/simulation
+  headless. ⚠️ **Leçon** : tout chemin qui DÉMONTE le RigidBody de l'avion doit prévoir une caméra de repli —
+  sinon l'écran paraît planté même si la simulation tourne.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 

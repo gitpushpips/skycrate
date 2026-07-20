@@ -81,6 +81,8 @@ const BACK_Z = new THREE.Vector3(0, 0, -1)
 const DEEP_WATER = new THREE.Color('#0e2c3d')
 const _bubbleSrc = new THREE.Vector3()
 const _respawnQ = new THREE.Quaternion()
+const _crashAt = new THREE.Vector3()
+const _crashQ = new THREE.Quaternion()
 
 /** Point de réapparition (C5) : un par aérodrome, sur l'axe de piste. */
 export interface RespawnPoint {
@@ -208,6 +210,8 @@ export function PlaneRig({
   const shake = useRef(0)
   // Fraction de submersion courante (C3) — télémétrie DEV.
   const subRef = useRef(0)
+  // Horloge du travelling de caméra sur le lieu du crash (corps démonté).
+  const orbit = useRef(0)
 
   // NAUFRAGE (C4) : l'avion coule (pas d'explosion), bulles + assombrissement,
   // puis l'épave est retirée après `sinkDuration`.
@@ -663,6 +667,25 @@ export function PlaneRig({
       camera.position.lerp(_camPos, 0.12)
       _camQuat.copy(_Q).multiply(camAlign)
       camera.quaternion.slerp(_camQuat, 0.12)
+    } else if (crashPose) {
+      // ⚠️ CORPS DÉMONTÉ (explosion C2 / épave engloutie C4) : sans ce bloc la
+      // caméra n'était plus JAMAIS mise à jour ⇒ image figée pendant toute
+      // l'animation (et la secousse s'accumulait en marche aléatoire, plus
+      // rien ne réécrivant la position). On CADRE le lieu du crash, en recul,
+      // avec un léger travelling orbital pour que la scène reste vivante.
+      orbit.current += dt
+      _crashAt.set(crashPose.position[0], crashPose.position[1], crashPose.position[2])
+      _crashQ.set(crashPose.quaternion[0], crashPose.quaternion[1], crashPose.quaternion[2], crashPose.quaternion[3])
+      _offset
+        .copy(referenceForward)
+        .multiplyScalar(-(tunables.camDistance + 5))
+        .addScaledVector(UP, tunables.camHeight + 3)
+        .applyQuaternion(_crashQ)
+      _offset.y = Math.max(_offset.y, 3) // jamais sous le sol si l'avion piquait
+      _offset.applyAxisAngle(UP, Math.sin(orbit.current * 0.5) * 0.25)
+      _camPos.copy(_offset).add(_crashAt)
+      camera.position.lerp(_camPos, 0.05)
+      camera.lookAt(_crashAt)
     }
 
     // NAUFRAGE (C4) : l'épave s'assombrit et se fond dans l'eau au fil de
@@ -883,6 +906,7 @@ export function PlaneRig({
             pose={crashPose}
             impulse={tunables.debrisImpulse}
             lifetime={tunables.debrisLifetime}
+            maxPieces={tunables.debrisMaxPieces}
           />
           <CrashExplosion
             center={crashPose.position}
