@@ -13,6 +13,11 @@ export interface WorldTunables {
   /** Densité de végétation (multiplicateur) + rayon de peuplement (m). */
   vegDensity: number
   vegRadius: number
+  /** Nuages : altitude de la couche (m), dispersion verticale, densité, rayon. */
+  cloudAltitude: number
+  cloudSpread: number
+  cloudDensity: number
+  cloudRadius: number
   /** Rayon de chargement des chunks (m) — à garder ≥ fog lointain. */
   viewRadius: number
   /** Rayon plein détail ; au-delà = chunks demi-résolution (LOD). */
@@ -58,6 +63,14 @@ export function useWorldTunables(): WorldTunables {
       vegDensity: { value: 1, min: 0, max: 3, step: 0.1, label: 'densité' },
       vegRadius: { value: 900, min: 300, max: 1600, step: 50, label: 'rayon (m)' },
     }),
+    nuages: folder({
+      // Couche au-dessus du plus haut sommet (~118 m) : on vole dessous, dedans
+      // ou dessus selon la montée ⇒ l'altitude devient lisible.
+      cloudAltitude: { value: 300, min: 60, max: 1200, step: 10, label: 'altitude (m)' },
+      cloudSpread: { value: 90, min: 0, max: 400, step: 10, label: 'dispersion (m)' },
+      cloudDensity: { value: 1, min: 0, max: 3, step: 0.1, label: 'densité' },
+      cloudRadius: { value: 2000, min: 500, max: 4000, step: 100, label: 'rayon (m)' },
+    }),
     aérodromes: folder({
       airportCount: { value: DEFAULT_TERRAIN.airportCount, min: 0, max: 24, step: 1, label: 'nombre' },
       airportMinDist: { value: DEFAULT_TERRAIN.airportMinDist, min: 300, max: 1500, step: 50, label: 'espacement min (m)' },
@@ -100,6 +113,10 @@ export function useWorldTunables(): WorldTunables {
     snowTemp: v.snowTemp,
     vegDensity: v.vegDensity,
     vegRadius: v.vegRadius,
+    cloudAltitude: v.cloudAltitude,
+    cloudSpread: v.cloudSpread,
+    cloudDensity: v.cloudDensity,
+    cloudRadius: v.cloudRadius,
     viewRadius: v.viewRadius,
     nearRadius: v.nearRadius,
     physicsRadius: v.physicsRadius,

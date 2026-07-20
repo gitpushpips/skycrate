@@ -13,6 +13,7 @@ const C_SAND = new THREE.Color(palette.biomeDesert)
 const C_ROCK = new THREE.Color(palette.terrainRock)
 const C_SNOW = new THREE.Color(palette.biomeSnow)
 const C_SEABED = new THREE.Color(palette.seabed)
+const C_FOAM = new THREE.Color(palette.oceanFoam)
 // Pôles climatiques : sol = blend bilinéaire température × humidité.
 const C_COLD_DRY = new THREE.Color(palette.biomeSteppe)
 const C_HOT_DRY = new THREE.Color(palette.biomeDesert)
@@ -46,6 +47,11 @@ export function rampColor(
   out.lerp(C_ROCK, smoothstep(0.55, 1.0, slope) * (1 - 0.6 * snowF))
   // Plages : bande sableuse autour du niveau de la mer.
   out.lerp(C_SAND, 1 - smoothstep(SEA_Y + 0.8, SEA_Y + 2.6, h))
+  // ÉCUME DE RIVAGE : liseré clair pile à la ligne d'eau (ressac). Gratuit —
+  // c'est une couleur de sommet, donc 0 draw call, et la carte en profite
+  // aussi (rampe partagée) : les côtes s'y lisent nettement mieux.
+  const d = h - SEA_Y
+  out.lerp(C_FOAM, 0.55 * smoothstep(-1.1, -0.25, d) * (1 - smoothstep(0.15, 1.0, d)))
   // Fond immergé : sable → vase sombre avec la profondeur (visible à travers
   // l'eau semi-transparente ⇒ hauts-fonds/lacs clairs, océan profond foncé).
   out.lerp(C_SEABED, smoothstep(0.6, 5.5, SEA_Y - h))

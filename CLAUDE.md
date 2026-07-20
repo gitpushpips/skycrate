@@ -640,6 +640,28 @@ npm run format     # prettier --write
   inutilisable (page `hidden` ⇒ rAF gelé, screenshots en timeout) : tout a été vérifié en data/simulation
   headless. ⚠️ **Leçon** : tout chemin qui DÉMONTE le RigidBody de l'avion doit prévoir une caméra de repli —
   sinon l'écran paraît planté même si la simulation tourne.
+- **Détails du monde — passe 1 : nuages + écume de rivage ✅ (code + data ; visuel à valider).**
+  - **Nuages** (`scenes/Clouds.tsx`) — le ciel n'était qu'un **dégradé**, sans aucun nuage : en vol, rien ne
+    donnait l'échelle ni la sensation d'altitude/vitesse. Amas de « bouffées » (icosaèdres aplatis,
+    `flatShading`) **instanciés en UN SEUL draw call**, placement déterministe par seed sur cellules de 700 m,
+    streamé autour de la caméra (même patron que la végétation : régénération au changement de cellule).
+    Silhouette de cumulus (bouffées alignées sur un axe, plus grosses au centre ⇒ bombé) ; teinte blanc au
+    sommet → ventre bleuté (volume). **Statiques par PARTI PRIS** : la convention du monde est temps + soleil
+    FIGÉS (le soleil = nord est le seul repère de cap) ⇒ des nuages qui dérivent la contrediraient. Pas
+    d'ombres portées (coût + incohérence avec le soleil fixe). Leva « Monde › nuages » : altitude 300 /
+    dispersion 90 / densité 1 / rayon 2000. Plafond `MAX_PUFFS` 900.
+  - **Écume de rivage** (`terrainRamp.ts`) : liseré clair (`palette.oceanFoam`) pile à la ligne d'eau, fondu
+    des deux côtés. **0 draw call** (couleur de sommet), et comme la rampe est PARTAGÉE avec `MapOverlay`, les
+    côtes se lisent nettement mieux sur la carte aussi.
+  - **Vérifié (data)** : nuages seed 20260707 → 14 amas / **128 bouffées** (rayon 2000, densité 1), altitudes
+    **223-390 m** (au-dessus du sommet à 118 m ⇒ on vole dessous/dedans/dessus), **déterminisme confirmé**
+    (2 générations identiques), densité 2 → 273, autre seed → 100 (monde différent), toujours sous le plafond ✓.
+    Écume échantillonnée sur la VRAIE rampe : sable `#d4bc84` à −4.2 → **écume `#cbd4c8` à la ligne d'eau** →
+    sable `#d6be84` à −2 → herbe à 0 ✓. typecheck/lint/build OK.
+    ⚠️ Piège reconfirmé : sans cache-buster, `import('/src/…')` sert la version d'AVANT l'édition (le premier
+    échantillonnage montrait du sable pur — c'était le cache Vite, pas un bug de rampe).
+  - 🟡 **Non vérifié visuellement** (aspect des nuages en vol, densité perçue, liseré d'écume à l'écran) :
+    Browser pane toujours inutilisable. Coût attendu négligeable (1 draw call, ~10k tris ; écume gratuite).
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 

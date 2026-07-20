@@ -11,6 +11,7 @@ import { buildAirportDecor } from '../core/world/airportDecor'
 import { AirportDecor } from './AirportDecor'
 import { TerrainChunks } from './Terrain'
 import { Vegetation } from './Vegetation'
+import { Clouds } from './Clouds'
 import { useWorldTunables } from './worldControls'
 import { useWorldUi } from '../store/world'
 
@@ -207,6 +208,14 @@ export function World() {
         snowTemp={tunables.snowTemp}
         density={tunables.vegDensity}
         radius={tunables.vegRadius}
+      />
+      {/* Nuages : donnent l'échelle et l'altitude en vol (1 draw call). */}
+      <Clouds
+        seed={tunables.terrain.seed}
+        altitude={tunables.cloudAltitude}
+        spread={tunables.cloudSpread}
+        density={tunables.cloudDensity}
+        radius={tunables.cloudRadius}
       />
 
       {AIRPORTS.map((a) => (
