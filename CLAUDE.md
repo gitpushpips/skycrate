@@ -552,6 +552,24 @@ npm run format     # prettier --write
       typecheck/lint/build OK. 🟡 Comportement dynamique (freinage/flottaison/naufrage) à valider en jeu — le
       Browser pane de cette session est resté « stuck » (screenshots en timeout 30 s, page `hidden` en continu
       ⇒ rAF/R3F gelés, `fiber.advance()` pompé à la main ne suffit pas : le mount R3F attend un frame visible).
+  - [x] **C-fix — crash terrestre inopérant sur le RELIEF (retour utilisateur : « l'animation ne se lance pas
+    sur terre ») ✅.** **Cause racine** : les heightfields de terrain sont créés en impératif
+    (`TerrainColliders`, `world.createCollider(desc)`) **SANS corps parent** ⇒ dans l'événement de contact,
+    `e.other.rigidBody` vaut **null**, donc la garde `e.other.rigidBody?.isFixed()` était **toujours fausse**
+    sur le vrai relief. Seuls le pad de spawn et les bâtiments (sur `<RigidBody type="fixed">`) passaient —
+    d'où l'illusion que C2 marchait (mes tests tapaient le pad et un hangar). La rupture de train, elle, ne
+    teste pas le corps adverse ⇒ elle fonctionnait, ce qui masquait encore le trou.
+    **Correctif** : « monde » = corps adverse **absent (terrain) OU fixe (pad/bâtiment)** —
+    `const isWorld = !other || other.isFixed()` — les corps **dynamiques** (débris, aile détachée) restent
+    exclus (pas de crash auto-déclenché par ses propres débris).
+    **Vérifié (monde Rapier headless, mêmes appels que le code réel — le Browser pane restait `hidden`,
+    rAF gelé ⇒ vol impossible)** : (a) parenté des colliders — heightfield `parent = null` (ancien false /
+    nouveau true), pad `fixed` (true/true), débris `dynamic` (false/false ⇒ bien exclu) ; (b) simulation avec
+    vrais `drainContactForceEvents` sur heightfield : piqué vertical 40 m/s ⇒ approche 42.6 ⇒ **aucun crash
+    avant / `impact` après** ; oblique 45 m/s ⇒ approche 32.8, total 47.2 ⇒ **aucun avant / `impact` après** ;
+    glissade rasante 40 m/s ⇒ approche 1.2, total 40 ⇒ **aucun** (survivable, conforme au seuil 50 demandé).
+    typecheck/lint/build OK. Le RENDU de l'animation était déjà prouvé en C2 (débris + fumée capturés sur les
+    crashs pad/hangar) : seule la détection était en cause.
   - [ ] C4 naufrage (splash/écume/bulles/enfoncement, pas d'explosion).
   - [ ] C5 respawn (dernier aérodrome, avion intact, marqueur perso retiré, fondu optionnel).
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.

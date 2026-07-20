@@ -610,14 +610,20 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
         if (!rb) return
         if (import.meta.env.DEV) recordContact(e, rb)
 
-        // CRASH terre (C1) : contre le MONDE (corps fixes : terrain/pads/
-        // bâtiments — pas l'aile détachée, dynamique). Deux déclencheurs :
+        // CRASH terre (C1) : contre le MONDE. ⚠️ Les heightfields de terrain
+        // sont créés SANS corps parent (TerrainColliders, world.createCollider)
+        // ⇒ `e.other.rigidBody` est NULL sur le vrai relief (seuls le pad de
+        // spawn et les bâtiments ont un RigidBody fixe). « Monde » = autre
+        // corps ABSENT (terrain) OU fixe (pad/bâtiment) ; on exclut seulement
+        // les corps dynamiques (débris, aile détachée). Deux déclencheurs :
         //  (a) vitesse d'approche pré-impact projetée sur la normale de
         //      contact > seuil fatal (touchdown trop dur, flanc, mur) ;
         //  (b) une pièce NON-roue touche à vitesse totale notable (ventre,
         //      cockpit, bout d'aile) — une glissade lente reste survivable.
+        const other = e.other.rigidBody
+        const isWorld = !other || other.isFixed()
         const crashStore = useCrash.getState()
-        if (!crashStore.crashed && e.other.rigidBody?.isFixed()) {
+        if (!crashStore.crashed && isWorld) {
           const n = e.maxForceDirection
           const nMag = Math.hypot(n.x, n.y, n.z)
           const pv = prevVel.current
