@@ -65,6 +65,8 @@ export interface FlightTunables {
   waterViscosity: number
   /** Amorti angulaire dans l'eau. */
   waterAngularDrag: number
+  /** Naufrage (C4) : durée de l'enfoncement avant retrait de l'épave (s). */
+  sinkDuration: number
   linearDamping: number
   angularDamping: number
   // Gouvernes
@@ -148,6 +150,7 @@ export function useFlightTunables(): FlightTunables {
       waterDrag: { value: 0.6, min: 0, max: 3, step: 0.05, label: "traînée d'eau" },
       waterViscosity: { value: 2.5, min: 0, max: 8, step: 0.1, label: 'amorti vertical' },
       waterAngularDrag: { value: 1.5, min: 0, max: 6, step: 0.1, label: 'amorti angulaire' },
+      sinkDuration: { value: 4, min: 1, max: 12, step: 0.5, label: 'naufrage : durée (s)' },
     }),
     amortissement: folder({
       linearDamping: { value: 0, min: 0, max: 2, step: 0.01, label: 'amorti. linéaire' },

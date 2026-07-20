@@ -570,7 +570,27 @@ npm run format     # prettier --write
     glissade rasante 40 m/s ⇒ approche 1.2, total 40 ⇒ **aucun** (survivable, conforme au seuil 50 demandé).
     typecheck/lint/build OK. Le RENDU de l'animation était déjà prouvé en C2 (débris + fumée capturés sur les
     crashs pad/hangar) : seule la détection était en cause.
-  - [ ] C4 naufrage (splash/écume/bulles/enfoncement, pas d'explosion).
+  - [x] **C4 — naufrage (eau) : splash, écume, bulles, enfoncement ✅ (code + data ; visuel à valider en jeu).**
+    Contraste voulu avec C2 : le naufrage est **sombre et silencieux**, sans explosion ni débris.
+    - **`scenes/WaterEffects.tsx`** : `WaterSplash` = **gerbe** (70 Points blancs éjectés en couronne, gravité,
+      gouttes qui meurent à la surface) + **anneau d'écume** (ring plat à SEA_Y qui s'étend et s'efface), ~1.25 s,
+      taille/opacité ∝ `strength` (= vitesse/45) ; `SinkingBubbles` = 46 bulles **recyclées** (émission depuis
+      l'épave avec dispersion, montée 1.4-3.8 m/s + ondulation, éclatement à SEA_Y ⇒ remise en attente).
+      Géométries/matériaux disposés à l'unmount.
+    - **Déclenchement du splash** (`PlaneRig`, pas fixe) : au **FRANCHISSEMENT** de la surface (prevSub < 0.02 →
+      sub ≥ 0.02) avec v > 4 ⇒ vaut aussi pour un **effleurement récupérable** (C3), pas seulement le naufrage ;
+      `playSfx('splash')` (placeholder).
+    - **Enfoncement** : `sinking` (cause 'water') ⇒ bulles + **assombrissement progressif** de l'épave (opacité
+      → 15 %, couleur fondue vers `DEEP_WATER`) sur `sinkDuration` (leva, 4 s), puis **épave RETIRÉE**
+      (`submerged` ⇒ RigidBody démonté, comme `exploded`). Les matériaux de `Plane` étant des instances PAR MESH
+      (aucun partagé au niveau module — vérifié), la mutation est sûre : originaux mémorisés et **restaurés** au
+      cleanup (R remonte un avion intact).
+    - **Validé (data, headless — Browser pane `hidden` toute la session ⇒ rAF gelé, rendu impossible)** : module
+      importé sans erreur d'API three ✓ ; règle de splash rejouée sur trajectoire scriptée avec la VRAIE
+      submersion et la VRAIE AABB du J1 ⇒ **1 splash par entrée** (entrée + re-entrée = 2), **0 pendant la
+      flottaison** qui oscille autour de la ligne d'eau (anti-spam par le gate v > 4), déclencheur **réarmé**
+      après sortie ✓ ; typecheck/lint/build OK.
+    - 🟡 **Non vérifié visuellement** (gerbe/écume/bulles/fondu à l'écran, cadence) — à valider en jeu.
   - [ ] C5 respawn (dernier aérodrome, avion intact, marqueur perso retiré, fondu optionnel).
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).

@@ -8,6 +8,7 @@ import { Plane } from './Plane'
 import { DetachedWing } from './DetachedWing'
 import { CrashDebris } from './CrashDebris'
 import { CrashExplosion } from './CrashExplosion'
+import { WaterSplash, SinkingBubbles } from './WaterEffects'
 import { playSfx } from '../core/audio/sfx'
 import { ControlsContext } from './controlsContext'
 import { useHud } from '../store/hud'
@@ -75,6 +76,9 @@ const _gains = {
 }
 const UP = new THREE.Vector3(0, 1, 0)
 const BACK_Z = new THREE.Vector3(0, 0, -1)
+/** Teinte vers laquelle l'épave se fond en coulant (C4). */
+const DEEP_WATER = new THREE.Color('#0e2c3d')
+const _bubbleSrc = new THREE.Vector3()
 
 interface PlaneRigProps {
   aircraft: CompiledAircraft
@@ -186,6 +190,58 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
   const shake = useRef(0)
   // Fraction de submersion courante (C3) — télémétrie DEV.
   const subRef = useRef(0)
+
+  // NAUFRAGE (C4) : l'avion coule (pas d'explosion), bulles + assombrissement,
+  // puis l'épave est retirée après `sinkDuration`.
+  const sinking = crashedUi && crashCause === 'water'
+  const [submerged, setSubmerged] = useState(false)
+  const planeGroup = useRef<THREE.Group>(null)
+  const sinkT = useRef(0)
+  // Éclaboussures (une par ENTRÉE dans l'eau, effleurement compris).
+  const [splashes, setSplashes] = useState<{ id: number; position: [number, number, number]; strength: number }[]>([])
+  const splashId = useRef(0)
+
+  useEffect(() => {
+    if (!sinking) {
+      setSubmerged(false)
+      sinkT.current = 0
+      return
+    }
+    playSfx('splash')
+    const id = window.setTimeout(() => setSubmerged(true), tunables.sinkDuration * 1000)
+    return () => window.clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- déclenché par le naufrage seul
+  }, [sinking])
+
+  // Assombrissement progressif de l'épave sous l'eau : les matériaux de `Plane`
+  // sont des instances PAR MESH (aucun partagé au niveau module) ⇒ mutation
+  // sûre ; originaux mémorisés et RESTAURÉS quand le naufrage s'arrête (R).
+  const fadeStore = useRef<{ m: THREE.Material; opacity: number; transparent: boolean; color?: THREE.Color }[]>([])
+  useEffect(() => {
+    if (!sinking) return
+    const g = planeGroup.current
+    if (!g) return
+    const list: typeof fadeStore.current = []
+    g.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.material) return
+      for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        const mm = m as THREE.Material & { color?: THREE.Color }
+        list.push({ m: mm, opacity: mm.opacity, transparent: mm.transparent, color: mm.color?.clone() })
+      }
+    })
+    fadeStore.current = list
+    return () => {
+      for (const e of fadeStore.current) {
+        e.m.opacity = e.opacity
+        e.m.transparent = e.transparent
+        const c = (e.m as THREE.Material & { color?: THREE.Color }).color
+        if (c && e.color) c.copy(e.color)
+        e.m.needsUpdate = true
+      }
+      fadeStore.current = []
+    }
+  }, [sinking])
   useEffect(() => {
     if (!exploded) return
     shake.current = tunables.shakeIntensity
@@ -378,7 +434,17 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
     _aabbC.copy(aabb.center).applyQuaternion(_Q).add(_P)
     const subFrac =
       halfY > 0 ? Math.min(1, Math.max(0, (SEA_Y - (_aabbC.y - halfY)) / (2 * halfY))) : 0
+    // ÉCLABOUSSURE (C4) : au FRANCHISSEMENT de la surface (0 → immergé), à
+    // vitesse notable — vaut aussi pour un simple effleurement récupérable.
+    const prevSub = subRef.current
     subRef.current = subFrac
+    if (prevSub < 0.02 && subFrac >= 0.02 && speed > 4) {
+      splashId.current += 1
+      const id = splashId.current
+      const strength = Math.min(1, speed / 45)
+      setSplashes((s) => [...s, { id, position: [_P.x, SEA_Y, _P.z], strength }])
+      playSfx('splash')
+    }
     if (subFrac > 0) {
       const m = rb.mass()
       const crashState = useCrash.getState()
@@ -484,6 +550,19 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
       camera.position.lerp(_camPos, 0.12)
       _camQuat.copy(_Q).multiply(camAlign)
       camera.quaternion.slerp(_camQuat, 0.12)
+    }
+
+    // NAUFRAGE (C4) : l'épave s'assombrit et se fond dans l'eau au fil de
+    // l'enfoncement (le retrait effectif se fait à `sinkDuration`).
+    if (sinking && fadeStore.current.length > 0) {
+      sinkT.current += dt
+      const k = Math.min(1, sinkT.current / Math.max(0.1, tunables.sinkDuration))
+      for (const e of fadeStore.current) {
+        e.m.transparent = true
+        e.m.opacity = e.opacity * (1 - 0.85 * k)
+        const c = (e.m as THREE.Material & { color?: THREE.Color }).color
+        if (c && e.color) c.copy(e.color).lerp(DEEP_WATER, 0.75 * k)
+      }
     }
 
     // Secousse (C2) : offset aléatoire amorti — actif aussi quand l'avion a
@@ -594,9 +673,10 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
 
   return (
     <>
-      {/* Avion : DÉMONTÉ après explosion (remplacé par les débris C2) ;
-          remonté au spawn quand le store crash est réinitialisé (R / C5). */}
-      {!exploded && (
+      {/* Avion : DÉMONTÉ après explosion (remplacé par les débris C2) ou une
+          fois l'épave engloutie (C4) ; remonté au spawn quand le store crash
+          est réinitialisé (R / C5). */}
+      {!exploded && !submerged && (
       <RigidBody
         ref={body}
         colliders={false}
@@ -687,7 +767,9 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
         )}
 
         <ControlsContext.Provider value={controls}>
-          <Plane assembly={visualAssembly} hideWings={!!breakInfo} />
+          <group ref={planeGroup}>
+            <Plane assembly={visualAssembly} hideWings={!!breakInfo} />
+          </group>
         </ControlsContext.Provider>
 
         <AirflowPanels panels={vizPanels} facings={facings} visible={tunables.showAirflow} />
@@ -711,6 +793,33 @@ export function PlaneRig({ aircraft, tunables, spawn = [0, 0, 0], refuelPads }: 
           />
         </>
       )}
+
+      {/* NAUFRAGE (C4) : chapelet de bulles depuis l'épave qui coule — pas
+          d'explosion, la descente reste sombre et silencieuse. */}
+      {sinking && !submerged && (
+        <SinkingBubbles
+          getSource={() => {
+            const rb = body.current
+            if (!rb) return null
+            try {
+              const t = rb.translation()
+              return _bubbleSrc.set(t.x, t.y, t.z)
+            } catch {
+              return null
+            }
+          }}
+        />
+      )}
+
+      {/* Éclaboussures : une par entrée dans l'eau (effleurement compris). */}
+      {splashes.map((s) => (
+        <WaterSplash
+          key={s.id}
+          position={s.position}
+          strength={s.strength}
+          onDone={() => setSplashes((list) => list.filter((x) => x.id !== s.id))}
+        />
+      ))}
 
       {breakInfo && <DetachedWing {...breakInfo} />}
     </>
