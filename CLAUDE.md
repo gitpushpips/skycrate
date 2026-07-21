@@ -694,6 +694,33 @@ npm run format     # prettier --write
     sur une paroi. typecheck/lint/build OK.
   - 🟡 **Non vérifié visuellement** (aspect du grain et des strates à l'œil, silhouettes des 4 repères,
     ancrage réel au sol) : Browser pane toujours inutilisable.
+- **C-fix3 — LA vraie cause de « l'écran fige » : perte du contexte WebGL ✅ (reproduit ET vérifié à l'écran).**
+  Le Browser pane a refonctionné : j'ai enfin pu **reproduire** le bug. La console disait tout —
+  `An error occurred in <CanvasImpl>` puis **`THREE.WebGLRenderer: Context Lost`** : le canvas était démonté,
+  d'où l'écran figé/noir. Mes correctifs précédents (caméra de repli, plafond de débris) étaient réels mais ne
+  traitaient que des symptômes. **Deux paniques WASM Rapier** en étaient responsables :
+  1. **Handle périmé** — `RuntimeError: unreachable` sur `rb.linvel()` dans le pas fixe : après le démontage du
+     RigidBody, `body.current` pointait encore un corps libéré. ⇒ garde `destroyed` (pas fixe + rendu).
+  2. **Ré-entrance** — `recursive use of an object … unsafe aliasing in rust` : le store de crash était muté
+     DEPUIS `onContactForce` / le pas fixe, donc React démontait le RigidBody **pendant `world.step()`**.
+     ⇒ crash mémorisé dans `pendingCrash` puis appliqué via `setTimeout 0` (hors frame R3F — un `useFrame` ne
+     suffit PAS : R3F enchaîne toutes ses boucles, dont le pas Rapier, dans le même rAF). Idem pour `setSplashes`.
+  3. **Correctif structurel** : le RigidBody de l'avion reste **TOUJOURS MONTÉ**. Créer/détruire un corps Rapier
+     au gré des commits React était la source de toute cette classe de bugs. On le **désactive**
+     (`setEnabled(false)`) + on masque le visuel (`group visible`), et le respawn **téléporte + réactive**.
+  **Cadrage** : caméra de crash reculée (camDistance +16, hauteur +7, plancher 6 m) et `explosionRadius` 8 → 5.5
+  — la boule de feu saturait tout l'écran.
+- **Passe de vérification VISUELLE complète ✅** (tout ce qui était marqué 🟡 depuis le chantier C) :
+  **explosion terre** (boule de feu + fumée + débris = vraies pièces dispersées sur la piste) ✓ ;
+  **naufrage** (épave assombrie et fondue dans l'eau, bulles qui remontent, ambiance sous-marine, alerte
+  « 🌊 NAUFRAGE ») ✓ ; **respawn** (fondu observé, retour à l'aérodrome de départ en 3,9 s terre / 4,5 s eau,
+  avion intact, plein refait) ✓ ; **0 erreur console, canvas vivant** sur les deux cycles ✓ ;
+  **nuages** (tailles variées, bien répartis, visibles du sol comme en vol) ✓ ; **écume de rivage** (liseré net
+  sur toute la côte) ✓ ; **grain + strates du terrain** (dunes, pentes enneigées, falaises) ✓ ;
+  **4 repères** — mât à haubans rayé + feu de balisage sur le pic enneigé (visible à des kilomètres), arche
+  rocheuse du désert, épave rousse brisée en deux sur sa plage, cercle de pierres avec pierre tombée et autel ✓.
+  ⚠️ Astuce protocole : les captures ont plusieurs secondes de latence ⇒ pour observer une animation courte,
+  allonger sa durée dans leva, ou **attendre la confirmation d'état** (`crashed === true`) avant de capturer.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 

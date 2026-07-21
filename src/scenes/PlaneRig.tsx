@@ -15,6 +15,7 @@ import { useHud } from '../store/hud'
 import { useThrottle } from '../store/throttle'
 import { useGear } from '../store/gear'
 import { useCrash } from '../store/crash'
+import type { CrashCause, CrashPose } from '../store/crash'
 import { useWorldUi } from '../store/world'
 import { useSettings } from '../store/settings'
 import { getPart } from '../core/parts'
@@ -217,6 +218,50 @@ export function PlaneRig({
   // puis l'épave est retirée après `sinkDuration`.
   const sinking = crashedUi && crashCause === 'water'
   const [submerged, setSubmerged] = useState(false)
+  /** Corps démonté (explosion ou épave engloutie) ⇒ handle Rapier à ne PLUS
+   *  toucher (une panique WASM ferait perdre le contexte WebGL). */
+  const destroyed = exploded || submerged
+
+  /**
+   * Crash DÉTECTÉ mais pas encore appliqué. ⚠️ On ne touche PAS au store depuis
+   * un callback Rapier (`onContactForce`) ni depuis le pas fixe : la mise à
+   * jour React peut démonter le RigidBody **pendant `world.step()`**, ce que
+   * Rapier refuse (`recursive use of an object … unsafe aliasing in rust`) —
+   * la frame meurt, React démonte le Canvas, le contexte WebGL est perdu.
+   * On mémorise donc le crash ici et on l'applique dans la boucle de RENDU,
+   * hors du pas physique.
+   */
+  const pendingCrash = useRef<{ cause: CrashCause; pose: CrashPose } | null>(null)
+
+  /**
+   * Applique le crash HORS de la frame R3F (`setTimeout 0`). Le faire dans un
+   * `useFrame` ne suffit pas : R3F enchaîne toutes les boucles (dont le pas
+   * Rapier) dans le même rAF, donc le démontage du RigidBody retombait encore
+   * au milieu des itérations de Rapier. Entre deux frames, plus de conflit.
+   */
+  // Corps détruit ⇒ DÉSACTIVÉ (il ne tombe plus, ne collisionne plus) plutôt
+  // que démonté ; vitesses annulées pour qu'il ne dérive pas sous l'eau.
+  useEffect(() => {
+    const rb = body.current
+    if (!rb) return
+    try {
+      rb.setEnabled(!destroyed)
+      if (destroyed) {
+        rb.setLinvel({ x: 0, y: 0, z: 0 }, false)
+        rb.setAngvel({ x: 0, y: 0, z: 0 }, false)
+      }
+    } catch {
+      /* handle indisponible : l'état sera resynchronisé au prochain rendu */
+    }
+  }, [destroyed])
+
+  const applyPendingCrash = useCallback(() => {
+    const pc = pendingCrash.current
+    if (!pc) return
+    pendingCrash.current = null
+    useCrash.getState().crash(pc.cause, pc.pose)
+    useThrottle.getState().resetCommand()
+  }, [])
   const planeGroup = useRef<THREE.Group>(null)
   const sinkT = useRef(0)
   // Éclaboussures (une par ENTRÉE dans l'eau, effleurement compris).
@@ -314,6 +359,13 @@ export function PlaneRig({
 
   // PHYSIQUE — pas fixe : aéro par surfaces + poussée + assistance.
   useBeforePhysicsStep(() => {
+    // ⚠️ CRITIQUE : quand l'avion est DÉTRUIT (explosion C2 / épave engloutie
+    // C4) son RigidBody est démonté, mais `body.current` peut encore pointer
+    // un handle Rapier PÉRIMÉ. L'appeler fait paniquer le WASM
+    // (`RuntimeError: unreachable`), ce qui tue la frame ⇒ React démonte le
+    // Canvas ⇒ **contexte WebGL perdu** ⇒ écran figé puis noir. On ne touche
+    // donc PLUS AU CORPS dès qu'il est détruit.
+    if (destroyed) return
     const rb = body.current
     if (!rb) return
 
@@ -499,22 +551,30 @@ export function PlaneRig({
       splashId.current += 1
       const id = splashId.current
       const strength = Math.min(1, speed / 45)
-      setSplashes((s) => [...s, { id, position: [_P.x, SEA_Y, _P.z], strength }])
+      const at: [number, number, number] = [_P.x, SEA_Y, _P.z]
+      // Différé hors frame, comme le crash : tout `setState` déclenché depuis
+      // le pas physique peut faire commiter React au milieu des itérations
+      // Rapier.
+      window.setTimeout(() => setSplashes((s) => [...s, { id, position: at, strength }]), 0)
       playSfx('splash')
     }
     if (subFrac > 0) {
       const m = rb.mass()
       const crashState = useCrash.getState()
-      if (!crashState.crashed && subFrac > tunables.waterSinkFraction) {
+      if (!crashState.crashed && !pendingCrash.current && subFrac > tunables.waterSinkFraction) {
         const rq = rb.rotation()
-        crashState.crash('water', {
-          position: [_P.x, _P.y, _P.z],
-          quaternion: [rq.x, rq.y, rq.z, rq.w],
-          velocity: [_vel.x, _vel.y, _vel.z],
-        })
-        useThrottle.getState().resetCommand()
+        // Différé comme le crash terre : on est dans le pas physique.
+        pendingCrash.current = {
+          cause: 'water',
+          pose: {
+            position: [_P.x, _P.y, _P.z],
+            quaternion: [rq.x, rq.y, rq.z, rq.w],
+            velocity: [_vel.x, _vel.y, _vel.z],
+          },
+        }
+        window.setTimeout(applyPendingCrash, 0)
       }
-      const sinking = useCrash.getState().cause === 'water'
+      const sinking = crashState.cause === 'water' || pendingCrash.current?.cause === 'water'
       if (!sinking) {
         rb.addForce(
           { x: 0, y: m * tunables.gravity * (subFrac / tunables.waterBuoyancyEq), z: 0 },
@@ -618,11 +678,12 @@ export function PlaneRig({
     setBreakInfo(null)
     setSplashes([])
 
-    // Corps encore monté (reset « à froid ») ⇒ téléportation immédiate ; sinon
-    // il remonte tout seul aux props (position/rotation de `respawn`).
+    // Le corps est TOUJOURS monté (cf. rendu) : on le réactive et on le
+    // téléporte — aucun corps Rapier n'est créé ni détruit ici.
     const rb = body.current
     if (!rb) return
     try {
+      rb.setEnabled(true)
       const q = _respawnQ.setFromAxisAngle(UP, point.heading)
       rb.setTranslation({ x: point.position[0], y: point.position[1] + REST_Y, z: point.position[2] }, true)
       rb.setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }, true)
@@ -655,7 +716,8 @@ export function PlaneRig({
 
   // RENDU — caméra référencée moteur + télémétrie + secousse (C2).
   useFrame((_, dt) => {
-    const rb = body.current
+    // Même garde qu'au pas fixe : handle périmé ⇒ panique WASM (cf. ci-dessus).
+    const rb = destroyed ? null : body.current
     if (rb) {
       const rt = rb.rotation()
       _Q.set(rt.x, rt.y, rt.z, rt.w)
@@ -676,12 +738,14 @@ export function PlaneRig({
       orbit.current += dt
       _crashAt.set(crashPose.position[0], crashPose.position[1], crashPose.position[2])
       _crashQ.set(crashPose.quaternion[0], crashPose.quaternion[1], crashPose.quaternion[2], crashPose.quaternion[3])
+      // Recul franc : la boule de feu fait ~2×`explosionRadius` de diamètre —
+      // trop près, elle sature l'écran au lieu de se lire dans son décor.
       _offset
         .copy(referenceForward)
-        .multiplyScalar(-(tunables.camDistance + 5))
-        .addScaledVector(UP, tunables.camHeight + 3)
+        .multiplyScalar(-(tunables.camDistance + 16))
+        .addScaledVector(UP, tunables.camHeight + 7)
         .applyQuaternion(_crashQ)
-      _offset.y = Math.max(_offset.y, 3) // jamais sous le sol si l'avion piquait
+      _offset.y = Math.max(_offset.y, 6) // jamais sous le sol si l'avion piquait
       _offset.applyAxisAngle(UP, Math.sin(orbit.current * 0.5) * 0.25)
       _camPos.copy(_offset).add(_crashAt)
       camera.position.lerp(_camPos, 0.05)
@@ -793,10 +857,12 @@ export function PlaneRig({
 
   return (
     <>
-      {/* Avion : DÉMONTÉ après explosion (remplacé par les débris C2) ou une
-          fois l'épave engloutie (C4) ; remonté au spawn quand le store crash
-          est réinitialisé (R / C5). */}
-      {!exploded && !submerged && (
+      {/* Avion : le RigidBody reste TOUJOURS MONTÉ. ⚠️ Le démonter/remonter au
+          gré des crashs faisait créer/détruire un corps Rapier à des instants
+          arbitraires (commit React) — d'où des paniques WASM
+          (`recursive use of an object … unsafe aliasing`) qui tuaient la frame,
+          démontaient le Canvas et faisaient PERDRE LE CONTEXTE WEBGL. On le
+          DÉSACTIVE (`setEnabled(false)`) et on masque le visuel à la place. */}
       <RigidBody
         ref={body}
         colliders={false}
@@ -833,17 +899,21 @@ export function PlaneRig({
           const isWheel = handle !== undefined && colliderIsWheel.current.get(handle) === true
           const fatalImpact = approach > tunables.crashImpactSpeed
           const structureHit = !isWheel && pv.length() > tunables.crashContactSpeed
-          if (fatalImpact || structureHit) {
+          if ((fatalImpact || structureHit) && !pendingCrash.current) {
             const p = rb.translation()
             const rq = rb.rotation()
             // Pose complète capturée (position + orientation + vitesse
             // pré-impact) : ancre de l'explosion et héritage des débris (C2).
-            crashStore.crash(fatalImpact ? 'impact' : 'structure', {
-              position: [p.x, p.y, p.z],
-              quaternion: [rq.x, rq.y, rq.z, rq.w],
-              velocity: [pv.x, pv.y, pv.z],
-            })
-            useThrottle.getState().resetCommand()
+            // DIFFÉRÉ (cf. `pendingCrash`) : on est dans un callback Rapier.
+            pendingCrash.current = {
+              cause: fatalImpact ? 'impact' : 'structure',
+              pose: {
+                position: [p.x, p.y, p.z],
+                quaternion: [rq.x, rq.y, rq.z, rq.w],
+                velocity: [pv.x, pv.y, pv.z],
+              },
+            }
+            window.setTimeout(applyPendingCrash, 0)
           }
         }
 
@@ -888,14 +958,13 @@ export function PlaneRig({
         )}
 
         <ControlsContext.Provider value={controls}>
-          <group ref={planeGroup}>
+          <group ref={planeGroup} visible={!destroyed}>
             <Plane assembly={visualAssembly} hideWings={!!breakInfo} />
           </group>
         </ControlsContext.Provider>
 
         <AirflowPanels panels={vizPanels} facings={facings} visible={tunables.showAirflow} />
       </RigidBody>
-      )}
 
       {/* Explosion soignée (C2) : éclatement en pièces + flash/feu/fumée/
           braises/onde — style arcade, pas de gore. */}
