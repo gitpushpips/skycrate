@@ -721,6 +721,25 @@ npm run format     # prettier --write
   rocheuse du désert, épave rousse brisée en deux sur sa plage, cercle de pierres avec pierre tombée et autel ✓.
   ⚠️ Astuce protocole : les captures ont plusieurs secondes de latence ⇒ pour observer une animation courte,
   allonger sa durée dans leva, ou **attendre la confirmation d'état** (`crashed === true`) avant de capturer.
+- **Détails du monde — passe 3 : 6 nouveaux archétypes de terrain ✅ (vérifié à l'écran).**
+  `Vegetation.tsx` passait de 4 archétypes (conifère/feuillu/cactus/rocher) à **10** — même système
+  instancié, streamé par chunk, densités continues par climat :
+  - **arbustes** — le couvert le plus commun, comble le vide entre l'herbe rase et les arbres (variante
+    sèche « armoise » au désert) ; **palmiers** (stipe incliné + couronne de 6 palmes retombantes) sur la
+    frange littorale CHAUDE, ce qui donne enfin un caractère aux côtes ; **arbres morts** (tronc nu +
+    3 branches) rares, sur les lisières sèches ou froides ; **gros blocs** (échelle non uniforme par
+    instance ⇒ aucun deux identiques) sur les pentes et en montagne ; **pierraille** (éclats plats) en
+    éboulis de pente et au désert ; **touffes d'herbe**.
+  - ⚠️ **L'herbe est un détail de PROXIMITÉ** : semée partout mais n'écrit ses matrices que dans
+    `TUFT_RADIUS` (260 m) autour de la caméra — invisible en altitude, inutile de la compter. Elle a aussi
+    sa **passe de tirage séparée** : dans le tirage principal elle aurait écrasé la probabilité des arbres.
+    Ni ombre portée ni réception dessus (ce serait le poste le plus cher de la scène).
+  - Rééquilibrage du tirage principal (accumulateur `acc`) pour que la somme des probabilités reste < 1.
+  - **13 draw calls** au total pour toute la végétation (2 par arbre/palmier — tronc et feuillage ont des
+    couleurs distinctes —, 1 par archétype simple).
+  - **Vérifié en jeu** : **60 fps**, 0 erreur, canvas vivant ; transition désert→prairie peuplée de blocs
+    rocheux de tailles variées, cactus, arbustes et pierraille ; touffes d'herbe visibles au sol sur les
+    zones vertes ; grain des dunes lisible. typecheck/lint/build OK.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 
