@@ -662,6 +662,38 @@ npm run format     # prettier --write
     échantillonnage montrait du sable pur — c'était le cache Vite, pas un bug de rampe).
   - 🟡 **Non vérifié visuellement** (aspect des nuages en vol, densité perçue, liseré d'écume à l'écran) :
     Browser pane toujours inutilisable. Coût attendu négligeable (1 draw call, ~10k tris ; écume gratuite).
+- **Détails du monde — passe 2 : texture du terrain + repères de paysage ✅ (code + data ; visuel à valider).**
+  - **« Texture » du terrain** (`terrainRamp.ts` + `Terrain.tsx`) — le sol était en aplats parfaits. Deux
+    ajouts, **sans aucun asset ni UV, 0 draw call** (tout en couleur de sommet) :
+    (a) **GRAIN** : fBm fin seedé (`seed+808`) passé en paramètre `detail` à `rampColor`, qui module la
+    luminosité (±8,5 %) — estompé sous l'eau pour ne pas moucheter les hauts-fonds ;
+    (b) **STRATES de falaise** : sur les pentes rocheuses, la roche est modulée par `sin(h·0.5)` ⇒ couches
+    horizontales qui donnent l'échelle (une paroi unie paraît plate).
+    ⚠️ **Piège d'échantillonnage LOD** : c'est l'octave la PLUS FINE qui compte, pas la fondamentale. Un
+    premier réglage (3 octaves, λ 55 m, lacunarité 2.1) descendait à **λ ≈ 12 m**, sous-échantillonné par le
+    LOD lointain (8 m/sommet) ⇒ le motif SAUTE au changement de LOD. Corrigé en **2 octaves, λ 80 m,
+    lacunarité 2** (λ mini 40 m ⇒ 5 sommets/période même au loin).
+  - **Repères de paysage** (`core/world/landmarks.ts` données + `scenes/Landmarks.tsx` rendu) : 4 repères
+    déterministes par seed, placés par **BALAYAGE du terrain avec un score par type** (56² échantillons :
+    hauteur, pente, climat) — on ne pose pas au hasard, on cherche le site qui correspond. Exclusion du spawn
+    (300 m), des emprises d'aérodromes et écart minimal de 500 m entre repères.
+    **Mât à haubans** (point culminant, bandes rouge/blanc + feu de balisage), **arche rocheuse** (désert
+    chaud et sec, voussoirs + éboulis), **épave échouée** (plage, coque brisée en deux à demi ensablée),
+    **cercle de pierres** (plateau herbeux, avec une pierre tombée). Silhouettes maison, `flatShading`.
+    ⚠️ **Scores PROGRESSIFS, pas de seuils durs** : la pente est pénalisée en continu ⇒ un site est toujours
+    trouvé (avec des seuils durs, un monde sans site parfait n'aurait eu aucun repère). Et **bases ancrées
+    sous terre** (socle du mât 5 m, piliers d'arche 18 m pour 9 visibles, pierres −1,2 m) + `sink` par type :
+    le terrain n'est jamais plat, une assise affleurante flotterait du côté bas.
+  - **Vérifié (data, seed 20260707)** : 4 repères, **déterministes**, aucun sous l'eau, génération 129 ms ;
+    après durcissement des scores — mât pente **0,455 → 0,154** sur sommet enneigé (h 114,9 ≈ max 118),
+    arche **0,686 → 0,296** en zone sèche/chaude (humid 0,18 / temp 0,78), épave pente 0,028 sur plage
+    (1,8 m au-dessus de l'eau, temp 1), pierres pente 0,024 sur plateau vert (humid 0,92) ✓.
+    Grain : amplitude de luminance **12,2 %** (visible, non bruyant) ; **écart de LOD mesuré proprement**
+    (surface reconstruite à 4 m vs 8 m, bilinéaire) = **0,8 % au pire / 0,2 % en moyenne** (contre 2,1 % avec
+    le réglage initial) ⇒ bascule de LOD imperceptible. Strates de falaise : variation de couleur confirmée
+    sur une paroi. typecheck/lint/build OK.
+  - 🟡 **Non vérifié visuellement** (aspect du grain et des strates à l'œil, silhouettes des 4 repères,
+    ancrage réel au sol) : Browser pane toujours inutilisable.
 - Jalons suivants (ordre dossier §15) : carburant/snap → cargo/mission → recherche → carte → modes → polish.
 - **Extension catalogue (plus tard)** : passer des 6 pièces de départ à un catalogue par **tiers T0-T7** calibré sur de vrais avions — voir [`docs/catalogue-pieces.md`](./docs/catalogue-pieces.md). Première étape quand on s'y mettra : ajouter un champ `tier` aux pièces (`core/parts/types`) + stats exposées en leva ; silhouettes procédurales par planforme/type ; noms génériques (jamais de marque).
 

@@ -21,6 +21,7 @@ const C_COLD_WET = new THREE.Color(palette.biomeBoreal)
 const C_HOT_WET = new THREE.Color(palette.biomeLush)
 const tmpDry = new THREE.Color()
 const tmpWet = new THREE.Color()
+const tmpRock = new THREE.Color()
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)
 const smoothstep = (e0: number, e1: number, v: number) => {
@@ -28,6 +29,14 @@ const smoothstep = (e0: number, e1: number, v: number) => {
   return t * t * (3 - 2 * t)
 }
 
+/**
+ * @param detail bruit fin −1..1 (facultatif) : GRAIN procédural du sol. Sans
+ * lui les grandes surfaces sont des aplats parfaits. C'est notre « texture » —
+ * aucun asset, aucune UV, 0 draw call : juste une modulation de la couleur de
+ * sommet. Longueur d'onde volontairement grande devant l'espacement des
+ * sommets du LOD lointain (8 m), sinon le grain scintillerait au changement
+ * de LOD.
+ */
 export function rampColor(
   out: THREE.Color,
   h: number,
@@ -35,6 +44,7 @@ export function rampColor(
   t: number,
   u: number,
   snowTemp: number,
+  detail = 0,
 ): void {
   tmpDry.copy(C_COLD_DRY).lerp(C_HOT_DRY, t)
   tmpWet.copy(C_COLD_WET).lerp(C_HOT_WET, t)
@@ -43,8 +53,14 @@ export function rampColor(
   out.copy(tmpDry).lerp(tmpWet, smoothstep(0.15, 0.6, u))
   const snowF = 1 - smoothstep(snowTemp, snowTemp + 0.1, t)
   out.lerp(C_SNOW, snowF)
-  // Roche sur les pentes raides (atténuée sous la neige → sommets lisibles).
-  out.lerp(C_ROCK, smoothstep(0.55, 1.0, slope) * (1 - 0.6 * snowF))
+  // Roche sur les pentes raides (atténuée sous la neige → sommets lisibles),
+  // avec des STRATES horizontales : les falaises se lisent en couches, ce qui
+  // donne l'échelle du relief (une paroi unie paraît plate).
+  const rockF = smoothstep(0.55, 1.0, slope) * (1 - 0.6 * snowF)
+  if (rockF > 0.001) {
+    tmpRock.copy(C_ROCK).multiplyScalar(0.86 + 0.14 * Math.sin(h * 0.5 + detail * 2))
+    out.lerp(tmpRock, rockF)
+  }
   // Plages : bande sableuse autour du niveau de la mer.
   out.lerp(C_SAND, 1 - smoothstep(SEA_Y + 0.8, SEA_Y + 2.6, h))
   // ÉCUME DE RIVAGE : liseré clair pile à la ligne d'eau (ressac). Gratuit —
@@ -55,4 +71,7 @@ export function rampColor(
   // Fond immergé : sable → vase sombre avec la profondeur (visible à travers
   // l'eau semi-transparente ⇒ hauts-fonds/lacs clairs, océan profond foncé).
   out.lerp(C_SEABED, smoothstep(0.6, 5.5, SEA_Y - h))
+  // GRAIN : légères variations de luminosité qui cassent l'aplat. Estompé sous
+  // l'eau (la nappe lisse le fond) pour ne pas moucheter les hauts-fonds.
+  out.multiplyScalar(1 + detail * 0.085 * smoothstep(SEA_Y - 0.5, SEA_Y + 1.5, h))
 }

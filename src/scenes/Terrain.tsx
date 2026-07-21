@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { Terrain } from '../core/world/terrain'
+import { makeFbm2D } from '../core/world/noise'
+import type { Fbm2D } from '../core/world/noise'
 
 /**
  * Terrain chunké (3+A) : le monde est découpé en tuiles carrées générées à la
@@ -26,12 +28,22 @@ interface ChunkSpec {
 // Rampe biomique partagée avec la carte (MapOverlay) — cf. terrainRamp.ts.
 import { rampColor } from './terrainRamp'
 
+/**
+ * Grain du sol. ⚠️ C'est l'octave la PLUS FINE qui compte, pas la fondamentale :
+ * avec 3 octaves × lacunarité 2.1 sur λ 55 m, la dernière tombait à λ ≈ 12 m —
+ * sous-échantillonnée par le LOD lointain (8 m/sommet), d'où un motif qui
+ * SAUTE au changement de LOD. Ici : 2 octaves, λ mini = 80/2 = 40 m ⇒ 5
+ * sommets par période même au loin.
+ */
+const DETAIL_FBM = { octaves: 2, frequency: 1 / 80, gain: 0.5, lacunarity: 2 }
+
 function buildChunkGeometry(
   terrain: Terrain,
   cx: number,
   cz: number,
   res: number,
   snowTemp: number,
+  detail: Fbm2D,
 ): THREE.BufferGeometry {
   const step = CHUNK_SIZE / res
   const n = res + 1
@@ -64,7 +76,7 @@ function buildChunkGeometry(
       const dx = (heights[j * n + i1] - heights[j * n + i0]) / ((i1 - i0) * step)
       const dz = (heights[j1 * n + i] - heights[j0 * n + i]) / ((j1 - j0) * step)
       const { temperature, humidity } = terrain.climateAt(wx, wz, h)
-      rampColor(color, h, Math.hypot(dx, dz), temperature, humidity, snowTemp)
+      rampColor(color, h, Math.hypot(dx, dz), temperature, humidity, snowTemp, detail(wx, wz, DETAIL_FBM))
       colors[k * 3] = color.r
       colors[k * 3 + 1] = color.g
       colors[k * 3 + 2] = color.b
@@ -109,14 +121,16 @@ function TerrainChunk({
   terrain,
   spec,
   snowTemp,
+  detail,
 }: {
   terrain: Terrain
   spec: ChunkSpec
   snowTemp: number
+  detail: Fbm2D
 }) {
   const geometry = useMemo(
-    () => buildChunkGeometry(terrain, spec.cx, spec.cz, spec.res, snowTemp),
-    [terrain, spec.cx, spec.cz, spec.res, snowTemp],
+    () => buildChunkGeometry(terrain, spec.cx, spec.cz, spec.res, snowTemp, detail),
+    [terrain, spec.cx, spec.cz, spec.res, snowTemp, detail],
   )
   useEffect(() => () => geometry.dispose(), [geometry])
   return (
@@ -141,6 +155,8 @@ export function TerrainChunks({
   nearRadius: number
 }) {
   const [chunks, setChunks] = useState<ChunkSpec[]>([])
+  // Champ de grain, seedé comme le reste du monde (un seed ⇒ le même sol).
+  const detail = useMemo(() => makeFbm2D(terrain.params.seed + 808), [terrain.params.seed])
   const st = useRef({
     cell: '',
     desired: [] as (ChunkSpec & { dist: number })[],
@@ -218,7 +234,13 @@ export function TerrainChunks({
   return (
     <>
       {chunks.map((c) => (
-        <TerrainChunk key={`${c.key}:${c.res}`} terrain={terrain} spec={c} snowTemp={snowTemp} />
+        <TerrainChunk
+          key={`${c.key}:${c.res}`}
+          terrain={terrain}
+          spec={c}
+          snowTemp={snowTemp}
+          detail={detail}
+        />
       ))}
     </>
   )

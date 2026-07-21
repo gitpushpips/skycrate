@@ -9,6 +9,8 @@ import type { Terrain, TerrainParams } from '../core/world/terrain'
 import { buildWorld } from '../core/world/airports'
 import { buildAirportDecor } from '../core/world/airportDecor'
 import { AirportDecor } from './AirportDecor'
+import { buildLandmarks } from '../core/world/landmarks'
+import { Landmarks } from './Landmarks'
 import { TerrainChunks } from './Terrain'
 import { Vegetation } from './Vegetation'
 import { Clouds } from './Clouds'
@@ -172,6 +174,7 @@ export function World() {
   const world = useMemo(() => buildWorld(JSON.parse(terrainKey) as TerrainParams), [terrainKey])
   const { terrain, airports } = world
   const decor = useMemo(() => buildAirportDecor(world), [world])
+  const landmarks = useMemo(() => buildLandmarks(world), [world])
   const cape = useMemo(() => findCape(terrain), [terrain])
 
   return (
@@ -232,6 +235,9 @@ export function World() {
       ))}
       {/* Décor d'aérodromes (S5) : hangars/tour/citernes/caisses/feux par biome. */}
       <AirportDecor decor={decor} />
+
+      {/* Repères de paysage : mât du sommet, arche, épave, cercle de pierres. */}
+      <Landmarks landmarks={landmarks} />
 
       {cape && <Lighthouse at={cape} />}
       {marker && <MarkerBeam terrain={terrain} x={marker[0]} z={marker[1]} />}
